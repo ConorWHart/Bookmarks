@@ -1,0 +1,263 @@
+/*
+  Books are drawn with layered gradients over the book color (--bm-book-bg):
+  curvature/lighting, a faint cloth weave, and head/tail shading. Text color
+  (--bm-book-fg) and its emboss (--bm-book-emboss) are chosen in BookSpine.razor.
+*/
+
+.bm-book {
+    flex: 0 0 auto;
+    align-self: flex-end;
+    position: relative;
+    padding: 0;
+    margin: 0;
+    border: none;
+    cursor: pointer;
+    overflow: hidden;
+    color: var(--bm-book-fg);
+    background-color: var(--bm-book-bg);
+    border-radius: 3px 3px 1px 1px;
+    font-family: Georgia, "Times New Roman", serif;
+    text-shadow: var(--bm-book-emboss);
+    box-shadow:
+        /* cast shadow onto the back panel / next book */
+        4px 0 5px -2px rgb(0 0 0 / 0.6),
+        -1px 0 0 rgb(0 0 0 / 0.4),
+        /* crisp top edge */
+        inset 0 1px 0 rgb(255 255 255 / 0.25);
+    transition: transform 140ms ease, box-shadow 140ms ease, filter 140ms ease, opacity 140ms ease;
+}
+
+.bm-book:hover,
+.bm-book:focus-visible {
+    transform: translateY(-8px);
+    filter: brightness(1.08) saturate(1.05);
+    outline: none;
+    z-index: 1;
+    box-shadow:
+        6px 6px 10px -2px rgb(0 0 0 / 0.6),
+        -1px 0 0 rgb(0 0 0 / 0.4),
+        inset 0 1px 0 rgb(255 255 255 / 0.3);
+}
+
+.bm-book:focus-visible {
+    box-shadow:
+        0 0 0 2px var(--mud-palette-primary),
+        6px 6px 10px -2px rgb(0 0 0 / 0.6);
+}
+
+.bm-book--dimmed {
+    opacity: 0.22;
+    filter: grayscale(0.85) brightness(0.8);
+}
+
+.bm-book--dimmed:hover {
+    opacity: 0.6;
+}
+
+/* ---------- Spines ---------- */
+
+.bm-spine {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    padding: 8px 0 7px;
+    background-image:
+        /* rounded spine: dark edges, bright ridge left of centre */
+        linear-gradient(90deg,
+            rgb(0 0 0 / 0.42) 0%,
+            rgb(0 0 0 / 0.08) 7%,
+            rgb(255 255 255 / 0.22) 18%,
+            rgb(255 255 255 / 0.08) 32%,
+            rgb(0 0 0 / 0) 55%,
+            rgb(0 0 0 / 0.14) 82%,
+            rgb(0 0 0 / 0.45) 100%),
+        /* head & tail shading */
+        linear-gradient(180deg,
+            rgb(255 255 255 / 0.14) 0,
+            transparent 7%,
+            transparent 90%,
+            rgb(0 0 0 / 0.3) 100%),
+        /* cloth weave */
+        repeating-linear-gradient(0deg, rgb(255 255 255 / 0.035) 0 1px, transparent 1px 3px),
+        repeating-linear-gradient(90deg, rgb(0 0 0 / 0.04) 0 1px, transparent 1px 3px);
+}
+
+.bm-spine__title,
+.bm-spine__author {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1;
+    position: relative;
+    z-index: 1;
+}
+
+.bm-spine__title {
+    flex: 0 1 auto;
+    min-height: 0;
+    max-height: 78%;
+    font-size: clamp(8px, 1.1em, 13px);
+    font-weight: 700;
+    letter-spacing: 0.03em;
+}
+
+.bm-spine__author {
+    flex: 0 1 auto;
+    min-height: 0;
+    max-height: 30%;
+    padding-top: 5px;
+    border-top: 1px solid color-mix(in srgb, currentColor 40%, transparent);
+    font-size: 9px;
+    font-weight: 600;
+    opacity: 0.88;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+/* Paperbacks: flatter spine, glossier finish */
+.bm-spine--classic {
+    border-radius: 2px 2px 1px 1px;
+    background-image:
+        linear-gradient(90deg,
+            rgb(0 0 0 / 0.3) 0%,
+            rgb(255 255 255 / 0.16) 10%,
+            rgb(255 255 255 / 0.04) 40%,
+            rgb(0 0 0 / 0.06) 80%,
+            rgb(0 0 0 / 0.32) 100%),
+        linear-gradient(180deg, rgb(255 255 255 / 0.1) 0, transparent 6%, transparent 92%, rgb(0 0 0 / 0.25) 100%);
+}
+
+/* Hardcovers: double rules at head and tail */
+.bm-spine--banded::before,
+.bm-spine--banded::after {
+    content: "";
+    position: absolute;
+    left: 2px;
+    right: 2px;
+    height: 3px;
+    border-top: 1px solid currentColor;
+    border-bottom: 1px solid currentColor;
+    opacity: 0.55;
+}
+
+.bm-spine--banded::before {
+    top: 5px;
+}
+
+.bm-spine--banded::after {
+    bottom: 5px;
+}
+
+.bm-spine--banded {
+    padding: 13px 0 12px;
+}
+
+/* Leather: raised bands (ribs) with highlight + shadow, deep edges */
+.bm-spine--ornate {
+    padding: 14px 0 12px;
+    background-image:
+        repeating-linear-gradient(180deg,
+            transparent 0 20%,
+            rgb(0 0 0 / 0.38) 20% 21%,
+            rgb(255 255 255 / 0.22) 21% 22.5%,
+            rgb(0 0 0 / 0.2) 22.5% 23.5%,
+            transparent 23.5% 25%),
+        linear-gradient(90deg,
+            rgb(0 0 0 / 0.5),
+            rgb(255 255 255 / 0.14) 22%,
+            rgb(0 0 0 / 0.05) 55%,
+            rgb(0 0 0 / 0.5)),
+        /* leather grain */
+        radial-gradient(rgb(0 0 0 / 0.12) 0.6px, transparent 0.8px);
+    background-size: auto, auto, 3px 3px;
+}
+
+.bm-spine--minimal {
+    background-image: none;
+    text-shadow: none;
+    box-shadow: 2px 0 2px -1px rgb(0 0 0 / 0.35);
+}
+
+/* ---------- Face-out covers ---------- */
+
+.bm-cover {
+    /* Text and padding scale with the cover's width (cqi = 1% of it), so small sizes stay legible */
+    container-type: inline-size;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    gap: 3px;
+    padding: 9px 5px 7px 9px; /* fixed: cqi on the container itself would resolve against the viewport */
+    text-align: center;
+    border-radius: 2px 4px 4px 2px;
+    background-image:
+        /* gloss */
+        linear-gradient(115deg, rgb(255 255 255 / 0.2) 0%, rgb(255 255 255 / 0) 38%),
+        /* hinge groove near the spine */
+        linear-gradient(90deg,
+            rgb(0 0 0 / 0.35) 0 3px,
+            rgb(255 255 255 / 0.18) 3px 5px,
+            rgb(0 0 0 / 0.18) 5px 7px,
+            transparent 7px),
+        /* inner border frame */
+        linear-gradient(transparent, transparent);
+    box-shadow:
+        5px 4px 10px -2px rgb(0 0 0 / 0.6),
+        inset 0 0 0 1px rgb(255 255 255 / 0.12),
+        inset -2px 0 0 rgb(0 0 0 / 0.2);
+}
+
+.bm-cover::after {
+    /* decorative inset frame */
+    content: "";
+    position: absolute;
+    inset: 6px 5px 6px 10px;
+    border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
+    pointer-events: none;
+}
+
+.bm-cover__title {
+    flex: 0 1 auto;
+    min-height: 0;
+    position: relative;
+    z-index: 1;
+    max-width: 100%;
+    font-size: clamp(7px, 15cqi, 13px);
+    font-weight: 700;
+    line-height: 1.15;
+    /* Wrap between words; hyphenate long words rather than splitting at random letters */
+    overflow-wrap: break-word;
+    hyphens: auto;
+    overflow: hidden;
+}
+
+.bm-cover__title::after {
+    content: "";
+    display: block;
+    width: 22cqi;
+    height: 1px;
+    margin: 5cqi auto 0;
+    background: currentColor;
+    opacity: 0.6;
+}
+
+.bm-cover__author {
+    flex: 0 1 auto;
+    min-height: 0;
+    position: relative;
+    z-index: 1;
+    max-width: 100%;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-height: 1.2;
+    font-size: clamp(6px, 12cqi, 10px);
+    font-style: italic;
+    opacity: 0.9;
+}

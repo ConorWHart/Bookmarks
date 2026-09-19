@@ -1,0 +1,57 @@
+## Visual Studio / .NET
+.vs/
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Ll]og/
+[Ll]ogs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.rsuser
+launchSettings.local.json
+
+## Test results / coverage
+[Tt]est[Rr]esult*/
+*.trx
+coverage*.json
+coverage*.xml
+*.coverage
+
+## NuGet
+*.nupkg
+*.snupkg
+**/packages/*
+!**/packages/build/
+project.lock.json
+project.fragment.lock.json
+
+## Publish output
+publish/
+PublishProfiles/*.pubxml.user
+
+## Secrets / local config
+appsettings.*.local.json
+*.local.json
+secrets.json
+.env
+.env.*
+
+## Bicep / Azure
+infra/**/*.json
+!infra/**/*.parameters.json
+.azure/
+
+## Node (JS interop tooling, if any)
+node_modules/
+
+## OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json

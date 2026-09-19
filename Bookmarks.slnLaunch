@@ -1,0 +1,24 @@
+[
+  {
+    "Name": "Client + API",
+    "Projects": [
+      {
+        "Path": "src\\Bookmarks.Api\\Bookmarks.Api.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "src\\Bookmarks.Client\\Bookmarks.Client.csproj",
+        "Action": "Start"
+      }
+    ]
+  },
+  {
+    "Name": "Client only",
+    "Projects": [
+      {
+        "Path": "src\\Bookmarks.Client\\Bookmarks.Client.csproj",
+        "Action": "Start"
+      }
+    ]
+  }
+]

@@ -1,0 +1,60 @@
+/*
+  Global (unscoped) styles shared by every Bookmarks host.
+  Referenced as _content/Bookmarks.UI/bookmarks.css.
+*/
+
+/* Subtle paper texture + soft vignette on the page background (works in light and dark). */
+.mud-main-content {
+    min-height: 100vh;
+    background-color: var(--mud-palette-background);
+    background-image:
+        radial-gradient(ellipse 120% 60% at 50% 0%, rgb(255 255 255 / 0.10), transparent 60%),
+        radial-gradient(rgb(120 90 60 / 0.06) 1px, transparent 1.2px);
+    background-size: auto, 5px 5px;
+    background-attachment: fixed;
+}
+
+/* App bar: brass rule along the bottom edge */
+.bm-appbar.mud-appbar {
+    border-bottom: 2px solid var(--mud-palette-tertiary);
+    box-shadow: 0 2px 10px rgb(0 0 0 / 0.25);
+}
+
+.bm-brand {
+    letter-spacing: 0.02em;
+}
+
+/* Paper card used for toolbars / panels */
+.bm-panel.mud-paper {
+    background-color: var(--mud-palette-surface);
+    border: 1px solid var(--mud-palette-lines-default);
+    border-radius: 12px;
+    box-shadow:
+        0 1px 0 rgb(255 255 255 / 0.5) inset,
+        0 1px 2px rgb(59 42 30 / 0.08),
+        0 8px 20px -12px rgb(59 42 30 / 0.35);
+}
+
+/* Inputs sit on paper: give outlined fields a slightly lighter fill for contrast */
+.bm-light .bm-panel .mud-input.mud-input-outlined {
+    background-color: color-mix(in srgb, var(--mud-palette-surface) 70%, white);
+}
+
+.bm-dark .bm-panel .mud-input.mud-input-outlined {
+    background-color: color-mix(in srgb, var(--mud-palette-surface) 85%, black);
+}
+
+/* Drawer: separate from the page with a soft edge */
+.mud-drawer {
+    border-right: 1px solid var(--mud-palette-lines-default);
+}
+
+/* The "room": bookcases stand side by side on wide screens and stack on narrow ones.
+   Each bookcase sizes itself to its shelves (see BookcaseFrame.razor.css). */
+.bm-room {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: flex-end;
+    column-gap: 24px;
+}

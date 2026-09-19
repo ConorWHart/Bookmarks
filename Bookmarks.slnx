@@ -1,0 +1,31 @@
+<Solution>
+  <Folder Name="/Solution Items/">
+    <File Path=".editorconfig" />
+    <File Path=".gitignore" />
+    <File Path="Directory.Build.props" />
+    <File Path="Directory.Packages.props" />
+    <File Path="global.json" />
+    <File Path="README.md" />
+  </Folder>
+  <Folder Name="/.github/">
+    <File Path=".github/workflows/ci.yml" />
+  </Folder>
+  <Folder Name="/infra/">
+    <File Path="infra/main.bicep" />
+    <File Path="infra/main.parameters.json" />
+    <File Path="infra/modules/monitoring.bicep" />
+    <File Path="infra/modules/sql.bicep" />
+    <File Path="infra/modules/api.bicep" />
+    <File Path="infra/modules/staticwebapp.bicep" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/Bookmarks.Shared/Bookmarks.Shared.csproj" />
+    <Project Path="src/Bookmarks.Core/Bookmarks.Core.csproj" />
+    <Project Path="src/Bookmarks.UI/Bookmarks.UI.csproj" />
+    <Project Path="src/Bookmarks.Client/Bookmarks.Client.csproj" />
+    <Project Path="src/Bookmarks.Api/Bookmarks.Api.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Bookmarks.Tests/Bookmarks.Tests.csproj" />
+  </Folder>
+</Solution>

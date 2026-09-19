@@ -1,0 +1,21 @@
+{
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": [ "/_framework/*", "/_content/*", "/css/*", "*.{png,jpg,jpeg,gif,ico,svg,css,js,json,wasm,dll,pdb,dat,blat,webmanifest}" ]
+  },
+  "mimeTypes": {
+    ".wasm": "application/wasm",
+    ".dat": "application/octet-stream",
+    ".blat": "application/octet-stream",
+    ".webmanifest": "application/manifest+json"
+  },
+  "globalHeaders": {
+    "X-Content-Type-Options": "nosniff"
+  },
+  "routes": [
+    {
+      "route": "/service-worker.js",
+      "headers": { "Cache-Control": "no-cache" }
+    }
+  ]
+}

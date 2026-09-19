@@ -1,0 +1,14 @@
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <AnalysisLevel>latest-default</AnalysisLevel>
+    <!-- Flip to true once the solution builds clean in CI -->
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <Company>Bookmarks</Company>
+    <Product>Bookmarks</Product>
+  </PropertyGroup>
+</Project>

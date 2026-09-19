@@ -1,0 +1,21 @@
+* text=auto
+
+*.cs      text diff=csharp
+*.razor   text
+*.cshtml  text
+*.csproj  text
+*.slnx    text
+*.props   text
+*.bicep   text
+*.json    text
+*.js      text
+*.css     text
+*.html    text
+*.md      text
+*.yml     text eol=lf
+*.sh      text eol=lf
+
+*.png     binary
+*.jpg     binary
+*.ico     binary
+*.woff2   binary

@@ -1,0 +1,13 @@
+@using Bookmarks.UI.Layout
+
+<Router AppAssembly="typeof(Program).Assembly" AdditionalAssemblies="UiAssemblies">
+    <Found Context="routeData">
+        <RouteView RouteData="routeData" DefaultLayout="typeof(MainLayout)" />
+        <FocusOnNavigate RouteData="routeData" Selector="h1" />
+    </Found>
+</Router>
+
+@code {
+    // Pages live in the shared Razor Class Library.
+    private static readonly System.Reflection.Assembly[] UiAssemblies = [typeof(MainLayout).Assembly];
+}

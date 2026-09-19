@@ -1,0 +1,87 @@
+@* A single book on a shelf: a spine, or a face-out cover. Pure CSS, no images required. *@
+
+<button type="button"
+        class="@CssClass"
+        style="@Style"
+        title="@Tooltip"
+        aria-label="@Tooltip"
+        @onclick="() => OnSelected.InvokeAsync(Book.Entry)">
+    @if (Book.FaceOut)
+    {
+        <span class="bm-cover__title">@Book.Entry.Title</span>
+        <span class="bm-cover__author">@Book.Entry.Author</span>
+    }
+    else
+    {
+        <span class="bm-spine__title">@Book.Entry.Title</span>
+        if (ShowAuthor)
+        {
+            <span class="bm-spine__author">@AuthorSurname</span>
+        }
+    }
+</button>
+
+@code {
+    [Parameter, EditorRequired] public PlacedBook Book { get; set; } = default!;
+
+    /// <summary>Pixels per real-world millimetre.</summary>
+    [Parameter] public double Scale { get; set; } = 0.55;
+
+    /// <summary>Physical mode: books that don't match the active filter are dimmed rather than removed.</summary>
+    [Parameter] public bool Dimmed { get; set; }
+
+    [Parameter] public EventCallback<LibraryEntry> OnSelected { get; set; }
+
+    private string Tooltip => $"{Book.Entry.Title} by {Book.Entry.Author}";
+
+    private string Background => Book.Entry.SpineColor;
+
+    private const string Gilt = "#E9C46A";
+
+    private SpineStyle ResolvedStyle => Book.Entry.Item.Appearance.Style ?? DefaultStyle;
+
+    /// <summary>User override, else gilt lettering on dark ornate (leather) spines, else black/white by contrast.</summary>
+    private string TextColor
+    {
+        get
+        {
+            if (Book.Entry.Item.Appearance.TextColor is { } custom)
+            {
+                return custom;
+            }
+
+            var contrast = ColorUtil.ContrastText(Background);
+            return ResolvedStyle == SpineStyle.Ornate && contrast == "#FFFFFF" ? Gilt : contrast;
+        }
+    }
+
+    private bool ShowAuthor => Book.WidthMm * Scale >= 16;
+
+    private string AuthorSurname => Book.Entry.Author.Split(' ', StringSplitOptions.RemoveEmptyEntries).LastOrDefault() ?? "";
+
+    private string CssClass
+    {
+        get
+        {
+            var cls = Book.FaceOut ? "bm-book bm-cover" : $"bm-book bm-spine bm-spine--{ResolvedStyle.ToString().ToLowerInvariant()}";
+            return Dimmed ? cls + " bm-book--dimmed" : cls;
+        }
+    }
+
+    private SpineStyle DefaultStyle => Book.Entry.Item.Format switch
+    {
+        BookFormat.Hardcover => SpineStyle.Banded,
+        BookFormat.LeatherBound => SpineStyle.Ornate,
+        _ => SpineStyle.Classic,
+    };
+
+    private string Style
+    {
+        get
+        {
+            var w = (Book.WidthMm * Scale).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture);
+            var h = (Book.HeightMm * Scale).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture);
+            return $"width:{w}px;height:{h}px;--bm-book-bg:{Background};--bm-book-fg:{TextColor};--bm-book-emboss:{ColorUtil.EmbossShadow(TextColor)};";
+        }
+    }
+}

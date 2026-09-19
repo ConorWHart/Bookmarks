@@ -1,0 +1,52 @@
+@* Read-only details for the selected book. Editing arrives with the add/edit flows in Phase 2. *@
+
+@if (Entry is not null)
+{
+    <div class="pa-4">
+        <MudText Typo="Typo.h5">@Entry.Title</MudText>
+        @if (!string.IsNullOrEmpty(Entry.Book.Subtitle))
+        {
+            <MudText Typo="Typo.subtitle1">@Entry.Book.Subtitle</MudText>
+        }
+        <MudText Typo="Typo.body1" Class="mb-2">@string.Join(", ", Entry.Book.Authors)</MudText>
+
+        @if (Entry.Book.Series is not null)
+        {
+            <MudText Typo="Typo.body2" Class="mb-2">@SeriesText</MudText>
+        }
+
+        <MudStack Row="true" Spacing="1" Class="mb-3 flex-wrap">
+            <MudChip T="string" Size="Size.Small" Color="Color.Primary">@Entry.Item.Status</MudChip>
+            <MudChip T="string" Size="Size.Small">@Entry.Item.Format</MudChip>
+            @if (Entry.Item.WantToReread)
+            {
+                <MudChip T="string" Size="Size.Small" Color="Color.Secondary">Want to re-read</MudChip>
+            }
+            @foreach (var genre in Entry.Book.Genres)
+            {
+                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">@genre</MudChip>
+            }
+        </MudStack>
+
+        <MudRating ReadOnly="true" SelectedValue="RatingStars" />
+
+        <MudSimpleTable Dense="true" Elevation="0" Class="mt-3">
+            <tbody>
+                <tr><td>Times read</td><td>@Entry.ReadCount</td></tr>
+                <tr><td>Last finished</td><td>@(Entry.LastFinishedOn?.ToString("MMM yyyy") ?? "—")</td></tr>
+                <tr><td>Pages</td><td>@(Entry.Book.PageCount?.ToString() ?? "—")</td></tr>
+                <tr><td>Added</td><td>@Entry.Item.AddedAt.ToString("d MMM yyyy")</td></tr>
+            </tbody>
+        </MudSimpleTable>
+    </div>
+}
+
+@code {
+    [Parameter] public LibraryEntry? Entry { get; set; }
+
+    private string SeriesText => Entry?.Book.SeriesNumber is { } n
+        ? $"{Entry.Book.Series} #{n:0.#}"
+        : Entry?.Book.Series ?? "";
+
+    private int RatingStars => (int)Math.Round(Entry?.Item.Rating ?? 0, MidpointRounding.AwayFromZero);
+}

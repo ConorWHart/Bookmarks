@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  build-test:
+    name: Build & test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore Bookmarks.slnx
+
+      - name: Build
+        run: dotnet build Bookmarks.slnx --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test Bookmarks.slnx --configuration Release --no-build --logger trx --results-directory TestResults
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: TestResults
+
+      - name: Publish client (PWA)
+        run: dotnet publish src/Bookmarks.Client/Bookmarks.Client.csproj --configuration Release --output publish/client
+
+      - name: Publish API
+        run: dotnet publish src/Bookmarks.Api/Bookmarks.Api.csproj --configuration Release --output publish/api
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: client
+          path: publish/client/wwwroot
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: api
+          path: publish/api
+
+  infra-validate:
+    name: Validate Bicep
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Bicep
+        run: |
+          az bicep install
+          az bicep build --file infra/main.bicep --stdout > /dev/null
+
+  # Deployment jobs (OIDC login to Azure, Bicep deploy, SWA + App Service deploy) are added in Phase 3,
+  # once the Entra app registration / federated credential for GitHub exists.

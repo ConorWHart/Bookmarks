@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <!--
+    All pages and components live here so the WASM PWA (Bookmarks.Client) and a future
+    .NET MAUI Blazor Hybrid app can share them. Nothing in this project may depend on
+    browser-only APIs directly; go through interfaces in Bookmarks.Core instead.
+  -->
+
+  <PropertyGroup>
+    <RootNamespace>Bookmarks.UI</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <SupportedPlatform Include="browser" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.Web" />
+    <PackageReference Include="MudBlazor" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Bookmarks.Core\Bookmarks.Core.csproj" />
+  </ItemGroup>
+
+</Project>

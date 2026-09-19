@@ -1,0 +1,47 @@
+@* One shelf: a row of books standing on a plank. *@
+
+<div class="bm-shelf" style="@WidthStyle">
+    @if (!string.IsNullOrEmpty(Label))
+    {
+        <div class="bm-shelf__label">@Label</div>
+    }
+    <div class="bm-shelf__books" style="@MinHeightStyle">
+        @foreach (var book in Books)
+        {
+            <BookSpine @key="book.Entry.Id"
+                       Book="book"
+                       Scale="Scale"
+                       Dimmed="@(IsDimmed?.Invoke(book.Entry) ?? false)"
+                       OnSelected="OnSelected" />
+        }
+        @if (Books.Count == 0)
+        {
+            <span class="bm-shelf__empty">Empty shelf</span>
+        }
+    </div>
+    <div class="bm-shelf__plank"></div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<PlacedBook> Books { get; set; } = [];
+
+    [Parameter] public string? Label { get; set; }
+
+    [Parameter] public double Scale { get; set; } = 0.55;
+
+    /// <summary>Shelf width in mm. Null = size to content (scrolls horizontally if needed).</summary>
+    [Parameter] public int? WidthMm { get; set; }
+
+    [Parameter] public Func<LibraryEntry, bool>? IsDimmed { get; set; }
+
+    [Parameter] public EventCallback<LibraryEntry> OnSelected { get; set; }
+
+    private string WidthStyle => WidthMm is { } w
+        ? $"width:{Px(w)}px;max-width:100%;"
+        : "width:100%;";
+
+    // Keep empty / short shelves the height of a typical hardcover.
+    private string MinHeightStyle => $"min-height:{Px(250)}px;";
+
+    private string Px(int mm) => (mm * Scale).ToString("0", System.Globalization.CultureInfo.InvariantCulture);
+}

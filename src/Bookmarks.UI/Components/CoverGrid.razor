@@ -1,0 +1,29 @@
+@* Face-out grid of every book. Covers are color tiles until cover images arrive in Phase 5.
+   TODO: virtualize by row for very large libraries. *@
+
+<div class="bm-grid">
+    @foreach (var entry in Entries)
+    {
+        <button type="button" @key="entry.Id" class="bm-grid__item" @onclick="() => OnSelected.InvokeAsync(entry)"
+                style="@TileStyle(entry)" title="@entry.Title">
+            <span class="bm-grid__title">@entry.Title</span>
+            <span class="bm-grid__author">@entry.Author</span>
+            @if (entry.Item.Status == OwnershipStatus.Wishlist)
+            {
+                <span class="bm-grid__badge">Wishlist</span>
+            }
+        </button>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<LibraryEntry> Entries { get; set; } = [];
+
+    [Parameter] public EventCallback<LibraryEntry> OnSelected { get; set; }
+
+    private static string TileStyle(LibraryEntry e)
+    {
+        var fg = e.Item.Appearance.TextColor ?? ColorUtil.ContrastText(e.SpineColor);
+        return $"--bm-book-bg:{e.SpineColor};--bm-book-fg:{fg};--bm-book-emboss:{ColorUtil.EmbossShadow(fg)};";
+    }
+}
