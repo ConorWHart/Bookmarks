@@ -4,7 +4,7 @@ using Bookmarks.Shared.Domain;
 
 namespace Bookmarks.UI.Services;
 
-/// <summary>Demo library so the shelf view has something to render during early development.</summary>
+/// <summary>Demo library, loaded on request from the empty-library screen.</summary>
 internal static class SampleData
 {
     private static readonly (string Title, string Author, int Pages, string Color, BookFormat Format, string? Series, int? No, string Genre, int Reads)[] Books =

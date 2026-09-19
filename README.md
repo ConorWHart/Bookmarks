@@ -23,7 +23,7 @@ Your physical library, virtually: an offline-first Blazor WebAssembly PWA with a
 
 1. Open `Bookmarks.slnx` in Visual Studio 2026.
 2. Set **Bookmarks.Client** as the startup project (or configure multiple startup projects with `Bookmarks.Api`).
-3. Press F5. The app seeds a demo library in memory. Data resets on reload until IndexedDB storage lands in Phase 2.
+3. Press F5. The library is stored in the browser's IndexedDB; an empty library offers "Load demo library".
 
 Ports: client `https://localhost:7101`, API `https://localhost:7201`.
 
@@ -32,11 +32,12 @@ Ports: client `https://localhost:7101`, API `https://localhost:7201`.
 The development service worker deliberately does nothing. To test installation and offline behavior:
 
 ```powershell
-dotnet publish src/Bookmarks.Client -c Release -o publish/client
-npx serve publish/client/wwwroot   # or any static file server
+./tools/serve-published.ps1        # publishes Release, then serves it at http://localhost:5080 (needs Node for npx)
 ```
 
-Then open it in a browser, install it, and toggle DevTools > Network > Offline.
+Then open it in Chrome, install it (address bar > Install), and toggle DevTools > Network > Offline.
+The script configures `serve` so `/index.html` isn't redirected (a cached redirect breaks offline navigation).
+Deploying a new build while the app is open shows "A new version of Bookmarks is ready · Reload".
 
 ## Deploy infrastructure
 

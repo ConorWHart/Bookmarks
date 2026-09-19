@@ -1,0 +1,56 @@
+@* Color swatches plus the browser's native picker for anything else; optionally an "Automatic" (null) choice. *@
+
+<div class="bm-swatches" role="radiogroup" aria-label="@Label">
+    @if (AllowAutomatic)
+    {
+        <button type="button" role="radio"
+                class="@(Value is null ? "bm-swatch bm-swatch--auto bm-swatch--on" : "bm-swatch bm-swatch--auto")"
+                title="Automatic" aria-label="Automatic"
+                aria-checked="@(Value is null ? "true" : "false")"
+                @onclick="() => SetAsync(null)">A</button>
+    }
+    @foreach (var color in Palette)
+    {
+        <button type="button" role="radio"
+                class="@(IsSelected(color) ? "bm-swatch bm-swatch--on" : "bm-swatch")"
+                style="background:@color"
+                title="@color" aria-label="@color"
+                aria-checked="@(IsSelected(color) ? "true" : "false")"
+                @onclick="() => SetAsync(color)"></button>
+    }
+    <label class="@(IsCustom ? "bm-swatch bm-swatch--custom bm-swatch--on" : "bm-swatch bm-swatch--custom")"
+           style="@(IsCustom ? $"background:{Value}" : null)" title="Custom color">
+        <input type="color" value="@InputValue" @onchange="OnCustomChanged" aria-label="@($"Custom {Label.ToLowerInvariant()}")" />
+    </label>
+</div>
+
+@code {
+    [Parameter] public string? Value { get; set; }
+
+    [Parameter] public EventCallback<string?> ValueChanged { get; set; }
+
+    [Parameter] public string Label { get; set; } = "Spine color";
+
+    [Parameter] public IReadOnlyList<string> Palette { get; set; } = BookEditModel.SpinePalette;
+
+    /// <summary>Adds an "Automatic" swatch that sets the value to null.</summary>
+    [Parameter] public bool AllowAutomatic { get; set; }
+
+    /// <summary>What the native picker starts at when there's no value.</summary>
+    [Parameter] public string FallbackColor { get; set; } = "#6b5b4b";
+
+    private bool IsSelected(string color) => string.Equals(color, Value, StringComparison.OrdinalIgnoreCase);
+
+    private bool IsCustom => Value is not null && !Palette.Any(IsSelected);
+
+    // <input type="color"> only accepts lowercase #rrggbb.
+    private string InputValue => Value is { Length: 7 } v ? v.ToLowerInvariant() : FallbackColor.ToLowerInvariant();
+
+    private Task SetAsync(string? color)
+    {
+        Value = color?.ToUpperInvariant();
+        return ValueChanged.InvokeAsync(Value);
+    }
+
+    private Task OnCustomChanged(ChangeEventArgs e) => SetAsync(e.Value?.ToString());
+}

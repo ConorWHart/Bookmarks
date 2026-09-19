@@ -1,0 +1,26 @@
+.bm-details__row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 0;
+    border-bottom: 1px solid var(--mud-palette-lines-default);
+}
+
+.bm-details__row:last-of-type {
+    border-bottom: 0;
+}
+
+.bm-details__note {
+    padding: 10px 12px 2px;
+    margin-bottom: 8px;
+    border-radius: 8px;
+    border-left: 3px solid var(--mud-palette-tertiary);
+    background-color: color-mix(in srgb, var(--mud-palette-surface) 85%, var(--mud-palette-tertiary));
+}
+
+.bm-details__note-body {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    font-size: 0.9rem;
+    line-height: 1.45;
+}

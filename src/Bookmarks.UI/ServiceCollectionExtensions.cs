@@ -1,5 +1,6 @@
 using Bookmarks.UI.Services;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using MudBlazor.Services;
 
 namespace Bookmarks.UI;
@@ -12,6 +13,10 @@ public static class ServiceCollectionExtensions
     {
         services.AddMudServices();
         services.AddScoped<LibraryService>();
+        services.AddScoped<UserPreferences>();
+
+        // Hosts with a service worker register their own before calling this.
+        services.TryAddScoped<IAppStatusService, NullAppStatusService>();
         return services;
     }
 }

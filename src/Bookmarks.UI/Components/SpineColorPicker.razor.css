@@ -1,0 +1,57 @@
+.bm-swatches {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.bm-swatch {
+    position: relative;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: 1px solid rgb(0 0 0 / 0.25);
+    border-radius: 6px;
+    cursor: pointer;
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.25), inset 0 -2px 3px rgb(0 0 0 / 0.2);
+    transition: transform 0.1s ease;
+}
+
+.bm-swatch:hover {
+    transform: translateY(-1px);
+}
+
+.bm-swatch:focus-visible {
+    outline: 2px solid var(--mud-palette-primary);
+    outline-offset: 2px;
+}
+
+.bm-swatch--on {
+    outline: 2px solid var(--mud-palette-primary);
+    outline-offset: 2px;
+}
+
+.bm-swatch--custom {
+    display: inline-block;
+    overflow: hidden;
+    background: conic-gradient(#e63946, #f4a261, #e9c46a, #2a9d8f, #457b9d, #6d597a, #e63946);
+}
+
+/* The native input covers the swatch but is invisible, so a click opens the OS picker. */
+.bm-swatch--custom input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+    border: 0;
+    padding: 0;
+}
+
+/* "Automatic": half light, half dark, since the lettering flips with the spine color. */
+.bm-swatch--auto {
+    background: linear-gradient(135deg, #f4ebd9 50%, #2b2118 50%);
+    color: #8a6d3b;
+    font: 700 12px/1 Georgia, serif;
+    text-shadow: 0 0 2px #fff, 0 0 2px #fff;
+}

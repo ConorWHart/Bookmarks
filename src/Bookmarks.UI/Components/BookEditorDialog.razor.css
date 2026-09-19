@@ -1,0 +1,65 @@
+.bm-editor {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 150px;
+    gap: 24px;
+    align-items: start;
+}
+
+.bm-editor__find {
+    display: flex;
+    align-items: flex-start;
+    gap: 4px;
+}
+
+.bm-editor ::deep .bm-editor__section {
+    margin: 20px 0 8px;
+    color: var(--mud-palette-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.75rem;
+}
+
+/* A little shelf with the book standing on it, pinned while the form scrolls. */
+.bm-editor__preview {
+    position: sticky;
+    top: 0;
+}
+
+.bm-editor__stage {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    min-height: 200px;
+    padding: 12px 8px 0;
+    border-radius: 6px 6px 0 0;
+    background:
+        linear-gradient(180deg, rgb(0 0 0 / 0.35), rgb(0 0 0 / 0.1) 30%, transparent),
+        #3a2618;
+    pointer-events: none;
+}
+
+.bm-editor__plank {
+    height: 12px;
+    border-radius: 0 0 3px 3px;
+    background: linear-gradient(180deg, #b07a47, #7a4f2b);
+    box-shadow: 0 3px 6px rgb(0 0 0 / 0.3);
+}
+
+/* Phones: preview on top, smaller. */
+@media (max-width: 600px) {
+    .bm-editor {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 12px;
+    }
+
+    .bm-editor__preview {
+        position: static;
+        order: -1;
+        width: 160px;
+        margin: 0 auto;
+    }
+
+    .bm-editor__stage {
+        min-height: 150px;
+    }
+}

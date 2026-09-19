@@ -58,3 +58,36 @@
     align-items: flex-end;
     column-gap: 24px;
 }
+
+/* "Add book" button: bottom-right, clear of the iOS home indicator. */
+.bm-fab.mud-fab {
+    position: fixed;
+    right: calc(24px + env(safe-area-inset-right));
+    bottom: calc(24px + env(safe-area-inset-bottom));
+    z-index: 1100;
+}
+
+/* "Offline" pill in the app bar. Explicit colors: a Mud chip with Color.Inherit rendered
+   its text in the dark page color, invisible on the brown bar. */
+.bm-offline {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 28px;
+    padding: 0 12px 0 9px;
+    margin-right: 8px;
+    border: 1px solid rgb(243 230 211 / 0.55);
+    border-radius: 14px;
+    background-color: rgb(243 230 211 / 0.1);
+    color: #f3e6d3;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+    cursor: default;
+}
+
+.bm-offline .mud-icon-root {
+    color: inherit;
+    font-size: 1.1rem;
+}

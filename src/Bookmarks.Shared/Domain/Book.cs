@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Bookmarks.Shared.Domain;
 
 /// <summary>
@@ -45,5 +47,6 @@ public sealed class Book
     /// <summary>Set for <see cref="BookSource.Manual"/> entries.</summary>
     public Guid? CreatedByUserId { get; set; }
 
+    [JsonIgnore]
     public string PrimaryAuthor => Authors.Count > 0 ? Authors[0] : "";
 }

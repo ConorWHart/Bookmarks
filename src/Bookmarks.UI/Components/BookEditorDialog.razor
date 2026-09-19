@@ -1,0 +1,251 @@
+@* Add or edit a book. Edits a BookEditModel copy; nothing is stored until Save. *@
+@inject LibraryService LibraryData
+
+<MudDialog ContentClass="bm-editor-content">
+    <TitleContent>
+        <MudText Typo="Typo.h6">@(IsNew ? "Add a book" : "Edit book")</MudText>
+    </TitleContent>
+
+    <DialogContent>
+        <div class="bm-editor">
+            <div class="bm-editor__form">
+
+                @* ---------- Find: ISBN lookup and barcode scanning arrive in Phase 5 ---------- *@
+                <div class="bm-editor__find">
+                    <MudTextField T="string" @bind-Value="_model.Isbn13" Label="ISBN" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                  HelperText="Lookup and barcode scanning are coming soon" Class="flex-grow-1" />
+                    <MudIconButton Icon="@Icons.Material.Filled.ManageSearch" Disabled="true" aria-label="Look up by ISBN (coming soon)" />
+                    <MudIconButton Icon="@Icons.Material.Filled.QrCodeScanner" Disabled="true" aria-label="Scan barcode (coming soon)" />
+                </div>
+
+                @* ---------- Book ---------- *@
+                <MudText Typo="Typo.subtitle2" Class="bm-editor__section">Book</MudText>
+                <MudGrid Spacing="2">
+                    <MudItem xs="12">
+                        <MudTextField T="string" @bind-Value="_model.Title" Label="Title" Required="true" RequiredError="A title is required"
+                                      Immediate="true" Variant="Variant.Outlined" Margin="Margin.Dense" AutoFocus="IsNew" />
+                    </MudItem>
+                    <MudItem xs="12">
+                        <MudTextField T="string" @bind-Value="_model.Subtitle" Label="Subtitle" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                    </MudItem>
+                    <MudItem xs="12">
+                        <MudTextField T="string" @bind-Value="_model.AuthorsText" Label="Authors" HelperText="Separate multiple authors with commas"
+                                      Immediate="true" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                    </MudItem>
+                    <MudItem xs="8">
+                        <MudTextField T="string" @bind-Value="_model.Series" Label="Series" Immediate="true" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                    </MudItem>
+                    <MudItem xs="4">
+                        <MudNumericField T="decimal?" @bind-Value="_model.SeriesNumber" Label="No." Min="0m" HideSpinButtons="true"
+                                         Disabled="string.IsNullOrWhiteSpace(_model.Series)" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                    </MudItem>
+                    <MudItem xs="4">
+                        <MudNumericField T="int?" @bind-Value="_model.PageCount" Label="Pages" Min="1" HideSpinButtons="true"
+                                         Immediate="true" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                    </MudItem>
+                    <MudItem xs="4">
+                        <MudNumericField T="int?" @bind-Value="_model.PublishedYear" Label="Year" HideSpinButtons="true"
+                                         Variant="Variant.Outlined" Margin="Margin.Dense" />
+                    </MudItem>
+                    <MudItem xs="4">
+                        <MudTextField T="string" @bind-Value="_model.Publisher" Label="Publisher" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                    </MudItem>
+                    <MudItem xs="12">
+                        <MudTextField T="string" @bind-Value="_model.GenresText" Label="Genres" HelperText="Separate with commas"
+                                      Variant="Variant.Outlined" Margin="Margin.Dense" />
+                    </MudItem>
+                </MudGrid>
+
+                @* ---------- Your copy ---------- *@
+                <MudText Typo="Typo.subtitle2" Class="bm-editor__section">Your copy</MudText>
+                <MudGrid Spacing="2">
+                    <MudItem xs="6">
+                        <MudSelect T="OwnershipStatus" @bind-Value="_model.Status" Label="Status" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true">
+                            <MudSelectItem Value="OwnershipStatus.Owned">Owned</MudSelectItem>
+                            <MudSelectItem Value="OwnershipStatus.Wishlist">Wishlist</MudSelectItem>
+                            <MudSelectItem Value="OwnershipStatus.LentOut">Lent out</MudSelectItem>
+                        </MudSelect>
+                    </MudItem>
+                    <MudItem xs="6">
+                        <MudSelect T="BookFormat" @bind-Value="_model.Format" Label="Format" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true">
+                            <MudSelectItem Value="BookFormat.Hardcover">Hardcover</MudSelectItem>
+                            <MudSelectItem Value="BookFormat.Paperback">Paperback</MudSelectItem>
+                            <MudSelectItem Value="BookFormat.MassMarketPaperback">Mass-market paperback</MudSelectItem>
+                            <MudSelectItem Value="BookFormat.LeatherBound">Leather-bound</MudSelectItem>
+                            <MudSelectItem Value="BookFormat.Other">Other</MudSelectItem>
+                        </MudSelect>
+                    </MudItem>
+                    @if (_model.Status == OwnershipStatus.LentOut)
+                    {
+                        <MudItem xs="12">
+                            <MudTextField T="string" @bind-Value="_model.LentTo" Label="Lent to" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                        </MudItem>
+                    }
+                    @if (IsNew)
+                    {
+                        <MudItem xs="12" sm="6">
+                            <MudSelect T="InitialReadState" @bind-Value="_model.ReadState" Label="Have you read it?" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true">
+                                <MudSelectItem Value="InitialReadState.Unread">Not yet</MudSelectItem>
+                                <MudSelectItem Value="InitialReadState.Reading">Reading it now</MudSelectItem>
+                                <MudSelectItem Value="InitialReadState.Read">Yes, I've read it</MudSelectItem>
+                            </MudSelect>
+                        </MudItem>
+                    }
+                    <MudItem xs="12" sm="6" Class="d-flex align-center gap-4 flex-wrap">
+                        <MudRating @bind-SelectedValue="_model.RatingStars" Color="Color.Tertiary" aria-label="Rating" />
+                        <MudSwitch T="bool" @bind-Value="_model.WantToReread" Label="Want to re-read" Color="Color.Primary" />
+                    </MudItem>
+                </MudGrid>
+
+                @* ---------- On the shelf ---------- *@
+                <MudText Typo="Typo.subtitle2" Class="bm-editor__section">On the shelf</MudText>
+                <MudGrid Spacing="2">
+                    <MudItem xs="12" sm="6">
+                        <MudSelect T="Guid" Value="ShelfChoice" ValueChanged="@((Guid v) => ShelfChoice = v)" Label="Shelf"
+                                   Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true">
+                            <MudSelectItem Value="Guid.Empty">Unshelved</MudSelectItem>
+                            @foreach (var bookcase in LibraryData.Bookcases)
+                            {
+                                foreach (var shelf in LibraryData.ShelvesIn(bookcase.Id))
+                                {
+                                    <MudSelectItem Value="shelf.Id">@bookcase.Name › @(shelf.Name ?? "Shelf")</MudSelectItem>
+                                }
+                            }
+                        </MudSelect>
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <MudSelect T="SpineStyleChoice" @bind-Value="_model.Style" Label="Spine style" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true">
+                            <MudSelectItem Value="SpineStyleChoice.Automatic">Automatic (by format)</MudSelectItem>
+                            <MudSelectItem Value="SpineStyleChoice.Classic">Classic</MudSelectItem>
+                            <MudSelectItem Value="SpineStyleChoice.Banded">Banded</MudSelectItem>
+                            <MudSelectItem Value="SpineStyleChoice.Ornate">Ornate</MudSelectItem>
+                            <MudSelectItem Value="SpineStyleChoice.Minimal">Minimal</MudSelectItem>
+                        </MudSelect>
+                    </MudItem>
+                    <MudItem xs="12">
+                        <MudText Typo="Typo.caption" Class="d-block mb-1">Spine color</MudText>
+                        <SpineColorPicker @bind-Value="_model.SpineColor" />
+                    </MudItem>
+                    <MudItem xs="12">
+                        <MudText Typo="Typo.caption" Class="d-block mb-1">
+                            Text color @(_model.TextColor is null ? "· automatic" : "")
+                        </MudText>
+                        <SpineColorPicker @bind-Value="_model.TextColor" Palette="BookEditModel.TextPalette" AllowAutomatic="true"
+                                          Label="Text color" FallbackColor="#FFFFFF" />
+                    </MudItem>
+                    <MudItem xs="12">
+                        <MudSwitch T="bool" @bind-Value="_model.FaceOut" Label="Face out (show the cover)" Color="Color.Primary" />
+                    </MudItem>
+                </MudGrid>
+            </div>
+
+            @* ---------- Live preview ---------- *@
+            <div class="bm-editor__preview" aria-hidden="true">
+                <div class="bm-editor__stage">
+                    <BookSpine Book="Preview" Scale="PreviewScale" />
+                </div>
+                <div class="bm-editor__plank"></div>
+                <MudText Typo="Typo.caption" Align="Align.Center" Class="mt-1">Preview</MudText>
+            </div>
+        </div>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync" Disabled="@(!_model.IsValid || _saving)">
+            @(IsNew ? "Add to library" : "Save")
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private const double PreviewScale = 0.75;
+
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    /// <summary>The copy to edit; null adds a new book.</summary>
+    [Parameter] public Guid? ItemId { get; set; }
+
+    /// <summary>Initial shelf for a new book (e.g. the last one used).</summary>
+    [Parameter] public Guid? DefaultShelfId { get; set; }
+
+    private BookEditModel _model = BookEditModel.ForNew();
+    private LibraryEntry? _entry;
+    private bool _saving;
+
+    private bool IsNew => _entry is null;
+
+    private Guid ShelfChoice
+    {
+        get => _model.ShelfId ?? Guid.Empty;
+        set => _model.ShelfId = value == Guid.Empty ? null : value;
+    }
+
+    protected override void OnInitialized()
+    {
+        _entry = ItemId is { } id ? LibraryData.Find(id) : null;
+        _model = _entry is not null ? BookEditModel.FromEntry(_entry) : BookEditModel.ForNew(ValidShelf(DefaultShelfId));
+    }
+
+    /// <summary>The book as it would look with the current form values.</summary>
+    private PlacedBook Preview
+    {
+        get
+        {
+            var book = new Book();
+            var item = new LibraryItem();
+            _model.ApplyTo(book, item);
+            if (string.IsNullOrWhiteSpace(book.Title))
+            {
+                book.Title = "Title";
+            }
+
+            if (_entry is not null)
+            {
+                // Keep known physical dimensions so the preview matches the shelf.
+                book.HeightMm = _entry.Book.HeightMm;
+                book.WidthMm = _entry.Book.WidthMm;
+                book.ThicknessMm = _entry.Book.ThicknessMm;
+                item.Appearance.HeightMmOverride = _entry.Item.Appearance.HeightMmOverride;
+                item.Appearance.ThicknessMmOverride = _entry.Item.Appearance.ThicknessMmOverride;
+            }
+
+            var entry = LibraryEntry.Create(item, book, Array.Empty<ReadingSession>());
+            return ShelfLayoutEngine.Flow(new[] { entry }, int.MaxValue)[0].Books[0];
+        }
+    }
+
+    private Guid? ValidShelf(Guid? shelfId)
+        => shelfId is { } id && LibraryData.Bookcases.Any(b => LibraryData.ShelvesIn(b.Id).Any(s => s.Id == id)) ? id : null;
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private async Task SaveAsync()
+    {
+        if (!_model.IsValid || _saving)
+        {
+            return;
+        }
+
+        _saving = true;
+        try
+        {
+            Guid id;
+            if (_entry is not null)
+            {
+                await LibraryData.UpdateBookAsync(_entry.Id, _model);
+                id = _entry.Id;
+            }
+            else
+            {
+                id = await LibraryData.AddBookAsync(_model);
+            }
+
+            MudDialog.Close(DialogResult.Ok(id));
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+}

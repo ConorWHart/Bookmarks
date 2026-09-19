@@ -1,41 +1,166 @@
-@* Read-only details for the selected book. Editing arrives with the add/edit flows in Phase 2. *@
+@* The selected book: details, rating, reading log and notes. Editing the book itself happens in BookEditorDialog. *@
+@inject LibraryService LibraryData
+@inject IDialogService Dialogs
+@inject IBrowserViewportService Viewport
 
 @if (Entry is not null)
 {
-    <div class="pa-4">
-        <MudText Typo="Typo.h5">@Entry.Title</MudText>
-        @if (!string.IsNullOrEmpty(Entry.Book.Subtitle))
-        {
-            <MudText Typo="Typo.subtitle1">@Entry.Book.Subtitle</MudText>
-        }
-        <MudText Typo="Typo.body1" Class="mb-2">@string.Join(", ", Entry.Book.Authors)</MudText>
+    var entry = Entry;
+    var sessions = LibraryData.SessionsFor(entry.Id);
+    var notes = LibraryData.NotesFor(entry.Id);
 
-        @if (Entry.Book.Series is not null)
-        {
-            <MudText Typo="Typo.body2" Class="mb-2">@SeriesText</MudText>
-        }
+    <div class="pa-4 bm-details">
+        <div class="d-flex align-start">
+            <div class="flex-grow-1">
+                <MudText Typo="Typo.h5">@entry.Title</MudText>
+                @if (!string.IsNullOrEmpty(entry.Book.Subtitle))
+                {
+                    <MudText Typo="Typo.subtitle1">@entry.Book.Subtitle</MudText>
+                }
+                <MudText Typo="Typo.body1">@string.Join(", ", entry.Book.Authors)</MudText>
+                @if (entry.Book.Series is not null)
+                {
+                    <MudText Typo="Typo.body2" Class="mt-1">@SeriesText(entry)</MudText>
+                }
+            </div>
+            <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" OnClick="OnClose" aria-label="Close details" />
+        </div>
 
-        <MudStack Row="true" Spacing="1" Class="mb-3 flex-wrap">
-            <MudChip T="string" Size="Size.Small" Color="Color.Primary">@Entry.Item.Status</MudChip>
-            <MudChip T="string" Size="Size.Small">@Entry.Item.Format</MudChip>
-            @if (Entry.Item.WantToReread)
-            {
-                <MudChip T="string" Size="Size.Small" Color="Color.Secondary">Want to re-read</MudChip>
-            }
-            @foreach (var genre in Entry.Book.Genres)
+        <MudStack Row="true" Spacing="1" Class="my-3">
+            <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Edit" OnClick="() => OnEdit.InvokeAsync(entry)">Edit</MudButton>
+            <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Error"
+                       StartIcon="@Icons.Material.Outlined.Delete" OnClick="() => OnDelete.InvokeAsync(entry)">Delete</MudButton>
+        </MudStack>
+
+        <MudStack Row="true" Spacing="1" Class="mb-2" Wrap="Wrap.Wrap">
+            <MudChip T="string" Size="Size.Small" Color="Color.Primary">@StatusText(entry)</MudChip>
+            <MudChip T="string" Size="Size.Small">@FormatText(entry.Item.Format)</MudChip>
+            @foreach (var genre in entry.Book.Genres)
             {
                 <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">@genre</MudChip>
             }
         </MudStack>
 
-        <MudRating ReadOnly="true" SelectedValue="RatingStars" />
+        <div class="d-flex align-center flex-wrap gap-3">
+            <MudRating SelectedValue="Stars(entry)" SelectedValueChanged="SetRatingAsync" Color="Color.Tertiary" aria-label="Rating" />
+            <MudSwitch T="bool" Value="entry.Item.WantToReread" ValueChanged="SetRereadAsync" Label="Want to re-read" Color="Color.Secondary" />
+        </div>
 
-        <MudSimpleTable Dense="true" Elevation="0" Class="mt-3">
+        @* ---------- Placement ---------- *@
+        <div class="d-flex align-center gap-1 mt-3">
+            <MudSelect T="Guid" Value="ShelfChoice(entry)" ValueChanged="@((Guid v) => MoveToShelfAsync(entry, v))" Label="Shelf"
+                       Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true" Class="flex-grow-1">
+                <MudSelectItem Value="Guid.Empty">Unshelved</MudSelectItem>
+                @foreach (var bookcase in LibraryData.Bookcases)
+                {
+                    foreach (var shelf in LibraryData.ShelvesIn(bookcase.Id))
+                    {
+                        <MudSelectItem Value="shelf.Id">@bookcase.Name › @(shelf.Name ?? "Shelf")</MudSelectItem>
+                    }
+                }
+            </MudSelect>
+            <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft" Size="Size.Small" Disabled="!CanMove(entry, -1)"
+                           OnClick="() => LibraryData.MoveBookWithinShelfAsync(entry.Id, -1)" aria-label="Move left on the shelf" />
+            <MudIconButton Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Small" Disabled="!CanMove(entry, 1)"
+                           OnClick="() => LibraryData.MoveBookWithinShelfAsync(entry.Id, 1)" aria-label="Move right on the shelf" />
+        </div>
+
+        @* ---------- Reading log ---------- *@
+        <MudDivider Class="my-4" />
+        <div class="d-flex align-baseline">
+            <MudText Typo="Typo.subtitle1" Class="flex-grow-1">Reading</MudText>
+            <MudText Typo="Typo.caption">@ReadSummary(entry)</MudText>
+        </div>
+
+        <MudStack Row="true" Spacing="1" Class="my-2" Wrap="Wrap.Wrap">
+            @if (entry.IsReading)
+            {
+                <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Check"
+                           OnClick="() => LibraryData.FinishReadingAsync(entry.Id)">Finished it</MudButton>
+                <MudButton Size="Size.Small" Variant="Variant.Text"
+                           OnClick="() => LibraryData.FinishReadingAsync(entry.Id, ReadingOutcome.Abandoned)">Stopped reading</MudButton>
+            }
+            else
+            {
+                <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.AutoStories"
+                           OnClick="() => LibraryData.StartReadingAsync(entry.Id)">Start reading</MudButton>
+            }
+            <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.History"
+                       OnClick="() => EditSessionAsync(null)">Log a read</MudButton>
+        </MudStack>
+
+        @if (sessions.Count == 0)
+        {
+            <MudText Typo="Typo.caption" Class="d-block">No reads logged yet.</MudText>
+        }
+        @foreach (var session in sessions)
+        {
+            <div class="bm-details__row" @key="session.Id">
+                <MudIcon Icon="@OutcomeIcon(session.Outcome)" Size="Size.Small" Color="@OutcomeColor(session.Outcome)" />
+                <div class="flex-grow-1">
+                    <MudText Typo="Typo.body2">@SessionDates(session)</MudText>
+                    <MudText Typo="Typo.caption">@OutcomeText(session.Outcome)</MudText>
+                </div>
+                <MudIconButton Icon="@Icons.Material.Outlined.Edit" Size="Size.Small" aria-label="Edit read"
+                               OnClick="() => EditSessionAsync(session)" />
+                <MudIconButton Icon="@Icons.Material.Outlined.Delete" Size="Size.Small" aria-label="Delete read"
+                               OnClick="() => LibraryData.DeleteSessionAsync(session.Id)" />
+            </div>
+        }
+
+        @* ---------- Notes ---------- *@
+        <MudDivider Class="my-4" />
+        <MudText Typo="Typo.subtitle1" Class="mb-2">Notes</MudText>
+
+        <MudTextField T="string" @bind-Value="_newNote" Placeholder="Add a note…" Lines="2" Sizing="InputSizing.Auto" MaxLines="10"
+                      Immediate="true" Variant="Variant.Outlined" Margin="Margin.Dense" />
+        <div class="d-flex justify-end mt-1 mb-2">
+            <MudButton Size="Size.Small" Color="Color.Primary" Disabled="string.IsNullOrWhiteSpace(_newNote)"
+                       OnClick="() => AddNoteAsync(entry.Id)">Add note</MudButton>
+        </div>
+
+        @foreach (var note in notes)
+        {
+            <div class="bm-details__note" @key="note.Id">
+                @if (_editingNoteId == note.Id)
+                {
+                    <MudTextField T="string" @bind-Value="_editText" Lines="2" Sizing="InputSizing.Auto" MaxLines="10"
+                                  Immediate="true" Variant="Variant.Outlined" Margin="Margin.Dense" AutoFocus="true" />
+                    <div class="d-flex justify-end gap-1 mt-1">
+                        <MudButton Size="Size.Small" OnClick="() => _editingNoteId = null">Cancel</MudButton>
+                        <MudButton Size="Size.Small" Color="Color.Primary" Disabled="string.IsNullOrWhiteSpace(_editText)"
+                                   OnClick="() => SaveNoteAsync(note.Id)">Save</MudButton>
+                    </div>
+                }
+                else
+                {
+                    <div class="bm-details__note-body">@note.Body</div>
+                    <div class="d-flex align-center">
+                        <MudText Typo="Typo.caption" Class="flex-grow-1">@note.CreatedAt.ToLocalTime().ToString("d MMM yyyy")</MudText>
+                        <MudIconButton Icon="@Icons.Material.Outlined.Edit" Size="Size.Small" aria-label="Edit note"
+                                       OnClick="() => BeginEditNote(note)" />
+                        <MudIconButton Icon="@Icons.Material.Outlined.Delete" Size="Size.Small" aria-label="Delete note"
+                                       OnClick="() => LibraryData.DeleteNoteAsync(note.Id)" />
+                    </div>
+                }
+            </div>
+        }
+
+        @* ---------- Details ---------- *@
+        <MudDivider Class="my-4" />
+        <MudSimpleTable Dense="true" Elevation="0">
             <tbody>
-                <tr><td>Times read</td><td>@Entry.ReadCount</td></tr>
-                <tr><td>Last finished</td><td>@(Entry.LastFinishedOn?.ToString("MMM yyyy") ?? "—")</td></tr>
-                <tr><td>Pages</td><td>@(Entry.Book.PageCount?.ToString() ?? "—")</td></tr>
-                <tr><td>Added</td><td>@Entry.Item.AddedAt.ToString("d MMM yyyy")</td></tr>
+                <tr><td>Pages</td><td>@(entry.Book.PageCount?.ToString() ?? "—")</td></tr>
+                @if (entry.Book.Publisher is not null || entry.Book.PublishedYear is not null)
+                {
+                    <tr><td>Published</td><td>@PublishedText(entry.Book)</td></tr>
+                }
+                @if (entry.Book.Isbn13 is not null)
+                {
+                    <tr><td>ISBN</td><td>@entry.Book.Isbn13</td></tr>
+                }
+                <tr><td>Added</td><td>@entry.Item.AddedAt.ToLocalTime().ToString("d MMM yyyy")</td></tr>
             </tbody>
         </MudSimpleTable>
     </div>
@@ -44,9 +169,169 @@
 @code {
     [Parameter] public LibraryEntry? Entry { get; set; }
 
-    private string SeriesText => Entry?.Book.SeriesNumber is { } n
-        ? $"{Entry.Book.Series} #{n:0.#}"
-        : Entry?.Book.Series ?? "";
+    [Parameter] public EventCallback<LibraryEntry> OnEdit { get; set; }
 
-    private int RatingStars => (int)Math.Round(Entry?.Item.Rating ?? 0, MidpointRounding.AwayFromZero);
+    [Parameter] public EventCallback<LibraryEntry> OnDelete { get; set; }
+
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private Guid? _shownId;
+    private string? _newNote;
+    private Guid? _editingNoteId;
+    private string? _editText;
+
+    protected override void OnParametersSet()
+    {
+        // Switching books discards half-typed notes.
+        if (Entry?.Id != _shownId)
+        {
+            _shownId = Entry?.Id;
+            _newNote = null;
+            _editingNoteId = null;
+        }
+    }
+
+    private Task SetRatingAsync(int stars)
+        => Entry is null ? Task.CompletedTask : LibraryData.SetRatingAsync(Entry.Id, stars == 0 ? null : stars);
+
+    private Task SetRereadAsync(bool value)
+        => Entry is null ? Task.CompletedTask : LibraryData.SetWantToRereadAsync(Entry.Id, value);
+
+    private async Task EditSessionAsync(ReadingSession? existing)
+    {
+        if (Entry is null)
+        {
+            return;
+        }
+
+        var copy = existing is null
+            ? new ReadingSession { LibraryItemId = Entry.Id, Outcome = ReadingOutcome.Finished }
+            : Clone(existing);
+
+        var parameters = new DialogParameters
+        {
+            { nameof(ReadingSessionDialog.Session), copy },
+            { nameof(ReadingSessionDialog.IsNew), existing is null },
+        };
+        var options = await DialogDefaults.EditorAsync(Viewport, MaxWidth.ExtraSmall);
+        var dialog = await Dialogs.ShowAsync<ReadingSessionDialog>(parameters, options);
+        var result = await dialog.Result;
+        if (result is { Canceled: false, Data: ReadingSession saved })
+        {
+            await LibraryData.SaveSessionAsync(saved);
+        }
+    }
+
+    private async Task AddNoteAsync(Guid itemId)
+    {
+        var body = _newNote;
+        _newNote = null;
+        await LibraryData.AddNoteAsync(itemId, body ?? "");
+    }
+
+    private void BeginEditNote(Note note)
+    {
+        _editingNoteId = note.Id;
+        _editText = note.Body;
+    }
+
+    private async Task SaveNoteAsync(Guid noteId)
+    {
+        _editingNoteId = null;
+        await LibraryData.UpdateNoteAsync(noteId, _editText ?? "");
+    }
+
+    /// <summary>Dialogs edit a copy so Cancel leaves the cached record untouched. Keeps sync fields.</summary>
+    private static ReadingSession Clone(ReadingSession s) => new()
+    {
+        Id = s.Id,
+        UserId = s.UserId,
+        UpdatedAt = s.UpdatedAt,
+        Version = s.Version,
+        IsDeleted = s.IsDeleted,
+        LibraryItemId = s.LibraryItemId,
+        StartedOn = s.StartedOn,
+        FinishedOn = s.FinishedOn,
+        Outcome = s.Outcome,
+        Rating = s.Rating,
+    };
+
+    private static int Stars(LibraryEntry e) => (int)Math.Round(e.Item.Rating ?? 0, MidpointRounding.AwayFromZero);
+
+    private static string SeriesText(LibraryEntry e) => e.Book.SeriesNumber is { } n
+        ? $"{e.Book.Series} #{n:0.#}"
+        : e.Book.Series ?? "";
+
+    private static string StatusText(LibraryEntry e) => e.Item.Status switch
+    {
+        OwnershipStatus.Wishlist => "Wishlist",
+        OwnershipStatus.LentOut => e.Item.LentTo is { } who ? $"Lent to {who}" : "Lent out",
+        _ => "Owned",
+    };
+
+    private static string FormatText(BookFormat f) => f switch
+    {
+        BookFormat.MassMarketPaperback => "Mass-market paperback",
+        BookFormat.LeatherBound => "Leather-bound",
+        _ => f.ToString(),
+    };
+
+    private static string ReadSummary(LibraryEntry e) => e.ReadCount switch
+    {
+        0 => e.IsReading ? "Reading now" : "Not read yet",
+        1 => "Read once" + LastFinished(e),
+        var n => $"Read {n} times" + LastFinished(e),
+    };
+
+    private static string LastFinished(LibraryEntry e)
+        => e.LastFinishedOn is { } d ? $" · last {d:MMM yyyy}" : "";
+
+    private static string SessionDates(ReadingSession s) => (s.StartedOn, s.FinishedOn) switch
+    {
+        ({ } start, { } end) => $"{start:d MMM yyyy} – {end:d MMM yyyy}",
+        ({ } start, null) => $"Started {start:d MMM yyyy}",
+        (null, { } end) => $"Finished {end:d MMM yyyy}",
+        _ => "Dates unknown",
+    };
+
+    private static string OutcomeText(ReadingOutcome o) => o switch
+    {
+        ReadingOutcome.InProgress => "Reading",
+        ReadingOutcome.Abandoned => "Didn't finish",
+        _ => "Finished",
+    };
+
+    private static string OutcomeIcon(ReadingOutcome o) => o switch
+    {
+        ReadingOutcome.InProgress => Icons.Material.Filled.AutoStories,
+        ReadingOutcome.Abandoned => Icons.Material.Filled.DoNotDisturbOn,
+        _ => Icons.Material.Filled.CheckCircle,
+    };
+
+    private static Color OutcomeColor(ReadingOutcome o) => o switch
+    {
+        ReadingOutcome.InProgress => Color.Info,
+        ReadingOutcome.Abandoned => Color.Default,
+        _ => Color.Success,
+    };
+
+    private static string PublishedText(Book b)
+        => string.Join(", ", new[] { b.Publisher, b.PublishedYear?.ToString() }.Where(s => !string.IsNullOrEmpty(s)));
+
+    private Guid ShelfChoice(LibraryEntry e)
+        => LibraryData.IsKnownShelf(e.Item.ShelfId) ? e.Item.ShelfId!.Value : Guid.Empty;
+
+    private Task MoveToShelfAsync(LibraryEntry e, Guid shelfId)
+        => shelfId == ShelfChoice(e)
+            ? Task.CompletedTask
+            : LibraryData.MoveBookToShelfAsync(e.Id, shelfId == Guid.Empty ? null : shelfId);
+
+    /// <summary>Whether the book has a neighbour on that side of its shelf.</summary>
+    private bool CanMove(LibraryEntry e, int delta)
+    {
+        var books = LibraryData.BooksOnShelf(e.Item.ShelfId);
+        var index = books.ToList().FindIndex(b => b.Id == e.Id);
+        var target = index + delta;
+        return index >= 0 && target >= 0 && target < books.Count;
+    }
 }

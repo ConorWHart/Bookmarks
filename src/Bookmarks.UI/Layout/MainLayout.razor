@@ -1,4 +1,8 @@
 @inherits LayoutComponentBase
+@using Microsoft.JSInterop
+@implements IDisposable
+@inject IAppStatusService AppStatus
+@inject ISnackbar Snackbar
 
 <MudThemeProvider Theme="BookmarksTheme.Default" @bind-IsDarkMode="_isDarkMode" />
 <MudPopoverProvider />
@@ -11,6 +15,15 @@
                        OnClick="() => _drawerOpen = !_drawerOpen" aria-label="Toggle navigation" />
         <MudText Typo="Typo.h6" Class="ml-2 bm-brand">Bookmarks</MudText>
         <MudSpacer />
+        @if (!AppStatus.IsOnline)
+        {
+            <MudTooltip Text="You're offline. Everything still works and is saved on this device.">
+                <span class="bm-offline" role="status">
+                    <MudIcon Icon="@Icons.Material.Filled.CloudOff" Size="Size.Small" />
+                    <span>Offline</span>
+                </span>
+            </MudTooltip>
+        }
         <MudIconButton Icon="@(_isDarkMode ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)"
                        Color="Color.Inherit" OnClick="() => _isDarkMode = !_isDarkMode" aria-label="Toggle dark mode" />
     </MudAppBar>
@@ -27,4 +40,42 @@
 @code {
     private bool _drawerOpen;
     private bool _isDarkMode;
+    private bool _updateAnnounced;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        AppStatus.Changed += OnAppStatusChanged;
+        try
+        {
+            await AppStatus.StartAsync();
+        }
+        catch (JSException)
+        {
+            // Status is a nicety; the app works without it.
+        }
+    }
+
+    public void Dispose() => AppStatus.Changed -= OnAppStatusChanged;
+
+    private void OnAppStatusChanged() => _ = InvokeAsync(() =>
+    {
+        if (AppStatus.UpdateAvailable && !_updateAnnounced)
+        {
+            _updateAnnounced = true;
+            Snackbar.Add("A new version of Bookmarks is ready.", Severity.Info, o =>
+            {
+                o.RequireInteraction = true;
+                o.Action = "Reload";
+                o.ActionColor = Color.Inherit;
+                o.OnClick = _ => AppStatus.ApplyUpdateAsync();
+            });
+        }
+
+        StateHasChanged();
+    });
 }

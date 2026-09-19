@@ -3,3 +3,8 @@
 // be reflected on the first load after each change).
 // The published build uses service-worker.published.js instead.
 self.addEventListener('fetch', () => { });
+self.addEventListener('message', event => {
+    if (event.data?.type === 'SKIP_WAITING') {
+        self.skipWaiting();
+    }
+});

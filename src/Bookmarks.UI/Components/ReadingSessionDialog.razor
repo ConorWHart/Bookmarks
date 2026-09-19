@@ -1,0 +1,67 @@
+@* Log or edit one read of a book. Edits the session passed in (callers pass a copy) and returns it. *@
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">@(IsNew ? "Log a read" : "Edit read")</MudText>
+    </TitleContent>
+
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudSelect T="ReadingOutcome" @bind-Value="Session.Outcome" Label="Outcome" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true">
+                <MudSelectItem Value="ReadingOutcome.Finished">Finished</MudSelectItem>
+                <MudSelectItem Value="ReadingOutcome.InProgress">Still reading</MudSelectItem>
+                <MudSelectItem Value="ReadingOutcome.Abandoned">Didn't finish</MudSelectItem>
+            </MudSelect>
+            <MudDatePicker @bind-Date="Started" Label="Started" MaxDate="DateTime.Today" Clearable="true"
+                           Variant="Variant.Outlined" Margin="Margin.Dense" DateFormat="d MMM yyyy" />
+            @if (Session.Outcome != ReadingOutcome.InProgress)
+            {
+                <MudDatePicker @bind-Date="Finished" Label="@(Session.Outcome == ReadingOutcome.Abandoned ? "Stopped" : "Finished")"
+                               MaxDate="DateTime.Today" Clearable="true" Variant="Variant.Outlined" Margin="Margin.Dense" DateFormat="d MMM yyyy"
+                               Error="!DatesValid" ErrorText="Must be on or after the start date" />
+            }
+            <MudText Typo="Typo.caption">Dates are optional; leave them blank if you don't remember.</MudText>
+        </MudStack>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton OnClick="() => MudDialog.Cancel()">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="!DatesValid" OnClick="Save">Save</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter, EditorRequired] public ReadingSession Session { get; set; } = default!;
+
+    [Parameter] public bool IsNew { get; set; }
+
+    private DateTime? Started
+    {
+        get => Session.StartedOn?.ToDateTime(TimeOnly.MinValue);
+        set => Session.StartedOn = value is { } d ? DateOnly.FromDateTime(d) : null;
+    }
+
+    private DateTime? Finished
+    {
+        get => Session.FinishedOn?.ToDateTime(TimeOnly.MinValue);
+        set => Session.FinishedOn = value is { } d ? DateOnly.FromDateTime(d) : null;
+    }
+
+    private bool DatesValid
+        => Session.Outcome == ReadingOutcome.InProgress
+            || Session.StartedOn is not { } s
+            || Session.FinishedOn is not { } f
+            || f >= s;
+
+    private void Save()
+    {
+        if (Session.Outcome == ReadingOutcome.InProgress)
+        {
+            Session.FinishedOn = null;
+        }
+
+        MudDialog.Close(DialogResult.Ok(Session));
+    }
+}

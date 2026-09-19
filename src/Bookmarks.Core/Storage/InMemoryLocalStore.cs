@@ -5,12 +5,13 @@ using Bookmarks.Shared.Sync;
 namespace Bookmarks.Core.Storage;
 
 /// <summary>
-/// Volatile store used until the IndexedDB implementation lands, and in unit tests.
+/// Volatile store for unit tests (and hosts without persistent storage).
 /// </summary>
 public sealed class InMemoryLocalStore : ILocalStore
 {
     private readonly ConcurrentDictionary<Type, ConcurrentDictionary<Guid, SyncEntity>> _entities = new();
     private readonly ConcurrentDictionary<Guid, Book> _books = new();
+    private readonly ConcurrentDictionary<string, string> _meta = new(StringComparer.Ordinal);
 
     public Task<IReadOnlyList<T>> GetAllAsync<T>(bool includeDeleted = false, CancellationToken ct = default)
         where T : SyncEntity
@@ -41,6 +42,23 @@ public sealed class InMemoryLocalStore : ILocalStore
     {
         ArgumentNullException.ThrowIfNull(book);
         _books[book.Id] = book;
+        return Task.CompletedTask;
+    }
+
+    public Task<string?> GetMetaAsync(string key, CancellationToken ct = default)
+        => Task.FromResult(_meta.TryGetValue(key, out var value) ? value : null);
+
+    public Task SetMetaAsync(string key, string? value, CancellationToken ct = default)
+    {
+        if (value is null)
+        {
+            _meta.TryRemove(key, out _);
+        }
+        else
+        {
+            _meta[key] = value;
+        }
+
         return Task.CompletedTask;
     }
 
