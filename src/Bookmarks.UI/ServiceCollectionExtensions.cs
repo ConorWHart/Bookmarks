@@ -15,8 +15,11 @@ public static class ServiceCollectionExtensions
         services.AddScoped<LibraryService>();
         services.AddScoped<UserPreferences>();
 
-        // Hosts with a service worker register their own before calling this.
+        // Hosts with a service worker / sign-in register their own before calling this.
         services.TryAddScoped<IAppStatusService, NullAppStatusService>();
+        services.TryAddSingleton<IAccountService, GuestAccountService>();
+        services.TryAddSingleton<IGuestLibraryTransfer, NullGuestLibraryTransfer>();
+        services.TryAddScoped<IAccountProbe, NullAccountProbe>();
         return services;
     }
 }

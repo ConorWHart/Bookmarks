@@ -91,3 +91,16 @@
     color: inherit;
     font-size: 1.1rem;
 }
+
+/* Account button / menu in the app bar (Mud elements need explicit colors on the dark bar). */
+.bm-account .mud-button-root {
+    color: var(--bm-appbar-text, #F3EAD8);
+}
+
+.bm-account__header {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    max-width: 16rem;
+    white-space: normal;
+}

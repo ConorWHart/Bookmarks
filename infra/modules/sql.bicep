@@ -20,7 +20,7 @@ resource server 'Microsoft.Sql/servers@2023-08-01-preview' = {
       login: adminLogin
       sid: adminObjectId
       tenantId: subscription().tenantId
-      principalType: 'User'
+      principalType: 'Group' // 'Bookmarks SQL Admins': Conor + the GitHub deploy identity
     }
   }
 }

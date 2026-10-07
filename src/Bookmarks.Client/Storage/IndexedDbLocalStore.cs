@@ -4,6 +4,7 @@ using Bookmarks.Core.Storage;
 using Bookmarks.Shared.Domain;
 using Bookmarks.Shared.Serialization;
 using Bookmarks.Shared.Sync;
+using Bookmarks.UI.Services;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
@@ -17,10 +18,23 @@ namespace Bookmarks.Client.Storage;
 /// (source-generated, so trimming-safe); the JS side stores them as plain objects so they're
 /// readable in DevTools and can be indexed. A getAll is a single interop call per table.
 /// </remarks>
-public sealed class IndexedDbLocalStore(IJSRuntime js, ILogger<IndexedDbLocalStore> logger) : ILocalStore, IAsyncDisposable
+public sealed class IndexedDbLocalStore(IJSRuntime js, ILogger<IndexedDbLocalStore> logger)
+    : ILocalStore, IGuestLibraryTransfer, IAsyncDisposable
 {
     private const string ModulePath = "./js/localStore.js";
     private const string BooksTable = "books";
+
+    /// <summary>Database used while signed out. Each account gets "bookmarks-{userId}" instead.</summary>
+    public const string GuestDatabaseName = "bookmarks";
+
+    /// <summary>
+    /// Which database to open. Set once at startup (Program.cs) from the cached account, before
+    /// anything reads or writes; switching accounts restarts the app, so it never changes while open.
+    /// </summary>
+    public string DatabaseName { get; set; } = GuestDatabaseName;
+
+    public static string DatabaseNameFor(Guid userId)
+        => userId == Guid.Empty ? GuestDatabaseName : $"{GuestDatabaseName}-{userId:D}";
 
     private static readonly BookmarksJsonContext Json = BookmarksJsonContext.Default;
 
@@ -82,6 +96,18 @@ public sealed class IndexedDbLocalStore(IJSRuntime js, ILogger<IndexedDbLocalSto
         await module.InvokeVoidAsync("put", ct, new object?[] { BooksTable, json });
     }
 
+    public async Task<int> CountGuestRecordsAsync(CancellationToken ct = default)
+    {
+        var module = await GetModuleAsync(ct);
+        return await module.InvokeAsync<int>("countGuestRecords", ct, Array.Empty<object?>());
+    }
+
+    public async Task<int> MoveGuestLibraryAsync(Guid userId, CancellationToken ct = default)
+    {
+        var module = await GetModuleAsync(ct);
+        return await module.InvokeAsync<int>("moveGuestLibrary", ct, new object?[] { userId.ToString("D") });
+    }
+
     public async Task<string?> GetMetaAsync(string key, CancellationToken ct = default)
     {
         ArgumentException.ThrowIfNullOrEmpty(key);
@@ -132,8 +158,9 @@ public sealed class IndexedDbLocalStore(IJSRuntime js, ILogger<IndexedDbLocalSto
             if (_module is null)
             {
                 var module = await js.InvokeAsync<IJSObjectReference>("import", ct, new object?[] { ModulePath });
-                var persistence = await module.InvokeAsync<string>("open", ct, Array.Empty<object?>());
-                logger.LogInformation("IndexedDB opened. Persistent storage: {Persistence}", persistence);
+                var persistence = await module.InvokeAsync<string>("open", ct, new object?[] { DatabaseName });
+                logger.LogInformation(
+                    "IndexedDB '{Database}' opened. Persistent storage: {Persistence}", DatabaseName, persistence);
                 _module = module;
             }
 

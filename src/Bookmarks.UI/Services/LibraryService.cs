@@ -11,10 +11,13 @@ namespace Bookmarks.UI.Services;
 /// query, and is the single place the UI writes through. Every write updates the store, then reloads
 /// and raises <see cref="Changed"/> (later also after each sync pull).
 /// </summary>
-public sealed class LibraryService(ILocalStore store)
+public sealed class LibraryService(ILocalStore store, IAccountService account)
 {
-    /// <summary>Owner of local records until sign-in exists (Phase 3 re-keys them to the real user).</summary>
-    public static readonly Guid LocalUserId = Guid.Empty;
+    /// <summary>
+    /// Owner of records created from now on: the signed-in user, or <see cref="Guid.Empty"/> in guest mode.
+    /// Each account has its own local database, so a library never mixes two users' records.
+    /// </summary>
+    public Guid CurrentUserId => account.Current.UserId;
 
     private IReadOnlyList<LibraryEntry> _entries = [];
     private IReadOnlyList<Bookcase> _bookcases = [];
@@ -92,7 +95,7 @@ public sealed class LibraryService(ILocalStore store)
             return;
         }
 
-        await SampleData.SeedAsync(store, ct);
+        await SampleData.SeedAsync(store, CurrentUserId, ct);
         await ReloadAsync(ct);
     }
 
@@ -103,8 +106,8 @@ public sealed class LibraryService(ILocalStore store)
     {
         ArgumentNullException.ThrowIfNull(model);
 
-        var book = new Book { Source = BookSource.Manual, CreatedByUserId = LocalUserId };
-        var item = new LibraryItem { UserId = LocalUserId, BookId = book.Id };
+        var book = new Book { Source = BookSource.Manual, CreatedByUserId = CurrentUserId };
+        var item = new LibraryItem { UserId = CurrentUserId, BookId = book.Id };
         model.ApplyTo(book, item);
         item.ShelfRank = NextRankOn(item.ShelfId);
 
@@ -196,7 +199,7 @@ public sealed class LibraryService(ILocalStore store)
     public async Task SaveSessionAsync(ReadingSession session, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(session);
-        session.UserId = LocalUserId;
+        session.UserId = CurrentUserId;
         session.Touch();
         await store.UpsertAsync(session, ct);
         await ReloadAsync(ct);
@@ -214,7 +217,7 @@ public sealed class LibraryService(ILocalStore store)
             return;
         }
 
-        await store.UpsertAsync(new Note { UserId = LocalUserId, LibraryItemId = itemId, Body = body.Trim() }, ct);
+        await store.UpsertAsync(new Note { UserId = CurrentUserId, LibraryItemId = itemId, Body = body.Trim() }, ct);
         await ReloadAsync(ct);
     }
 
@@ -266,7 +269,7 @@ public sealed class LibraryService(ILocalStore store)
     {
         var bookcase = new Bookcase
         {
-            UserId = LocalUserId,
+            UserId = CurrentUserId,
             Name = $"Bookcase {_bookcases.Count + 1}",
             Theme = _bookcases.LastOrDefault()?.Theme ?? "oak",
             SortRank = RankKey.Between(LastRank(_bookcases.Select(b => b.SortRank)), null),
@@ -277,7 +280,7 @@ public sealed class LibraryService(ILocalStore store)
         for (var i = 0; i < ranks.Count; i++)
         {
             await store.UpsertAsync(
-                new Shelf { UserId = LocalUserId, BookcaseId = bookcase.Id, Name = $"Shelf {i + 1}", SortRank = ranks[i], WidthMm = DefaultShelfWidthMm },
+                new Shelf { UserId = CurrentUserId, BookcaseId = bookcase.Id, Name = $"Shelf {i + 1}", SortRank = ranks[i], WidthMm = DefaultShelfWidthMm },
                 ct);
         }
 
@@ -320,7 +323,7 @@ public sealed class LibraryService(ILocalStore store)
         await store.UpsertAsync(
             new Shelf
             {
-                UserId = LocalUserId,
+                UserId = CurrentUserId,
                 BookcaseId = bookcaseId,
                 Name = $"Shelf {shelves.Count + 1}",
                 SortRank = RankKey.Between(LastRank(shelves.Select(s => s.SortRank)), null),
@@ -424,8 +427,8 @@ public sealed class LibraryService(ILocalStore store)
 
     private static DateOnly Today => DateOnly.FromDateTime(DateTime.Now);
 
-    private static ReadingSession NewSession(Guid itemId, ReadingOutcome outcome, DateOnly? startedOn = null)
-        => new() { UserId = LocalUserId, LibraryItemId = itemId, Outcome = outcome, StartedOn = startedOn };
+    private ReadingSession NewSession(Guid itemId, ReadingOutcome outcome, DateOnly? startedOn = null)
+        => new() { UserId = CurrentUserId, LibraryItemId = itemId, Outcome = outcome, StartedOn = startedOn };
 
     /// <summary>A rank after every book currently on <paramref name="shelfId"/> (null = Unshelved).</summary>
     private string NextRankOn(Guid? shelfId)

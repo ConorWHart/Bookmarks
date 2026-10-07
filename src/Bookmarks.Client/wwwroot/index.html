@@ -34,6 +34,8 @@
         <span class="dismiss">🗙</span>
     </div>
 
+    <!-- MSAL (vendored, MIT) exposes globalThis.msal for js/auth.js. -->
+    <script src="lib/msal/msal-browser.min.js"></script>
     <script src="_framework/blazor.webassembly.js"></script>
     <script src="_content/MudBlazor/MudBlazor.min.js"></script>
     <script>

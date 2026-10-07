@@ -1,4 +1,7 @@
 <Solution>
+  <Folder Name="/docs/">
+    <File Path="docs/azure-setup.md" />
+  </Folder>
   <Folder Name="/Solution Items/">
     <File Path=".editorconfig" />
     <File Path=".gitignore" />
@@ -27,5 +30,6 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Bookmarks.Tests/Bookmarks.Tests.csproj" />
+    <Project Path="tests/Bookmarks.Api.Tests/Bookmarks.Api.Tests.csproj" />
   </Folder>
 </Solution>

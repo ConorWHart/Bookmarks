@@ -1,0 +1,164 @@
+@using Bookmarks.Core.Storage
+@implements IDisposable
+@inject IAccountService Accounts
+@inject IAccountProbe Probe
+@inject IGuestLibraryTransfer GuestLibrary
+@inject ILocalStore Store
+@inject LibraryService LibraryData
+@inject IAppStatusService AppStatus
+@inject IDialogService Dialogs
+@inject ISnackbar Snackbar
+
+@* No sign-in support on this host (MAUI, or no Auth configuration): show nothing. *@
+@if (!Accounts.IsSignInSupported)
+{
+}
+else if (Accounts.Current.IsGuest)
+{
+    <MudTooltip Text="@(AppStatus.IsOnline ? "Sign in to back up your library (syncing arrives in the next phase)." : "You're offline. Sign in when you're back online.")">
+        <div class="bm-account">
+            <MudButton StartIcon="@Icons.Material.Filled.PersonOutline" Variant="Variant.Text"
+                       Disabled="@(!AppStatus.IsOnline || _busy)" OnClick="SignInAsync">Sign in</MudButton>
+        </div>
+    </MudTooltip>
+}
+else
+{
+    <MudMenu Icon="@Icons.Material.Filled.AccountCircle" Color="Color.Inherit" AnchorOrigin="Origin.BottomRight"
+             TransformOrigin="Origin.TopRight" aria-label="Account">
+        <MudMenuItem Disabled="true">
+            <div class="bm-account__header">
+                <MudText Typo="Typo.body1">@Accounts.Current.Label</MudText>
+                @if (!string.IsNullOrWhiteSpace(Accounts.Current.Email) && Accounts.Current.Email != Accounts.Current.Label)
+                {
+                    <MudText Typo="Typo.caption">@Accounts.Current.Email</MudText>
+                }
+                <MudText Typo="Typo.caption">Your library is still stored on this device only.</MudText>
+            </div>
+        </MudMenuItem>
+        <MudDivider />
+        <MudMenuItem Icon="@Icons.Material.Filled.CloudSync" Disabled="@(!AppStatus.IsOnline || _busy)" OnClick="CheckConnectionAsync">
+            Check account connection
+        </MudMenuItem>
+        <MudMenuItem Icon="@Icons.Material.Filled.Logout" Disabled="@_busy" OnClick="SignOutAsync">Sign out</MudMenuItem>
+    </MudMenu>
+}
+
+@code {
+    /// <summary>Set once per account database, so the "move your guest library" question is asked only once.</summary>
+    private const string GuestLibraryCheckedKey = "account.guestLibraryChecked";
+
+    private bool _busy;
+
+    protected override void OnInitialized()
+    {
+        Accounts.Changed += OnAccountChanged;
+        AppStatus.Changed += OnAccountChanged;
+    }
+
+    public void Dispose()
+    {
+        Accounts.Changed -= OnAccountChanged;
+        AppStatus.Changed -= OnAccountChanged;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !Accounts.Current.IsGuest)
+        {
+            await OfferGuestLibraryMoveAsync();
+        }
+    }
+
+    private void OnAccountChanged() => _ = InvokeAsync(StateHasChanged);
+
+    private async Task SignInAsync()
+    {
+        _busy = true;
+        try
+        {
+            // Navigates to the hosted sign-in page; the app restarts when it comes back.
+            await Accounts.SignInAsync();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _busy = false;
+            Snackbar.Add("Sign-in couldn't start. Please try again.", Severity.Error);
+        }
+    }
+
+    private async Task SignOutAsync()
+    {
+        var confirmed = await Dialogs.ShowMessageBoxAsync(
+            "Sign out?",
+            "Your library stays on this device and will be here when you sign back in.",
+            yesText: "Sign out",
+            cancelText: "Cancel");
+
+        if (confirmed != true)
+        {
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            await Accounts.SignOutAsync();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _busy = false;
+            Snackbar.Add("Sign-out failed. Please try again.", Severity.Error);
+        }
+    }
+
+    private async Task CheckConnectionAsync()
+    {
+        _busy = true;
+        StateHasChanged();
+        try
+        {
+            var result = await Probe.CheckAsync();
+            Snackbar.Add(result.Message, result.Ok ? Severity.Success : Severity.Warning);
+        }
+        finally
+        {
+            _busy = false;
+            StateHasChanged();
+        }
+    }
+
+    /// <summary>First time this account is used on this device, offer to bring the guest library across.</summary>
+    private async Task OfferGuestLibraryMoveAsync()
+    {
+        try
+        {
+            if (await Store.GetMetaAsync(GuestLibraryCheckedKey) is not null)
+            {
+                return;
+            }
+
+            var count = await GuestLibrary.CountGuestRecordsAsync();
+            if (count > 0)
+            {
+                var message = $"This device has a library with {count} records from before you signed in. "
+                    + "Move it into your account? Keeping it separate leaves it in the signed-out library.";
+
+                if (await Dialogs.ShowMessageBoxAsync("Move your library into your account?", message,
+                        yesText: "Move it", cancelText: "Keep it separate") == true)
+                {
+                    var moved = await GuestLibrary.MoveGuestLibraryAsync(Accounts.Current.UserId);
+                    await LibraryData.ReloadAsync();
+                    Snackbar.Add($"Moved {moved} records into your account.", Severity.Success);
+                }
+            }
+
+            await Store.SetMetaAsync(GuestLibraryCheckedKey, "1");
+            StateHasChanged();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            Snackbar.Add("Couldn't move the signed-out library. It's still on this device.", Severity.Error);
+        }
+    }
+}

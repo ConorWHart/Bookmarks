@@ -1,0 +1,9 @@
+@page "/authentication/login-callback"
+
+@* Where the sign-in page sends the browser back to. MSAL finishes the sign-in during startup and
+   then returns to the page the user came from, so this is only visible for a moment. *@
+
+<MudContainer Class="d-flex flex-column align-center justify-center" Style="min-height: 60vh; gap: 1rem;">
+    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+    <MudText Typo="Typo.body1">Signing you in…</MudText>
+</MudContainer>

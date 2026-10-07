@@ -31,9 +31,9 @@ internal static class SampleData
         ("Sapiens", "Yuval Noah Harari", 443, "#C1121F", BookFormat.Hardcover, null, null, "History", 1),
     ];
 
-    public static async Task SeedAsync(ILocalStore store, CancellationToken ct)
+    /// <summary>Seeds the demo library for <paramref name="userId"/> (<see cref="Guid.Empty"/> in guest mode).</summary>
+    public static async Task SeedAsync(ILocalStore store, Guid userId, CancellationToken ct)
     {
-        var userId = Guid.Empty; // replaced by the signed-in user's id in Phase 3
 
         var bookcase = new Bookcase { UserId = userId, Name = "Living room", Theme = "oak", SortRank = RankKey.Between(null, null) };
         await store.UpsertAsync(bookcase, ct);

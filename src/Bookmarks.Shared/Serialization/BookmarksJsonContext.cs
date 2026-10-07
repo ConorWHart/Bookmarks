@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using Bookmarks.Shared.Api;
 using Bookmarks.Shared.Domain;
 
 namespace Bookmarks.Shared.Serialization;
@@ -30,6 +31,7 @@ namespace Bookmarks.Shared.Serialization;
 [JsonSerializable(typeof(List<Shelf>), TypeInfoPropertyName = "ShelfList")]
 [JsonSerializable(typeof(Preset))]
 [JsonSerializable(typeof(List<Preset>), TypeInfoPropertyName = "PresetList")]
+[JsonSerializable(typeof(MeResponse))]
 public sealed partial class BookmarksJsonContext : JsonSerializerContext
 {
 }

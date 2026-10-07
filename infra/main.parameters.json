@@ -6,10 +6,10 @@
       "value": "dev"
     },
     "sqlAdminLogin": {
-      "value": "REPLACE-with-your-entra-upn@example.com"
+      "value": "Bookmarks SQL Admins"
     },
     "sqlAdminObjectId": {
-      "value": "00000000-0000-0000-0000-000000000000"
+      "value": "a2da23c7-3670-4fd3-91ff-49946d192591"
     },
     "apiPlanSku": {
       "value": "F1"

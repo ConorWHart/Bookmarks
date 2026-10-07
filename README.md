@@ -27,6 +27,21 @@ Your physical library, virtually: an offline-first Blazor WebAssembly PWA with a
 
 Ports: client `https://localhost:7101`, API `https://localhost:7201`.
 
+### API and database
+
+The API uses SQL Server LocalDB in development (`appsettings.Development.json`). Create or update the schema from the
+**Package Manager Console** (Default project: `Bookmarks.Api`):
+
+```powershell
+Add-Migration <Name> -Project Bookmarks.Api -StartupProject Bookmarks.Api -OutputDir Data/Migrations
+Update-Database -Project Bookmarks.Api -StartupProject Bookmarks.Api
+```
+
+The EF tools use `DesignTimeDbContextFactory` (LocalDB), so they don't need auth settings. Every `/api` endpoint
+except `/api/version` needs an Entra External ID access token with the `access_as_user` scope (`Auth` section in
+appsettings). `tests/Bookmarks.Api.Tests` runs its SQL Server tests in Docker (Testcontainers) and skips them when
+Docker isn't running.
+
 ### Testing the PWA / offline mode
 
 The development service worker deliberately does nothing. To test installation and offline behavior:
@@ -39,32 +54,20 @@ Then open it in Chrome, install it (address bar > Install), and toggle DevTools 
 The script configures `serve` so `/index.html` isn't redirected (a cached redirect breaks offline navigation).
 Deploying a new build while the app is open shows "A new version of Bookmarks is ready · Reload".
 
-## Deploy infrastructure
+## Azure, accounts and deployment
 
-```powershell
-az login
-az group create -n rg-bookmarks-dev -l westus3
-# edit infra/main.parameters.json: your Entra UPN + object id (az ad signed-in-user show --query id -o tsv)
-az deployment group create -g rg-bookmarks-dev -f infra/main.bicep -p infra/main.parameters.json
-```
+One-time setup of the Entra External ID tenant (email + password sign-in), the app registrations, the GitHub deploy identity and the SQL admin group: see [docs/azure-setup.md](docs/azure-setup.md).
 
-After the first deployment, grant the API's managed identity access to the database. Connect to the database as the Entra admin and run:
-
-```sql
-CREATE USER [app-bookmarks-api-dev-<suffix>] FROM EXTERNAL PROVIDER;
-ALTER ROLE db_datareader ADD MEMBER [app-bookmarks-api-dev-<suffix>];
-ALTER ROLE db_datawriter ADD MEMBER [app-bookmarks-api-dev-<suffix>];
-ALTER ROLE db_ddladmin  ADD MEMBER [app-bookmarks-api-dev-<suffix>];  -- for EF migrations; remove later if migrations run elsewhere
-```
+Deployment runs from GitHub Actions (OIDC, no stored secrets). CI also applies EF Core migrations and creates the API's managed-identity database user, so there's no manual SQL step.
 
 ## Roadmap
 
 1. ✅ Scaffold: solution, CI, Bicep, first shelf view
-2. Local-only app: IndexedDB store, add/edit books, bookcases and shelves, offline PWA
-3. API + Azure SQL + Entra External ID sign-in
+2. ✅ Local-only app: IndexedDB store, add/edit books, bookcases and shelves, offline PWA
+3. API + Azure SQL + Entra External ID sign-in (email + password)
 4. Sync engine: outbox push, checkpoint pull, conflicts
 5. Book lookup (Open Library / Google Books), barcode scanning, cover caching, dominant-color extraction
 6. Library customization: presets, more display styles, themes, drag ordering
-7. Polish, then .NET MAUI Blazor Hybrid
+7. Polish and nice-to-haves (e.g. Google sign-in), then .NET MAUI Blazor Hybrid
 
 See the architecture plan in the Claude project for design decisions.
