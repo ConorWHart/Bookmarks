@@ -17,6 +17,7 @@ namespace Bookmarks.Client.Storage;
 /// Records cross the interop boundary as JSON strings produced with <see cref="BookmarksJsonContext"/>
 /// (source-generated, so trimming-safe); the JS side stores them as plain objects so they're
 /// readable in DevTools and can be indexed. A getAll is a single interop call per table.
+/// Operations that touch a record and the sync outbox together run in one IndexedDB transaction in JS.
 /// </remarks>
 public sealed class IndexedDbLocalStore(IJSRuntime js, ILogger<IndexedDbLocalStore> logger)
     : ILocalStore, IGuestLibraryTransfer, IAsyncDisposable
@@ -34,6 +35,9 @@ public sealed class IndexedDbLocalStore(IJSRuntime js, ILogger<IndexedDbLocalSto
 
     public static string DatabaseNameFor(Guid userId)
         => userId == Guid.Empty ? GuestDatabaseName : $"{GuestDatabaseName}-{userId:D}";
+
+    /// <summary>The guest database never syncs, so its edits aren't queued.</summary>
+    private bool QueuesChanges => DatabaseName != GuestDatabaseName;
 
     private static readonly BookmarksJsonContext Json = BookmarksJsonContext.Default;
 
@@ -56,7 +60,7 @@ public sealed class IndexedDbLocalStore(IJSRuntime js, ILogger<IndexedDbLocalSto
     public async Task<IReadOnlyList<T>> GetAllAsync<T>(bool includeDeleted = false, CancellationToken ct = default)
         where T : SyncEntity
     {
-        var table = TableFor<T>();
+        var table = TableFor(typeof(T));
         var module = await GetModuleAsync(ct);
         var json = await module.InvokeAsync<string>("getAll", ct, new object?[] { table.Name, includeDeleted });
         return JsonSerializer.Deserialize(json, (JsonTypeInfo<List<T>>)table.List) ?? [];
@@ -65,7 +69,7 @@ public sealed class IndexedDbLocalStore(IJSRuntime js, ILogger<IndexedDbLocalSto
     public async Task<T?> GetAsync<T>(Guid id, CancellationToken ct = default)
         where T : SyncEntity
     {
-        var table = TableFor<T>();
+        var table = TableFor(typeof(T));
         var module = await GetModuleAsync(ct);
         var json = await module.InvokeAsync<string?>("get", ct, new object?[] { table.Name, id.ToString("D") });
         return json is null ? null : JsonSerializer.Deserialize(json, (JsonTypeInfo<T>)table.Item);
@@ -75,10 +79,11 @@ public sealed class IndexedDbLocalStore(IJSRuntime js, ILogger<IndexedDbLocalSto
         where T : SyncEntity
     {
         ArgumentNullException.ThrowIfNull(entity);
-        var table = TableFor<T>();
+        var table = TableFor(typeof(T));
         var json = JsonSerializer.Serialize(entity, (JsonTypeInfo<T>)table.Item);
+        var entityType = QueuesChanges ? SyncEntityTypes.Of(typeof(T)).Name : null;
         var module = await GetModuleAsync(ct);
-        await module.InvokeVoidAsync("put", ct, new object?[] { table.Name, json });
+        await module.InvokeVoidAsync("put", ct, new object?[] { table.Name, json, entityType });
     }
 
     public Task<IReadOnlyList<Book>> GetBooksAsync(CancellationToken ct = default)
@@ -113,6 +118,69 @@ public sealed class IndexedDbLocalStore(IJSRuntime js, ILogger<IndexedDbLocalSto
         await module.InvokeVoidAsync("setMeta", ct, new object?[] { key, value });
     }
 
+    // ---------- Sync ----------
+
+    public async Task<IReadOnlyList<OutboxEntry>> GetOutboxAsync(CancellationToken ct = default)
+    {
+        var module = await GetModuleAsync(ct);
+        var json = await module.InvokeAsync<string>("getOutbox", ct, Array.Empty<object?>());
+
+        using var doc = JsonDocument.Parse(json);
+        return doc.RootElement.EnumerateArray()
+            .Select(e => new OutboxEntry(
+                e.GetProperty("entityType").GetString() ?? "",
+                e.GetProperty("id").GetGuid(),
+                e.GetProperty("stamp").GetString() ?? ""))
+            .ToList();
+    }
+
+    public async Task<int> CountOutboxAsync(CancellationToken ct = default)
+    {
+        var module = await GetModuleAsync(ct);
+        return await module.InvokeAsync<int>("countOutbox", ct, Array.Empty<object?>());
+    }
+
+    public async Task<int> EnqueueUnsyncedAsync(CancellationToken ct = default)
+    {
+        var module = await GetModuleAsync(ct);
+        return await module.InvokeAsync<int>("enqueueUnsynced", ct, Array.Empty<object?>());
+    }
+
+    public async Task<SyncEntity?> GetForSyncAsync(SyncEntityType type, Guid id, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(type);
+        var table = TableFor(type.ClrType);
+        var module = await GetModuleAsync(ct);
+        var json = await module.InvokeAsync<string?>("get", ct, new object?[] { table.Name, id.ToString("D") });
+        return json is null ? null : JsonSerializer.Deserialize(json, type.TypeInfo) as SyncEntity;
+    }
+
+    public async Task CompletePushAsync(OutboxEntry entry, long? acceptedVersion, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(entry);
+        if (!SyncEntityTypes.TryGet(entry.EntityType, out var type))
+        {
+            throw new NotSupportedException($"Unknown sync entity type '{entry.EntityType}'.");
+        }
+
+        var table = TableFor(type.ClrType);
+        var module = await GetModuleAsync(ct);
+        await module.InvokeVoidAsync(
+            "completePush",
+            ct,
+            new object?[] { table.Name, type.Name, entry.Id.ToString("D"), entry.Stamp, acceptedVersion });
+    }
+
+    public async Task<bool> ApplyPulledAsync(SyncEntityType type, SyncEntity entity, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(type);
+        ArgumentNullException.ThrowIfNull(entity);
+        var table = TableFor(type.ClrType);
+        var json = JsonSerializer.Serialize(entity, type.TypeInfo);
+        var module = await GetModuleAsync(ct);
+        return await module.InvokeAsync<bool>("applyPulled", ct, new object?[] { table.Name, type.Name, json });
+    }
+
     public async ValueTask DisposeAsync()
     {
         if (_module is not null)
@@ -130,10 +198,10 @@ public sealed class IndexedDbLocalStore(IJSRuntime js, ILogger<IndexedDbLocalSto
         _openGate.Dispose();
     }
 
-    private static TableInfo TableFor<T>()
-        => Tables.TryGetValue(typeof(T), out var table)
+    private static TableInfo TableFor(Type type)
+        => Tables.TryGetValue(type, out var table)
             ? table
-            : throw new NotSupportedException($"No IndexedDB table is mapped for {typeof(T).Name}.");
+            : throw new NotSupportedException($"No IndexedDB table is mapped for {type.Name}.");
 
     /// <summary>Imports the JS module and opens the database once, on first use.</summary>
     private async ValueTask<IJSObjectReference> GetModuleAsync(CancellationToken ct)
