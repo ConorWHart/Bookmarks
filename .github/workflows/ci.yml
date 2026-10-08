@@ -115,6 +115,8 @@ jobs:
       - name: Generate the database script
         run: |
           set -euo pipefail
+          # Fresh checkout: the EF tool builds the project, so it needs a restore first.
+          dotnet restore src/Bookmarks.Api/Bookmarks.Api.csproj
           dotnet tool install --global dotnet-ef
           echo "$HOME/.dotnet/tools" >> "$GITHUB_PATH"
           "$HOME/.dotnet/tools/dotnet-ef" migrations script --idempotent \

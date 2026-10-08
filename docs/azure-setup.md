@@ -102,6 +102,21 @@ This is the folder the automatic deployment will put the database, API and websi
 
 ✅ `rg-bookmarks-dev` shows in the Resource groups list (empty for now, which is expected).
 
+**Then switch on the Azure services this subscription will use.** A brand-new subscription hasn't enabled them,
+and the deploy identity isn't allowed to do it (that's a subscription-level action, and it only has rights on the
+resource group). Open **Cloud Shell** — the `>_` icon in the portal's top bar, choose **Bash** — and run:
+
+```
+az provider register --namespace Microsoft.Web --wait
+az provider register --namespace Microsoft.Sql --wait
+az provider register --namespace Microsoft.OperationalInsights --wait
+az provider register --namespace Microsoft.Insights --wait
+az provider register --namespace Microsoft.ManagedIdentity --wait
+```
+
+✅ **Subscriptions → your subscription → Resource providers** shows all five as **Registered**. Skip this and the
+first deploy fails with *MissingSubscriptionRegistration*.
+
 ## Step 4. Create the identity GitHub will use to deploy
 
 📍 **Your normal directory**
@@ -122,13 +137,17 @@ GitHub Actions needs permission to deploy into Azure. Instead of storing a passw
 2. **Federated credential scenario:** *GitHub Actions deploying Azure resources*.
 3. Fill in **exactly** as follows. These fields are **case-sensitive**:
    - **Organization:** `ConorWHart`
+   - **Organization ID:** `16828358` (the `"id"` field at `https://api.github.com/users/ConorWHart`)
    - **Repository:** `Bookmarks`
+   - **Repository ID:** `1376737362` (the `"id"` field at `https://api.github.com/repos/ConorWHart/Bookmarks`)
    - **Entity type:** `Environment`
-   - **GitHub environment name:** `dev`
+   - **Based on selection / environment name:** `dev`
    - **Name:** `bookmarks-dev`
 4. **Add**.
 
-✅ The Federated credentials tab lists `bookmarks-dev` with subject `repo:ConorWHart/Bookmarks:environment:dev`.
+⚠️ **Don't skip the two ID fields.** GitHub now includes those numbers in the identity it presents. Leave them out and the form still saves, but every deploy fails with *AADSTS700213: No matching federated identity record*.
+
+✅ The Federated credentials tab lists `bookmarks-dev`, and opening it shows the generated **Subject identifier** as `repo:ConorWHart@16828358/Bookmarks@1376737362:environment:dev` — with real numbers, not `{Organization ID}` placeholders.
 
 ❌ **Common mistakes**
 - Creating a **client secret** on the *Client secrets* tab. We don't want one; only the *Federated credentials* tab.
@@ -300,7 +319,7 @@ Claude then updates the config files (`appsettings`, `infra/main.parameters.json
 
 - [ ] 1 Bookmarks tenant creation started (free trial **not** selected)
 - [ ] 2 `AZURE_SUBSCRIPTION_ID`, `AZURE_TENANT_ID` copied
-- [ ] 3 `rg-bookmarks-dev` created
+- [ ] 3 `rg-bookmarks-dev` created + the five resource providers registered
 - [ ] 4 `github-bookmarks-deploy` registered + federated credential for environment `dev`
 - [ ] 5 Contributor on `rg-bookmarks-dev`
 - [ ] 6 `Bookmarks SQL Admins` group (you + deploy identity)
