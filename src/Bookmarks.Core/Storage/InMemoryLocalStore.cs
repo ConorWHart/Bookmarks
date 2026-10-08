@@ -10,7 +10,6 @@ namespace Bookmarks.Core.Storage;
 public sealed class InMemoryLocalStore : ILocalStore
 {
     private readonly ConcurrentDictionary<Type, ConcurrentDictionary<Guid, SyncEntity>> _entities = new();
-    private readonly ConcurrentDictionary<Guid, Book> _books = new();
     private readonly ConcurrentDictionary<string, string> _meta = new(StringComparer.Ordinal);
 
     public Task<IReadOnlyList<T>> GetAllAsync<T>(bool includeDeleted = false, CancellationToken ct = default)
@@ -36,14 +35,10 @@ public sealed class InMemoryLocalStore : ILocalStore
     }
 
     public Task<IReadOnlyList<Book>> GetBooksAsync(CancellationToken ct = default)
-        => Task.FromResult<IReadOnlyList<Book>>(_books.Values.ToList());
+        => GetAllAsync<Book>(includeDeleted: true, ct);
 
     public Task UpsertBookAsync(Book book, CancellationToken ct = default)
-    {
-        ArgumentNullException.ThrowIfNull(book);
-        _books[book.Id] = book;
-        return Task.CompletedTask;
-    }
+        => UpsertAsync(book, ct);
 
     public Task<string?> GetMetaAsync(string key, CancellationToken ct = default)
         => Task.FromResult(_meta.TryGetValue(key, out var value) ? value : null);

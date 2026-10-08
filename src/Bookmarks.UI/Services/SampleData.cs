@@ -60,8 +60,8 @@ internal static class SampleData
                 Series = s.Series,
                 SeriesNumber = s.No,
                 Genres = [s.Genre],
+                UserId = userId,
                 Source = BookSource.Manual,
-                CreatedByUserId = userId,
             };
             await store.UpsertBookAsync(book, ct);
 

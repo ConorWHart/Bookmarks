@@ -22,7 +22,6 @@ public sealed class IndexedDbLocalStore(IJSRuntime js, ILogger<IndexedDbLocalSto
     : ILocalStore, IGuestLibraryTransfer, IAsyncDisposable
 {
     private const string ModulePath = "./js/localStore.js";
-    private const string BooksTable = "books";
 
     /// <summary>Database used while signed out. Each account gets "bookmarks-{userId}" instead.</summary>
     public const string GuestDatabaseName = "bookmarks";
@@ -41,6 +40,7 @@ public sealed class IndexedDbLocalStore(IJSRuntime js, ILogger<IndexedDbLocalSto
     // Table names must match the Dexie schema in localStore.js.
     private static readonly Dictionary<Type, TableInfo> Tables = new()
     {
+        [typeof(Book)] = new("books", Json.Book, Json.BookList),
         [typeof(LibraryItem)] = new("libraryItems", Json.LibraryItem, Json.LibraryItemList),
         [typeof(ReadingSession)] = new("readingSessions", Json.ReadingSession, Json.ReadingSessionList),
         [typeof(Note)] = new("notes", Json.Note, Json.NoteList),
@@ -81,20 +81,11 @@ public sealed class IndexedDbLocalStore(IJSRuntime js, ILogger<IndexedDbLocalSto
         await module.InvokeVoidAsync("put", ct, new object?[] { table.Name, json });
     }
 
-    public async Task<IReadOnlyList<Book>> GetBooksAsync(CancellationToken ct = default)
-    {
-        var module = await GetModuleAsync(ct);
-        var json = await module.InvokeAsync<string>("getAll", ct, new object?[] { BooksTable, true });
-        return JsonSerializer.Deserialize(json, Json.BookList) ?? [];
-    }
+    public Task<IReadOnlyList<Book>> GetBooksAsync(CancellationToken ct = default)
+        => GetAllAsync<Book>(includeDeleted: true, ct);
 
-    public async Task UpsertBookAsync(Book book, CancellationToken ct = default)
-    {
-        ArgumentNullException.ThrowIfNull(book);
-        var json = JsonSerializer.Serialize(book, Json.Book);
-        var module = await GetModuleAsync(ct);
-        await module.InvokeVoidAsync("put", ct, new object?[] { BooksTable, json });
-    }
+    public Task UpsertBookAsync(Book book, CancellationToken ct = default)
+        => UpsertAsync(book, ct);
 
     public async Task<int> CountGuestRecordsAsync(CancellationToken ct = default)
     {

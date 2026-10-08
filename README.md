@@ -74,7 +74,7 @@ After the **first** deploy, add the Static Web App's URL as a redirect URI on th
 
 1. ✅ Scaffold: solution, CI, Bicep, first shelf view
 2. ✅ Local-only app: IndexedDB store, add/edit books, bookcases and shelves, offline PWA
-3. API + Azure SQL + Entra External ID sign-in (email + password)
+3. ✅ API + Azure SQL + Entra External ID sign-in (email + password), deployed from GitHub Actions
 4. Sync engine: outbox push, checkpoint pull, conflicts
 5. Book lookup (Open Library / Google Books), barcode scanning, cover caching, dominant-color extraction
 6. Library customization: presets, more display styles, themes, drag ordering

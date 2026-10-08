@@ -157,14 +157,10 @@ export async function moveGuestLibrary(userId) {
             }
 
             for (const row of rows) {
-                if (table === 'books') {
-                    if (row.createdByUserId) {
-                        row.createdByUserId = userId;
-                    }
-                } else {
-                    row.userId = userId;
-                    row.version = 0;
-                }
+                row.userId = userId;
+                row.version = 0;
+                // Pre-Phase 4 books recorded their owner here; books are now ordinary synced records.
+                delete row.createdByUserId;
             }
 
             await target.table(table).bulkPut(rows);

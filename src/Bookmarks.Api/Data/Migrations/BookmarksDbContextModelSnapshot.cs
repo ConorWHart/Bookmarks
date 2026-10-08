@@ -56,9 +56,6 @@ namespace Bookmarks.Api.Data.Migrations
                         .HasMaxLength(2048)
                         .HasColumnType("nvarchar(2048)");
 
-                    b.Property<Guid?>("CreatedByUserId")
-                        .HasColumnType("uniqueidentifier");
-
                     b.Property<string>("DominantColor")
                         .HasMaxLength(9)
                         .IsUnicode(false)
@@ -70,6 +67,9 @@ namespace Bookmarks.Api.Data.Migrations
 
                     b.Property<int?>("HeightMm")
                         .HasColumnType("int");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
 
                     b.Property<string>("Isbn13")
                         .HasMaxLength(13)
@@ -111,14 +111,26 @@ namespace Bookmarks.Api.Data.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("Version")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
                     b.Property<int?>("WidthMm")
                         .HasColumnType("int");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CreatedByUserId");
-
                     b.HasIndex("Isbn13");
+
+                    b.HasIndex("UserId", "Version");
 
                     b.ToTable("Books", (string)null);
                 });

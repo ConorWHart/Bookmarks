@@ -1,12 +1,13 @@
 using System.Text.Json.Serialization;
 using Bookmarks.Shared.Api;
 using Bookmarks.Shared.Domain;
+using Bookmarks.Shared.Sync;
 
 namespace Bookmarks.Shared.Serialization;
 
 /// <summary>
 /// Source-generated JSON metadata for every persisted and synced type (trimming-safe, no reflection).
-/// Used by the IndexedDB store today and by the sync payloads in Phase 4.
+/// Used by the IndexedDB store, the sync payloads (<c>SyncEntityTypes</c>) and the client's API calls.
 /// </summary>
 /// <remarks>
 /// camelCase property names (so IndexedDB key paths are <c>id</c>, <c>bookId</c>, …) and enums as
@@ -32,6 +33,9 @@ namespace Bookmarks.Shared.Serialization;
 [JsonSerializable(typeof(Preset))]
 [JsonSerializable(typeof(List<Preset>), TypeInfoPropertyName = "PresetList")]
 [JsonSerializable(typeof(MeResponse))]
+[JsonSerializable(typeof(SyncPushRequest))]
+[JsonSerializable(typeof(SyncPushResponse))]
+[JsonSerializable(typeof(SyncPullResponse))]
 public sealed partial class BookmarksJsonContext : JsonSerializerContext
 {
 }

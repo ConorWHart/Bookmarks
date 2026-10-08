@@ -14,7 +14,7 @@ namespace Bookmarks.Api.Tests;
 public sealed class SqlServerFixture : IAsyncLifetime
 {
     private readonly MsSqlContainer? _container = DockerFactAttribute.DockerAvailable
-        ? new MsSqlBuilder().WithImage("mcr.microsoft.com/mssql/server:2022-latest").Build()
+        ? new MsSqlBuilder("mcr.microsoft.com/mssql/server:2022-latest").Build()
         : null;
 
     public string ConnectionString { get; private set; } = "";

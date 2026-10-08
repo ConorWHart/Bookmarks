@@ -76,10 +76,8 @@ public sealed class BookmarksDbContext(DbContextOptions<BookmarksDbContext> opti
             e.Property(x => x.DisplayName).HasMaxLength(200);
         });
 
-        modelBuilder.Entity<Book>(e =>
+        ConfigureSyncEntity<Book>(modelBuilder, "Books", e =>
         {
-            e.ToTable("Books");
-            e.Property(x => x.Id).ValueGeneratedNever();
             e.Property(x => x.Isbn13).HasMaxLength(13).IsUnicode(false);
             e.Property(x => x.Title).HasMaxLength(500).IsRequired();
             e.Property(x => x.Subtitle).HasMaxLength(500);
@@ -91,10 +89,8 @@ public sealed class BookmarksDbContext(DbContextOptions<BookmarksDbContext> opti
 
             // Authors and Genres are primitive collections (JSON in an nvarchar(max) column).
 
-            // Not unique yet: each device creates catalog Book rows with its own ids today.
-            // How catalog books are shared/deduplicated is decided in Phase 4/5.
+            // Not unique: books are per user (Phase 4), and a user may own two copies of an edition.
             e.HasIndex(x => x.Isbn13);
-            e.HasIndex(x => x.CreatedByUserId);
         });
 
         ConfigureSyncEntity<LibraryItem>(modelBuilder, "LibraryItems", e =>

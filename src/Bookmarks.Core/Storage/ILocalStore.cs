@@ -18,8 +18,10 @@ public interface ILocalStore
     Task UpsertAsync<T>(T entity, CancellationToken ct = default)
         where T : SyncEntity;
 
+    /// <summary>Every book, including tombstones (a deleted item's book stays for Undo). Same as <c>GetAllAsync&lt;Book&gt;(true)</c>.</summary>
     Task<IReadOnlyList<Book>> GetBooksAsync(CancellationToken ct = default);
 
+    /// <summary>Same as <c>UpsertAsync(book)</c>; kept for readability at call sites.</summary>
     Task UpsertBookAsync(Book book, CancellationToken ct = default);
 
     /// <summary>Device-local key/value data that never syncs: sync checkpoints, UI preferences.</summary>

@@ -1,6 +1,7 @@
 using Bookmarks.Api.Auth;
 using Bookmarks.Api.Data;
 using Bookmarks.Api.Endpoints;
+using Bookmarks.Api.Sync;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -24,7 +25,8 @@ builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy
     .AllowAnyHeader()
     .AllowAnyMethod()));
 
-// Phase 4: /api/sync/push and /api/sync/pull (contracts in Bookmarks.Shared.Sync).
+// /api/sync/push and /api/sync/pull (contracts in Bookmarks.Shared.Sync).
+builder.Services.AddScoped<SyncService>();
 
 var app = builder.Build();
 
@@ -51,6 +53,7 @@ api.MapGet("/version", () => TypedResults.Ok(new VersionInfo(
     .AllowAnonymous();
 
 api.MapMeEndpoints();
+api.MapSyncEndpoints();
 
 app.Run();
 

@@ -106,7 +106,7 @@ public sealed class LibraryService(ILocalStore store, IAccountService account)
     {
         ArgumentNullException.ThrowIfNull(model);
 
-        var book = new Book { Source = BookSource.Manual, CreatedByUserId = CurrentUserId };
+        var book = new Book { UserId = CurrentUserId, Source = BookSource.Manual };
         var item = new LibraryItem { UserId = CurrentUserId, BookId = book.Id };
         model.ApplyTo(book, item);
         item.ShelfRank = NextRankOn(item.ShelfId);
@@ -136,8 +136,8 @@ public sealed class LibraryService(ILocalStore store, IAccountService account)
 
         // Re-read so the edit applies to the stored version, not a possibly stale cached one.
         var item = await store.GetAsync<LibraryItem>(itemId, ct) ?? throw new InvalidOperationException("Book not found.");
-        var book = (await store.GetBooksAsync(ct)).FirstOrDefault(b => b.Id == item.BookId)
-            ?? throw new InvalidOperationException("Catalog record not found.");
+        var book = await store.GetAsync<Book>(item.BookId, ct)
+            ?? throw new InvalidOperationException("Book record not found.");
 
         var previousShelf = item.ShelfId;
         model.ApplyTo(book, item);
@@ -146,8 +146,8 @@ public sealed class LibraryService(ILocalStore store, IAccountService account)
             item.ShelfRank = NextRankOn(item.ShelfId);
         }
 
-        // TODO(Phase 5): catalog books (Open Library / Google Books) are shared; edits to them should
-        // become per-copy overrides instead of changing the shared record.
+        // Books are per user (Phase 4), so editing one never affects anyone else's copy.
+        book.Touch();
         await store.UpsertBookAsync(book, ct);
         item.Touch();
         await store.UpsertAsync(item, ct);

@@ -1,15 +1,18 @@
 using System.Text.Json.Serialization;
+using Bookmarks.Shared.Sync;
 
 namespace Bookmarks.Shared.Domain;
 
 /// <summary>
-/// Edition-level catalog metadata. Books from Open Library / Google Books are shared
-/// across users (keyed by ISBN-13); manual entries are owned by the user that created them.
+/// Edition-level metadata for a book in the user's library.
 /// </summary>
-public sealed class Book
+/// <remarks>
+/// User-owned and synced like every other record (Phase 4 decision): there is no shared catalog, so
+/// editing a title only ever changes your own copy. Book lookups (Phase 5) fill in a new Book from
+/// Open Library / Google Books rather than referencing a shared row; <see cref="Source"/> records where it came from.
+/// </remarks>
+public sealed class Book : SyncEntity
 {
-    public Guid Id { get; set; } = Guid.CreateVersion7();
-
     public string? Isbn13 { get; set; }
 
     public string Title { get; set; } = "";
@@ -43,9 +46,6 @@ public sealed class Book
     public string? DominantColor { get; set; }
 
     public BookSource Source { get; set; }
-
-    /// <summary>Set for <see cref="BookSource.Manual"/> entries.</summary>
-    public Guid? CreatedByUserId { get; set; }
 
     [JsonIgnore]
     public string PrimaryAuthor => Authors.Count > 0 ? Authors[0] : "";
