@@ -104,12 +104,26 @@ jobs:
         id: infra
         run: |
           set -euo pipefail
-          outputs=$(az deployment group create \
-            --resource-group "$RESOURCE_GROUP" \
-            --name "ci-${GITHUB_RUN_ID}" \
-            --template-file infra/main.bicep \
-            --parameters infra/main.parameters.json \
-            --query properties.outputs -o json)
+          # Azure SQL refuses overlapping operations on the same database
+          # ("ConflictingDatabaseOperation"), which happens when an earlier run is still finishing.
+          for attempt in 1 2 3 4; do
+            if outputs=$(az deployment group create \
+              --resource-group "$RESOURCE_GROUP" \
+              --name "ci-${GITHUB_RUN_ID}-${attempt}" \
+              --template-file infra/main.bicep \
+              --parameters infra/main.parameters.json \
+              --query properties.outputs -o json); then
+              break
+            fi
+
+            if [ "$attempt" -eq 4 ]; then
+              echo "Infrastructure deployment failed after $attempt attempts."
+              exit 1
+            fi
+
+            echo "Attempt $attempt failed; waiting 90s in case an Azure operation is still in progress."
+            sleep 90
+          done
           echo "$outputs" | jq -r 'to_entries[] | "\(.key)=\(.value.value)"' >> "$GITHUB_OUTPUT"
 
       - name: Generate the database script
