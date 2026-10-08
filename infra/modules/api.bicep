@@ -2,11 +2,26 @@ param location string
 param tags object
 param planName string
 param appName string
+param identityName string
 param planSku string
 param sqlServerFqdn string
 param sqlDatabaseName string
 param appInsightsConnectionString string
 param corsOrigins array
+
+@description('Entra External ID authority the API validates tokens against.')
+param authAuthority string
+
+@description('Application (client) id of the "Bookmarks API" app registration.')
+param authAudience string
+
+// A user-assigned identity (rather than system-assigned) so its client id is known here: the deploy
+// workflow creates the matching SQL user with CREATE USER ... WITH SID, which needs no directory lookup.
+resource identity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
+  name: identityName
+  location: location
+  tags: tags
+}
 
 resource plan 'Microsoft.Web/serverfarms@2023-12-01' = {
   name: planName
@@ -27,18 +42,23 @@ resource app 'Microsoft.Web/sites@2023-12-01' = {
   tags: tags
   kind: 'app,linux'
   identity: {
-    type: 'SystemAssigned'
+    type: 'UserAssigned'
+    userAssignedIdentities: {
+      '${identity.id}': {}
+    }
   }
   properties: {
     serverFarmId: plan.id
     httpsOnly: true
+    keyVaultReferenceIdentity: identity.id
     siteConfig: {
       linuxFxVersion: 'DOTNETCORE|10.0'
       alwaysOn: planSku != 'F1'
       ftpsState: 'Disabled'
       minTlsVersion: '1.2'
       http20Enabled: true
-      healthCheckPath: '/health'
+      // Health check needs a Basic plan or better.
+      healthCheckPath: planSku == 'F1' ? null : '/health'
       appSettings: [
         {
           name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
@@ -47,6 +67,14 @@ resource app 'Microsoft.Web/sites@2023-12-01' = {
         {
           name: 'ASPNETCORE_ENVIRONMENT'
           value: 'Production'
+        }
+        {
+          name: 'Auth__Authority'
+          value: authAuthority
+        }
+        {
+          name: 'Auth__Audience'
+          value: authAudience
         }
         // Array config binds as Cors:AllowedOrigins:0, :1, ...
         {
@@ -58,8 +86,8 @@ resource app 'Microsoft.Web/sites@2023-12-01' = {
         {
           name: 'Bookmarks'
           type: 'SQLAzure'
-          // Managed identity auth; the identity must be created as a DB user (see README).
-          connectionString: 'Server=tcp:${sqlServerFqdn},1433;Database=${sqlDatabaseName};Authentication=Active Directory Managed Identity;Encrypt=True;TrustServerCertificate=False;Connect Timeout=60;'
+          // The user-assigned identity signs in to SQL; the deploy workflow creates its database user.
+          connectionString: 'Server=tcp:${sqlServerFqdn},1433;Database=${sqlDatabaseName};Authentication=Active Directory Managed Identity;User Id=${identity.properties.clientId};Encrypt=True;TrustServerCertificate=False;Connect Timeout=60;'
         }
       ]
     }
@@ -68,4 +96,6 @@ resource app 'Microsoft.Web/sites@2023-12-01' = {
 
 output appName string = app.name
 output defaultHostname string = app.properties.defaultHostName
-output principalId string = app.identity.principalId
+output identityName string = identity.name
+output identityClientId string = identity.properties.clientId
+output identityPrincipalId string = identity.properties.principalId

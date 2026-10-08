@@ -58,7 +58,17 @@ Deploying a new build while the app is open shows "A new version of Bookmarks is
 
 One-time setup of the Entra External ID tenant (email + password sign-in), the app registrations, the GitHub deploy identity and the SQL admin group: see [docs/azure-setup.md](docs/azure-setup.md).
 
-Deployment runs from GitHub Actions (OIDC, no stored secrets). CI also applies EF Core migrations and creates the API's managed-identity database user, so there's no manual SQL step.
+Deployment runs from GitHub Actions on every push to `main` that builds green (`.github/workflows/ci.yml`, job
+**Deploy to Azure (dev)**, GitHub environment `dev`). It signs in with OIDC (no stored Azure credentials), deploys
+`infra/main.bicep`, applies an idempotent EF Core migration script, creates the API identity's SQL user, then
+publishes the API to App Service and the PWA to Static Web Apps. The Static Web Apps deployment token is fetched
+at deploy time and masked, so no deployment secret is stored in GitHub either.
+
+The deployed API URL is written into `wwwroot/appsettings.Production.json` during the build, so the published PWA
+talks to App Service while local runs keep using `https://localhost:7201`.
+
+After the **first** deploy, add the Static Web App's URL as a redirect URI on the `Bookmarks` app registration
+(`https://<name>.azurestaticapps.net/authentication/login-callback`) — see `docs/azure-setup.md`, step 10.
 
 ## Roadmap
 

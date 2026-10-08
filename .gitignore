@@ -55,3 +55,6 @@ Thumbs.db
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# Written by the deploy workflow with the deployed API URL
+src/Bookmarks.Client/wwwroot/appsettings.Production.json

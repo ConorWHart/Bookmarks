@@ -72,5 +72,152 @@ jobs:
           az bicep install
           az bicep build --file infra/main.bicep --stdout > /dev/null
 
-  # Deployment jobs (OIDC login to Azure, Bicep deploy, SWA + App Service deploy) are added in Phase 3,
-  # once the Entra app registration / federated credential for GitHub exists.
+  deploy:
+    name: Deploy to Azure (dev)
+    needs: [ build-test, infra-validate ]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: dev
+    permissions:
+      contents: read
+      id-token: write # OIDC: no stored Azure credentials
+    env:
+      RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Sign in to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      # Creates or updates SQL, App Service (+ its identity), Static Web App and monitoring.
+      # Outputs become step outputs: apiAppName, apiUrl, apiIdentityName, apiIdentityClientId,
+      # staticWebAppName, clientUrl, sqlServerName, sqlServerFqdn, sqlDatabaseName.
+      - name: Deploy infrastructure
+        id: infra
+        run: |
+          set -euo pipefail
+          outputs=$(az deployment group create \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "ci-${GITHUB_RUN_ID}" \
+            --template-file infra/main.bicep \
+            --parameters infra/main.parameters.json \
+            --query properties.outputs -o json)
+          echo "$outputs" | jq -r 'to_entries[] | "\(.key)=\(.value.value)"' >> "$GITHUB_OUTPUT"
+
+      - name: Generate the database script
+        run: |
+          set -euo pipefail
+          dotnet tool install --global dotnet-ef
+          echo "$HOME/.dotnet/tools" >> "$GITHUB_PATH"
+          "$HOME/.dotnet/tools/dotnet-ef" migrations script --idempotent \
+            --project src/Bookmarks.Api/Bookmarks.Api.csproj \
+            --startup-project src/Bookmarks.Api/Bookmarks.Api.csproj \
+            --output "${RUNNER_TEMP}/migrate.sql"
+
+      # Azure SQL only accepts listed addresses; the rule is removed again below.
+      - name: Open the SQL firewall for this runner
+        run: |
+          set -euo pipefail
+          ip=$(curl -fsS https://api.ipify.org)
+          az sql server firewall-rule create \
+            --resource-group "$RESOURCE_GROUP" \
+            --server "${{ steps.infra.outputs.sqlServerName }}" \
+            --name "gh-${GITHUB_RUN_ID}" \
+            --start-ip-address "$ip" --end-ip-address "$ip" -o none
+
+      # Runs as the deploy identity, which is in the "Bookmarks SQL Admins" group (the server's Entra admin).
+      - name: Apply the schema and grant the API access
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted -ErrorAction SilentlyContinue
+          Install-Module SqlServer -Force -Scope CurrentUser -AllowClobber
+
+          $token = az account get-access-token --resource https://database.windows.net/ --query accessToken -o tsv
+          $server = '${{ steps.infra.outputs.sqlServerFqdn }}'
+          $database = '${{ steps.infra.outputs.sqlDatabaseName }}'
+
+          # The first connection can take a minute while the serverless database resumes.
+          Invoke-Sqlcmd -ServerInstance $server -Database $database -AccessToken $token `
+            -InputFile "$env:RUNNER_TEMP/migrate.sql" -QueryTimeout 600 -ConnectionTimeout 90
+
+          # The API signs in to SQL as its user-assigned identity. Creating the user from that identity's
+          # client id avoids giving the SQL server directory-read permission.
+          $name = '${{ steps.infra.outputs.apiIdentityName }}'
+          $sid = '0x' + ((([guid]'${{ steps.infra.outputs.apiIdentityClientId }}').ToByteArray() |
+            ForEach-Object { $_.ToString('X2') }) -join '')
+
+          $statements = @(
+            "IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name = N'$name') CREATE USER [$name] WITH SID = $sid, TYPE = E;",
+            "BEGIN TRY ALTER ROLE db_datareader ADD MEMBER [$name]; END TRY BEGIN CATCH END CATCH;",
+            "BEGIN TRY ALTER ROLE db_datawriter ADD MEMBER [$name]; END TRY BEGIN CATCH END CATCH;"
+          )
+
+          foreach ($statement in $statements) {
+            Invoke-Sqlcmd -ServerInstance $server -Database $database -AccessToken $token -Query $statement -ConnectionTimeout 90
+          }
+
+      - name: Close the SQL firewall
+        if: always()
+        run: |
+          az sql server firewall-rule delete \
+            --resource-group "$RESOURCE_GROUP" \
+            --server "${{ steps.infra.outputs.sqlServerName }}" \
+            --name "gh-${GITHUB_RUN_ID}" -o none || true
+
+      - name: Publish the API
+        run: dotnet publish src/Bookmarks.Api/Bookmarks.Api.csproj --configuration Release --output publish/api
+
+      - name: Deploy the API
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ steps.infra.outputs.apiAppName }}
+          package: publish/api
+
+      # Written before publishing so the service worker's integrity hashes cover the final file.
+      - name: Point the client at the deployed API
+        run: |
+          printf '{\n  "Api": {\n    "BaseAddress": "%s"\n  }\n}\n' "${{ steps.infra.outputs.apiUrl }}" \
+            > src/Bookmarks.Client/wwwroot/appsettings.Production.json
+          cat src/Bookmarks.Client/wwwroot/appsettings.Production.json
+
+      - name: Publish the client
+        run: dotnet publish src/Bookmarks.Client/Bookmarks.Client.csproj --configuration Release --output publish/client
+
+      # Fetched at deploy time and masked, so no deployment secret is stored in GitHub.
+      - name: Get the Static Web Apps deployment token
+        id: swa
+        run: |
+          set -euo pipefail
+          token=$(az staticwebapp secrets list \
+            --name "${{ steps.infra.outputs.staticWebAppName }}" \
+            --resource-group "$RESOURCE_GROUP" \
+            --query properties.apiKey -o tsv)
+          echo "::add-mask::$token"
+          echo "token=$token" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy the client
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ steps.swa.outputs.token }}
+          action: upload
+          app_location: publish/client/wwwroot
+          skip_app_build: true
+          skip_api_build: true
+
+      - name: Summary
+        run: |
+          {
+            echo "### Deployed"
+            echo ""
+            echo "- App: ${{ steps.infra.outputs.clientUrl }}"
+            echo "- API: ${{ steps.infra.outputs.apiUrl }}/api/version"
+          } >> "$GITHUB_STEP_SUMMARY"
