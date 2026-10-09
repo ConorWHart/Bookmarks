@@ -3,13 +3,14 @@ using Bookmarks.Client.Api;
 using Bookmarks.Client.Auth;
 using Bookmarks.Client.Pwa;
 using Bookmarks.Client.Storage;
+using Bookmarks.Client.Sync;
 using Bookmarks.Core.Storage;
+using Bookmarks.Core.Sync;
 using Bookmarks.UI;
 using Bookmarks.UI.Services;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
@@ -37,6 +38,7 @@ builder.Services.AddSingleton<IAccountService>(sp => sp.GetRequiredService<Brows
 builder.Services.AddSingleton<IndexedDbLocalStore>();
 builder.Services.AddSingleton<ILocalStore>(sp => sp.GetRequiredService<IndexedDbLocalStore>());
 builder.Services.AddSingleton<IGuestLibraryTransfer>(sp => sp.GetRequiredService<IndexedDbLocalStore>());
+builder.Services.AddSingleton<ILocalLibraryEraser>(sp => sp.GetRequiredService<IndexedDbLocalStore>());
 
 // Online/offline and "new version ready" via the service worker (js/pwa.js).
 builder.Services.AddScoped<IAppStatusService, BrowserAppStatusService>();
@@ -45,9 +47,17 @@ builder.Services.AddScoped<IAppStatusService, BrowserAppStatusService>();
 var apiBaseAddress = new Uri(builder.Configuration["Api:BaseAddress"] ?? baseAddress.ToString());
 builder.Services.AddScoped(sp => new BookmarksApiClient(
     new HttpClient { BaseAddress = apiBaseAddress },
-    sp.GetRequiredService<IAccountService>(),
-    sp.GetRequiredService<ILogger<BookmarksApiClient>>()));
-builder.Services.AddScoped<IAccountProbe>(sp => sp.GetRequiredService<BookmarksApiClient>());
+    sp.GetRequiredService<IAccountService>()));
+
+// Sync (Phase 4): the engine pushes the outbox and pulls server changes through the API client;
+// BrowserSyncService decides when (startup, after edits, back online, periodically, Sync now).
+builder.Services.AddScoped<ISyncTransport>(sp => sp.GetRequiredService<BookmarksApiClient>());
+builder.Services.AddScoped(sp => new SyncEngine(
+    sp.GetRequiredService<ILocalStore>(),
+    sp.GetRequiredService<ISyncTransport>(),
+    TimeProvider.System));
+builder.Services.AddScoped<BrowserSyncService>();
+builder.Services.AddScoped<ISyncService>(sp => sp.GetRequiredService<BrowserSyncService>());
 
 builder.Services.AddBookmarksUI();
 

@@ -1,0 +1,56 @@
+@* App-bar sync status for signed-in accounts. Click to sync now. Hidden while offline: the Offline pill covers it. *@
+@implements IDisposable
+@inject ISyncService Sync
+@inject IAppStatusService AppStatus
+
+@if (Sync.IsEnabled && Sync.Status != SyncStatus.Offline)
+{
+    <MudTooltip Text="@SyncText.Describe(Sync, DateTimeOffset.Now)">
+        <div class="@CssClass">
+            <MudIconButton Icon="@Icon" Size="Size.Medium" Color="Color.Inherit"
+                           Disabled="@(Sync.Status == SyncStatus.Syncing)"
+                           OnClick="SyncNowAsync" aria-label="@AriaLabel" />
+        </div>
+    </MudTooltip>
+}
+
+@code {
+    private System.Threading.Timer? _refresh;
+
+    private string Icon => Sync.Status switch
+    {
+        SyncStatus.Syncing => Icons.Material.Filled.Sync,
+        SyncStatus.Pending => Icons.Material.Filled.CloudUpload,
+        SyncStatus.NeedsAttention => Icons.Material.Filled.SyncProblem,
+        _ => Icons.Material.Filled.CloudDone,
+    };
+
+    private string CssClass => Sync.Status switch
+    {
+        SyncStatus.Syncing => "bm-sync bm-sync--spinning",
+        SyncStatus.NeedsAttention => "bm-sync bm-sync--problem",
+        _ => "bm-sync",
+    };
+
+    private string AriaLabel => $"Sync now. {SyncText.Describe(Sync, DateTimeOffset.Now)}";
+
+    protected override void OnInitialized()
+    {
+        Sync.Changed += OnChanged;
+        AppStatus.Changed += OnChanged;
+
+        // Keeps "Synced 3 min ago" current.
+        _refresh = new System.Threading.Timer(_ => OnChanged(), null, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
+    }
+
+    public void Dispose()
+    {
+        Sync.Changed -= OnChanged;
+        AppStatus.Changed -= OnChanged;
+        _refresh?.Dispose();
+    }
+
+    private void OnChanged() => _ = InvokeAsync(StateHasChanged);
+
+    private async Task SyncNowAsync() => await Sync.SyncNowAsync();
+}

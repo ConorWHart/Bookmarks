@@ -57,20 +57,3 @@ public sealed class GuestAccountService : IAccountService
 
     public Task<string?> GetAccessTokenAsync(CancellationToken ct = default) => Task.FromResult<string?>(null);
 }
-
-/// <summary>Result of a round trip to the API as the signed-in user.</summary>
-/// <param name="Ok">True when the API answered as this user.</param>
-/// <param name="Message">What to show the user, success or failure.</param>
-public sealed record AccountProbeResult(bool Ok, string Message);
-
-/// <summary>Checks that sign-in works end to end (token + API). Phase 4 replaces this with real sync.</summary>
-public interface IAccountProbe
-{
-    Task<AccountProbeResult> CheckAsync(CancellationToken ct = default);
-}
-
-public sealed class NullAccountProbe : IAccountProbe
-{
-    public Task<AccountProbeResult> CheckAsync(CancellationToken ct = default)
-        => Task.FromResult(new AccountProbeResult(false, "This app build can't reach the Bookmarks service."));
-}

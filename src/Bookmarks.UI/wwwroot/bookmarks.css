@@ -92,6 +92,34 @@
     font-size: 1.1rem;
 }
 
+/* Sync status button in the app bar (explicit colors, like .bm-offline). */
+.bm-sync .mud-icon-button {
+    color: #f3e6d3;
+}
+
+.bm-sync .mud-icon-button.mud-disabled {
+    color: rgb(243 230 211 / 0.85);
+}
+
+.bm-sync--problem .mud-icon-button {
+    color: #f5b971;
+}
+
+.bm-sync--spinning .mud-icon-root {
+    animation: bm-spin 1.2s linear infinite;
+}
+
+@keyframes bm-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(-360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .bm-sync--spinning .mud-icon-root {
+        animation: none;
+    }
+}
+
 /* Account button / menu in the app bar (Mud elements need explicit colors on the dark bar). */
 .bm-account .mud-button-root {
     color: var(--bm-appbar-text, #F3EAD8);

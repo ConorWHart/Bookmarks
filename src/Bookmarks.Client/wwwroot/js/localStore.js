@@ -269,6 +269,18 @@ export async function applyPulled(table, entityType, json) {
     });
 }
 
+/** Closes and deletes the open account database (sign-out "Remove from this device"). */
+export async function eraseDatabase() {
+    const d = active();
+    if (d.name === guestDatabase) {
+        throw new Error('Only an account database can be removed.');
+    }
+
+    d.close();
+    db = null;
+    await Dexie.delete(d.name);
+}
+
 // ---------- Guest library ----------
 
 /** How many library records the signed-out database holds (0 when it doesn't exist). */

@@ -1,0 +1,54 @@
+@* Sign-out confirmation. Returns true in Data when the library should also be removed from this device. *@
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">Sign out?</MudText>
+    </TitleContent>
+
+    <DialogContent>
+        <MudStack Spacing="2">
+            <MudText Typo="Typo.body2">
+                @(_remove
+                    ? "Your library will be removed from this device. It stays in your account, and signing back in downloads it again."
+                    : "Your library stays on this device and will be here when you sign back in.")
+            </MudText>
+
+            <MudCheckBox T="bool" @bind-Value="_remove" Disabled="@(!CanRemove)" Color="Color.Primary"
+                         Label="Remove my library from this device" />
+
+            @if (!CanRemove)
+            {
+                <MudAlert Severity="Severity.Warning" Dense="true" Variant="Variant.Text">@WhyNot</MudAlert>
+            }
+        </MudStack>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton OnClick="() => MudDialog.Cancel()">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="@(_remove ? Color.Error : Color.Primary)"
+                   OnClick="() => MudDialog.Close(DialogResult.Ok(_remove))">
+            @(_remove ? "Remove and sign out" : "Sign out")
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    /// <summary>Local changes not on the server yet.</summary>
+    [Parameter] public int PendingChanges { get; set; }
+
+    /// <summary>False until this device has completed a sync.</summary>
+    [Parameter] public bool HasSynced { get; set; }
+
+    private bool _remove;
+
+    /// <summary>Only when everything is on the server; otherwise removing would lose changes.</summary>
+    private bool CanRemove => HasSynced && PendingChanges == 0;
+
+    private string WhyNot => !HasSynced
+        ? "Your library hasn't synced yet, so removing it from this device would lose it. Sync first, then sign out."
+        : PendingChanges == 1
+            ? "1 change hasn't synced yet and would be lost. Sync first, then sign out."
+            : $"{PendingChanges} changes haven't synced yet and would be lost. Sync first, then sign out.";
+}

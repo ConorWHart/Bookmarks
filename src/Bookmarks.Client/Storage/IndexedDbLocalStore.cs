@@ -20,7 +20,7 @@ namespace Bookmarks.Client.Storage;
 /// Operations that touch a record and the sync outbox together run in one IndexedDB transaction in JS.
 /// </remarks>
 public sealed class IndexedDbLocalStore(IJSRuntime js, ILogger<IndexedDbLocalStore> logger)
-    : ILocalStore, IGuestLibraryTransfer, IAsyncDisposable
+    : ILocalStore, IGuestLibraryTransfer, ILocalLibraryEraser, IAsyncDisposable
 {
     private const string ModulePath = "./js/localStore.js";
 
@@ -57,6 +57,9 @@ public sealed class IndexedDbLocalStore(IJSRuntime js, ILogger<IndexedDbLocalSto
     private readonly SemaphoreSlim _openGate = new(1, 1);
     private IJSObjectReference? _module;
 
+    /// <summary>Raised after a local edit has been saved and queued for sync (not for guests or pulled rows).</summary>
+    public event Action? LocalChanged;
+
     public async Task<IReadOnlyList<T>> GetAllAsync<T>(bool includeDeleted = false, CancellationToken ct = default)
         where T : SyncEntity
     {
@@ -84,6 +87,11 @@ public sealed class IndexedDbLocalStore(IJSRuntime js, ILogger<IndexedDbLocalSto
         var entityType = QueuesChanges ? SyncEntityTypes.Of(typeof(T)).Name : null;
         var module = await GetModuleAsync(ct);
         await module.InvokeVoidAsync("put", ct, new object?[] { table.Name, json, entityType });
+
+        if (entityType is not null)
+        {
+            LocalChanged?.Invoke();
+        }
     }
 
     public Task<IReadOnlyList<Book>> GetBooksAsync(CancellationToken ct = default)
@@ -179,6 +187,18 @@ public sealed class IndexedDbLocalStore(IJSRuntime js, ILogger<IndexedDbLocalSto
         var json = JsonSerializer.Serialize(entity, type.TypeInfo);
         var module = await GetModuleAsync(ct);
         return await module.InvokeAsync<bool>("applyPulled", ct, new object?[] { table.Name, type.Name, json });
+    }
+
+    /// <summary>Deletes this account's database (sign-out "Remove from this device"). Nothing can be read or written afterwards.</summary>
+    public async Task EraseAsync(CancellationToken ct = default)
+    {
+        if (!QueuesChanges)
+        {
+            throw new InvalidOperationException("Only a signed-in account's library can be removed this way.");
+        }
+
+        var module = await GetModuleAsync(ct);
+        await module.InvokeVoidAsync("eraseDatabase", ct, Array.Empty<object?>());
     }
 
     public async ValueTask DisposeAsync()

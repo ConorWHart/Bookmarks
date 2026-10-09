@@ -2,6 +2,7 @@
 @using Microsoft.JSInterop
 @implements IDisposable
 @inject IAppStatusService AppStatus
+@inject ISyncService Sync
 @inject ISnackbar Snackbar
 
 <MudThemeProvider Theme="BookmarksTheme.Default" @bind-IsDarkMode="_isDarkMode" />
@@ -24,6 +25,7 @@
                 </span>
             </MudTooltip>
         }
+        <SyncIndicator />
         <AccountMenu />
         <MudIconButton Icon="@(_isDarkMode ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)"
                        Color="Color.Inherit" OnClick="() => _isDarkMode = !_isDarkMode" aria-label="Toggle dark mode" />
@@ -58,6 +60,16 @@
         catch (JSException)
         {
             // Status is a nicety; the app works without it.
+        }
+
+        // Background sync for signed-in accounts (does nothing for guests). Needs AppStatus started for online state.
+        try
+        {
+            await Sync.StartAsync();
+        }
+        catch (JSException)
+        {
+            // The library keeps working locally; sync retries on the next start.
         }
     }
 

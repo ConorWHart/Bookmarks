@@ -19,7 +19,8 @@ public static class ServiceCollectionExtensions
         services.TryAddScoped<IAppStatusService, NullAppStatusService>();
         services.TryAddSingleton<IAccountService, GuestAccountService>();
         services.TryAddSingleton<IGuestLibraryTransfer, NullGuestLibraryTransfer>();
-        services.TryAddScoped<IAccountProbe, NullAccountProbe>();
+        services.TryAddScoped<ISyncService, NullSyncService>();
+        services.TryAddSingleton<ILocalLibraryEraser, NullLocalLibraryEraser>();
         return services;
     }
 }
