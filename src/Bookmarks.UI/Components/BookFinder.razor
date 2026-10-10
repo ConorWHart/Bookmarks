@@ -1,0 +1,260 @@
+@* Find a book on Open Library: an ISBN is looked up directly; anything else lists matches to pick from. *@
+@using System.Text.Json
+@implements IDisposable
+@inject IBookLookup Lookup
+@inject IAppStatusService AppStatus
+
+<div class="bm-finder">
+    <div class="bm-finder__bar" @onkeydown="OnKeyDownAsync">
+        <MudTextField T="string" @bind-Value="_query" Label="Find on Open Library" Placeholder="ISBN, title or author"
+                      Variant="Variant.Outlined" Margin="Margin.Dense" Immediate="true" AutoFocus="AutoFocus"
+                      Disabled="@(!AppStatus.IsOnline)" HelperText="@Helper"
+                      Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Search"
+                      OnAdornmentClick="RunAsync" AdornmentAriaLabel="Search" Class="flex-grow-1" />
+        <MudTooltip Text="Barcode scanning is coming soon">
+            <MudIconButton Icon="@Icons.Material.Filled.QrCodeScanner" Disabled="true" aria-label="Scan barcode (coming soon)" />
+        </MudTooltip>
+    </div>
+
+    @if (_busy)
+    {
+        <MudProgressLinear Indeterminate="true" Color="Color.Primary" Size="Size.Small" Class="mt-1" />
+    }
+
+    @if (_message is not null)
+    {
+        <MudAlert Severity="_severity" Dense="true" Class="mt-2">@_message</MudAlert>
+    }
+
+    @if (_hits is { Count: > 0 })
+    {
+        <div class="bm-finder__results" role="list" aria-label="Search results">
+            @foreach (var hit in _hits)
+            {
+                <button type="button" role="listitem" class="bm-hit" title="@hit.Title" disabled="@_busy" @onclick="() => PickAsync(hit)">
+                    <span class="bm-hit__cover">
+                        <CoverImage Url="@hit.CoverUrl" Size="CoverSize.Medium" Class="bm-hit__img" />
+                    </span>
+                    <span class="bm-hit__text">
+                        <span class="bm-hit__title">@hit.Title</span>
+                        @if (hit.Subtitle is not null)
+                        {
+                            <span class="bm-hit__subtitle">@hit.Subtitle</span>
+                        }
+                        <span class="bm-hit__meta">@Meta(hit)</span>
+                    </span>
+                </button>
+            }
+        </div>
+        <div class="d-flex justify-end">
+            <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="ClearResults">Hide results</MudButton>
+        </div>
+    }
+</div>
+
+@code {
+    /// <summary>Pre-filled query, e.g. the ISBN or title of a book being edited.</summary>
+    [Parameter] public string? InitialQuery { get; set; }
+
+    [Parameter] public bool AutoFocus { get; set; }
+
+    /// <summary>A book was found (ISBN lookup or a picked search result).</summary>
+    [Parameter] public EventCallback<BookLookupResult> OnFound { get; set; }
+
+    /// <summary>A valid ISBN that Open Library doesn't know; the editor keeps it for manual entry.</summary>
+    [Parameter] public EventCallback<string> OnIsbnNotFound { get; set; }
+
+    private string? _query;
+    private bool _busy;
+    private string? _message;
+    private Severity _severity = Severity.Info;
+    private IReadOnlyList<BookSearchHit>? _hits;
+    private CancellationTokenSource? _cts;
+
+    private string Helper => AppStatus.IsOnline
+        ? "Press Enter to search"
+        : "Finding books needs a connection; you can still enter the details by hand";
+
+    protected override void OnInitialized()
+    {
+        _query = InitialQuery;
+        AppStatus.Changed += OnStatusChanged;
+    }
+
+    /// <summary>Runs a query from outside (barcode scanner).</summary>
+    public async Task FindAsync(string query)
+    {
+        _query = query;
+        await RunAsync();
+    }
+
+    private async Task OnKeyDownAsync(KeyboardEventArgs e)
+    {
+        if (e.Key is "Enter" or "NumpadEnter")
+        {
+            await RunAsync();
+        }
+    }
+
+    private async Task RunAsync()
+    {
+        var query = _query?.Trim();
+        if (string.IsNullOrEmpty(query) || !AppStatus.IsOnline)
+        {
+            return;
+        }
+
+        var ct = Restart();
+        _busy = true;
+        _message = null;
+        _hits = null;
+        StateHasChanged();
+        try
+        {
+            if (Isbn.TryNormalize(query, out var isbn))
+            {
+                var result = await Lookup.FindByIsbnAsync(isbn, ct);
+                if (result is null)
+                {
+                    Show(Severity.Warning, $"Open Library has no record of ISBN {isbn}. Enter the details by hand.");
+                    await OnIsbnNotFound.InvokeAsync(isbn);
+                }
+                else
+                {
+                    await OnFound.InvokeAsync(result);
+                }
+            }
+            else if (LooksLikeIsbn(query))
+            {
+                Show(Severity.Warning, "That ISBN doesn't add up. Check the digits (the check digit at the end doesn't match).");
+            }
+            else
+            {
+                _hits = await Lookup.SearchAsync(query, 20, ct);
+                if (_hits.Count == 0)
+                {
+                    Show(Severity.Info, "No matches. Try fewer words, or the ISBN from the back cover.");
+                }
+            }
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            // Superseded by a newer search, or the dialog closed.
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
+        {
+            Show(Severity.Error, "Couldn't reach Open Library. Check your connection and try again.");
+        }
+        finally
+        {
+            if (!ct.IsCancellationRequested)
+            {
+                _busy = false;
+            }
+        }
+    }
+
+    private async Task PickAsync(BookSearchHit hit)
+    {
+        var ct = Restart();
+        _busy = true;
+        _message = null;
+        StateHasChanged();
+        try
+        {
+            // The full edition record (binding, size, publisher) when the hit has an ISBN; the search data otherwise.
+            BookLookupResult? edition = null;
+            if (hit.Isbn13 is not null)
+            {
+                try
+                {
+                    edition = await Lookup.FindByIsbnAsync(hit.Isbn13, ct);
+                }
+                catch (Exception ex) when (ex is HttpRequestException or JsonException || (ex is TaskCanceledException && !ct.IsCancellationRequested))
+                {
+                    // Fall back to what the search returned.
+                }
+            }
+
+            var result = edition is null
+                ? hit.ToResult()
+                : edition with
+                {
+                    Genres = edition.Genres.Count > 0 ? edition.Genres : hit.Genres,
+                    CoverUrl = edition.CoverUrl ?? hit.CoverUrl,
+                    PageCount = edition.PageCount ?? hit.PageCount,
+                    Authors = edition.Authors.Count > 0 ? edition.Authors : hit.Authors,
+                };
+
+            _hits = null;
+            await OnFound.InvokeAsync(result);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+        }
+        finally
+        {
+            if (!ct.IsCancellationRequested)
+            {
+                _busy = false;
+            }
+        }
+    }
+
+    private void ClearResults()
+    {
+        _hits = null;
+        _message = null;
+    }
+
+    private void Show(Severity severity, string message)
+    {
+        _severity = severity;
+        _message = message;
+    }
+
+    private CancellationToken Restart()
+    {
+        _cts?.Cancel();
+        _cts?.Dispose();
+        _cts = new CancellationTokenSource();
+        return _cts.Token;
+    }
+
+    /// <summary>Only digits, X and separators, about ISBN length: the user meant an ISBN.</summary>
+    private static bool LooksLikeIsbn(string s)
+    {
+        var digits = s.Count(char.IsAsciiDigit);
+        return digits >= 9 && s.All(c => char.IsAsciiDigit(c) || c is '-' or ' ' or 'X' or 'x');
+    }
+
+    private static string Meta(BookSearchHit hit)
+    {
+        var parts = new List<string>();
+        if (hit.Authors.Count > 0)
+        {
+            parts.Add(string.Join(", ", hit.Authors.Take(2)) + (hit.Authors.Count > 2 ? " et al." : ""));
+        }
+
+        if (hit.FirstPublishYear is { } year)
+        {
+            parts.Add(year.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        }
+
+        if (hit.EditionCount > 1)
+        {
+            parts.Add($"{hit.EditionCount} editions");
+        }
+
+        return string.Join(" · ", parts);
+    }
+
+    private void OnStatusChanged() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        AppStatus.Changed -= OnStatusChanged;
+        _cts?.Cancel();
+        _cts?.Dispose();
+    }
+}

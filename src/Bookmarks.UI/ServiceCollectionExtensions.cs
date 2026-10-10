@@ -1,3 +1,4 @@
+using Bookmarks.Core.Lookup;
 using Bookmarks.UI.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -21,6 +22,14 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton<IGuestLibraryTransfer, NullGuestLibraryTransfer>();
         services.TryAddScoped<ISyncService, NullSyncService>();
         services.TryAddSingleton<ILocalLibraryEraser, NullLocalLibraryEraser>();
+        services.TryAddScoped<ICoverColorService, NullCoverColorService>();
+
+        // Book lookup (Phase 5): Open Library straight from the app; it allows CORS, so no server is involved.
+        services.TryAddSingleton<IBookLookup>(_ => new OpenLibraryLookup(new HttpClient
+        {
+            BaseAddress = OpenLibraryLookup.DefaultBaseAddress,
+            Timeout = TimeSpan.FromSeconds(20),
+        }));
         return services;
     }
 }

@@ -1,0 +1,35 @@
+@* A book cover image. Shows Fallback (or nothing) when there's no URL or the image fails to load (offline, gone). *@
+
+@if (Url is not null && !string.Equals(_failedUrl, Url, StringComparison.Ordinal))
+{
+    <img src="@Src" alt="@Alt" class="@Class" loading="@(Eager ? "eager" : "lazy")" decoding="async"
+         crossorigin="@CrossOrigin" @onerror="OnError" />
+}
+else
+{
+    @Fallback
+}
+
+@code {
+    [Parameter] public string? Url { get; set; }
+
+    [Parameter] public CoverSize Size { get; set; } = CoverSize.Medium;
+
+    [Parameter] public string Alt { get; set; } = "";
+
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter] public bool Eager { get; set; }
+
+    [Parameter] public RenderFragment? Fallback { get; set; }
+
+    private string? _failedUrl;
+
+    private string Src => CoverUrls.WithSize(Url!, Size);
+
+    // Open Library sends CORS headers, so load in CORS mode: the same cached response then serves the
+    // color extraction canvas. Other hosts may not, and crossorigin would make them fail to load at all.
+    private string? CrossOrigin => CoverUrls.IsOpenLibrary(Url) ? "anonymous" : null;
+
+    private void OnError() => _failedUrl = Url;
+}

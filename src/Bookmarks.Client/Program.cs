@@ -1,6 +1,7 @@
 using Bookmarks.Client;
 using Bookmarks.Client.Api;
 using Bookmarks.Client.Auth;
+using Bookmarks.Client.Covers;
 using Bookmarks.Client.Pwa;
 using Bookmarks.Client.Storage;
 using Bookmarks.Client.Sync;
@@ -42,6 +43,9 @@ builder.Services.AddSingleton<ILocalLibraryEraser>(sp => sp.GetRequiredService<I
 
 // Online/offline and "new version ready" via the service worker (js/pwa.js).
 builder.Services.AddScoped<IAppStatusService, BrowserAppStatusService>();
+
+// Cover colors for spines (Phase 5): sampled on a canvas (js/covers.js).
+builder.Services.AddScoped<ICoverColorService, BrowserCoverColorService>();
 
 // The API lives on another origin (localhost:7201 in development, App Service once deployed).
 var apiBaseAddress = new Uri(builder.Configuration["Api:BaseAddress"] ?? baseAddress.ToString());

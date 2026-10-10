@@ -1,0 +1,92 @@
+.bm-finder__bar {
+    display: flex;
+    align-items: flex-start;
+    gap: 4px;
+}
+
+.bm-finder__results {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+    max-height: 360px;
+    overflow-y: auto;
+    margin-top: 8px;
+    padding: 4px;
+    border: 1px solid var(--mud-palette-lines-default);
+    border-radius: 6px;
+}
+
+.bm-hit {
+    /* Fixed columns: cover, then text filling the rest. Every row lines up left, and long titles
+       can't widen the row; they end in an ellipsis instead. */
+    display: grid;
+    grid-template-columns: 40px minmax(0, 1fr);
+    align-items: center;
+    justify-items: stretch;
+    gap: 12px;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 6px 8px;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.bm-hit:hover:not(:disabled),
+.bm-hit:focus-visible {
+    background: var(--mud-palette-action-default-hover);
+    outline: none;
+}
+
+.bm-hit:disabled {
+    cursor: progress;
+    opacity: 0.7;
+}
+
+.bm-hit__cover {
+    width: 40px;
+    height: 60px;
+    border-radius: 2px;
+    overflow: hidden;
+    background: var(--mud-palette-background-gray);
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.25);
+}
+
+.bm-hit__cover ::deep .bm-hit__img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.bm-hit__text {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    min-width: 0;
+    width: 100%;
+    text-align: left;
+}
+
+.bm-hit__title {
+    display: block;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.bm-hit__subtitle,
+.bm-hit__meta {
+    display: block;
+    font-size: 0.8125rem;
+    color: var(--mud-palette-text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}

@@ -1,5 +1,6 @@
 @* Add or edit a book. Edits a BookEditModel copy; nothing is stored until Save. *@
 @inject LibraryService LibraryData
+@inject ICoverColorService CoverColors
 
 <MudDialog ContentClass="bm-editor-content">
     <TitleContent>
@@ -10,20 +11,27 @@
         <div class="bm-editor">
             <div class="bm-editor__form">
 
-                @* ---------- Find: ISBN lookup and barcode scanning arrive in Phase 5 ---------- *@
-                <div class="bm-editor__find">
-                    <MudTextField T="string" @bind-Value="_model.Isbn13" Label="ISBN" Variant="Variant.Outlined" Margin="Margin.Dense"
-                                  HelperText="Lookup and barcode scanning are coming soon" Class="flex-grow-1" />
-                    <MudIconButton Icon="@Icons.Material.Filled.ManageSearch" Disabled="true" aria-label="Look up by ISBN (coming soon)" />
-                    <MudIconButton Icon="@Icons.Material.Filled.QrCodeScanner" Disabled="true" aria-label="Scan barcode (coming soon)" />
-                </div>
+                @* ---------- Find on Open Library ---------- *@
+                <BookFinder InitialQuery="@_initialQuery" AutoFocus="IsNew" OnFound="ApplyLookupAsync" OnIsbnNotFound="KeepIsbn" />
+                @if (_lookupSummary is not null)
+                {
+                    <MudAlert Severity="Severity.Success" Dense="true" Class="mt-2" ShowCloseIcon="true" CloseIconClicked="() => _lookupSummary = null">
+                        <div class="d-flex align-center flex-wrap gap-2">
+                            <span>@_lookupSummary</span>
+                            @if (!IsNew && _lastLookup is not null && !_replaced)
+                            {
+                                <MudButton Variant="Variant.Text" Size="Size.Small" Color="Color.Primary" OnClick="ReplaceAllAsync">Replace all fields</MudButton>
+                            }
+                        </div>
+                    </MudAlert>
+                }
 
                 @* ---------- Book ---------- *@
                 <MudText Typo="Typo.subtitle2" Class="bm-editor__section">Book</MudText>
                 <MudGrid Spacing="2">
                     <MudItem xs="12">
                         <MudTextField T="string" @bind-Value="_model.Title" Label="Title" Required="true" RequiredError="A title is required"
-                                      Immediate="true" Variant="Variant.Outlined" Margin="Margin.Dense" AutoFocus="IsNew" />
+                                      Immediate="true" Variant="Variant.Outlined" Margin="Margin.Dense" />
                     </MudItem>
                     <MudItem xs="12">
                         <MudTextField T="string" @bind-Value="_model.Subtitle" Label="Subtitle" Variant="Variant.Outlined" Margin="Margin.Dense" />
@@ -54,7 +62,44 @@
                         <MudTextField T="string" @bind-Value="_model.GenresText" Label="Genres" HelperText="Separate with commas"
                                       Variant="Variant.Outlined" Margin="Margin.Dense" />
                     </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <MudTextField T="string" @bind-Value="_model.Isbn13" Label="ISBN" Immediate="true" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                      Error="IsbnInvalid" ErrorText="Check the ISBN: the check digit doesn't match" />
+                    </MudItem>
                 </MudGrid>
+
+                <MudButton Variant="Variant.Text" Size="Size.Small" Class="mt-2"
+                           EndIcon="@(_moreOpen ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
+                           OnClick="() => _moreOpen = !_moreOpen" aria-expanded="@(_moreOpen ? "true" : "false")">
+                    Cover and size
+                </MudButton>
+                @if (_moreOpen)
+                {
+                    <MudGrid Spacing="2" Class="mt-1">
+                        <MudItem xs="12">
+                            <MudTextField T="string" Value="_model.CoverUrl" ValueChanged="OnCoverUrlChangedAsync" Label="Cover image URL"
+                                          Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"
+                                          HelperText="Filled in by Open Library; you can paste a link to another image" />
+                        </MudItem>
+                        <MudItem xs="4">
+                            <MudNumericField T="int?" @bind-Value="_model.HeightMm" Label="Height (mm)" Min="1" HideSpinButtons="true"
+                                             Immediate="true" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                        </MudItem>
+                        <MudItem xs="4">
+                            <MudNumericField T="int?" @bind-Value="_model.WidthMm" Label="Width (mm)" Min="1" HideSpinButtons="true"
+                                             Immediate="true" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                        </MudItem>
+                        <MudItem xs="4">
+                            <MudNumericField T="int?" @bind-Value="_model.ThicknessMm" Label="Thickness (mm)" Min="1" HideSpinButtons="true"
+                                             Immediate="true" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                Leave sizes empty to estimate them from the page count and format.
+                            </MudText>
+                        </MudItem>
+                    </MudGrid>
+                }
 
                 @* ---------- Your copy ---------- *@
                 <MudText Typo="Typo.subtitle2" Class="bm-editor__section">Your copy</MudText>
@@ -123,7 +168,15 @@
                         </MudSelect>
                     </MudItem>
                     <MudItem xs="12">
-                        <MudText Typo="Typo.caption" Class="d-block mb-1">Spine color</MudText>
+                        <div class="d-flex align-center gap-2 mb-1">
+                            <MudText Typo="Typo.caption">Spine color @(SpineFollowsCover ? "· from the cover" : "")</MudText>
+                            @if (CanUseCoverColor)
+                            {
+                                <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="UseCoverColorForSpine">
+                                    <span class="bm-editor__swatch" style="@CoverSwatchStyle"></span>Use cover color
+                                </MudButton>
+                            }
+                        </div>
                         <SpineColorPicker @bind-Value="_model.SpineColor" />
                     </MudItem>
                     <MudItem xs="12">
@@ -140,8 +193,22 @@
             </div>
 
             @* ---------- Live preview ---------- *@
-            <div class="bm-editor__preview" aria-hidden="true">
-                <div class="bm-editor__stage">
+            <div class="bm-editor__preview">
+                @if (_model.CoverUrl is { } cover)
+                {
+                    <div class="bm-editor__cover">
+                        <CoverImage Url="@cover" Size="CoverSize.Medium" Alt="Cover" Class="bm-editor__cover-img" Eager="true">
+                            <Fallback>
+                                <div class="bm-editor__cover-missing">Cover unavailable</div>
+                            </Fallback>
+                        </CoverImage>
+                        <MudTooltip Text="Remove cover">
+                            <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" Class="bm-editor__cover-remove"
+                                           aria-label="Remove cover" OnClick="RemoveCover" />
+                        </MudTooltip>
+                    </div>
+                }
+                <div class="bm-editor__stage" aria-hidden="true">
                     <BookSpine Book="Preview" Scale="PreviewScale" />
                 </div>
                 <div class="bm-editor__plank"></div>
@@ -173,6 +240,14 @@
     private LibraryEntry? _entry;
     private bool _saving;
 
+    // Lookup (Phase 5)
+    private string? _initialQuery;
+    private BookLookupResult? _lastLookup;
+    private string? _lookupSummary;
+    private bool _replaced;
+    private bool _moreOpen;
+    private string? _colorPendingFor;
+
     private bool IsNew => _entry is null;
 
     private Guid ShelfChoice
@@ -185,6 +260,125 @@
     {
         _entry = ItemId is { } id ? LibraryData.Find(id) : null;
         _model = _entry is not null ? BookEditModel.FromEntry(_entry) : BookEditModel.ForNew(ValidShelf(DefaultShelfId));
+
+        // Editing: offer a lookup of this book (by ISBN when it has a valid one).
+        if (_entry is not null)
+        {
+            _initialQuery = Isbn.TryNormalize(_model.Isbn13, out var isbn)
+                ? isbn
+                : $"{_model.Title} {BookEditModel.SplitList(_model.AuthorsText).FirstOrDefault()}".Trim();
+        }
+
+        _moreOpen = _model.HeightMm is not null || _model.WidthMm is not null || _model.ThicknessMm is not null;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // A cover without an extracted color (e.g. added before color extraction existed).
+        if (firstRender)
+        {
+            await RefreshCoverColorAsync();
+        }
+    }
+
+    private bool IsbnInvalid => !string.IsNullOrWhiteSpace(_model.Isbn13) && !Isbn.TryNormalize(_model.Isbn13, out _);
+
+    private bool SpineFollowsCover => _model.DominantColor is not null
+        && string.Equals(_model.SpineColor, _model.DominantColor, StringComparison.OrdinalIgnoreCase);
+
+    private bool CanUseCoverColor => _model.DominantColor is not null && !SpineFollowsCover;
+
+    private string CoverSwatchStyle => $"background:{_model.DominantColor}";
+
+    private async Task ApplyLookupAsync(BookLookupResult result)
+    {
+        _lastLookup = result;
+        _replaced = false;
+        var changed = LookupMerge.Apply(_model, result, LookupApplyMode.FillEmpty, IsNew);
+        _lookupSummary = changed.Count == 0
+            ? "Open Library had nothing new to add."
+            : $"{LookupMerge.Describe(changed)} from Open Library.";
+        StateHasChanged();
+        await RefreshCoverColorAsync();
+    }
+
+    private async Task ReplaceAllAsync()
+    {
+        if (_lastLookup is null)
+        {
+            return;
+        }
+
+        var changed = LookupMerge.Apply(_model, _lastLookup, LookupApplyMode.ReplaceAll, IsNew);
+        _replaced = true;
+        _lookupSummary = changed.Count == 0
+            ? "Already matches Open Library."
+            : $"{LookupMerge.Describe(changed)} from Open Library.";
+        await RefreshCoverColorAsync();
+    }
+
+    private void KeepIsbn(string isbn)
+    {
+        if (string.IsNullOrWhiteSpace(_model.Isbn13))
+        {
+            _model.Isbn13 = isbn;
+        }
+    }
+
+    private async Task OnCoverUrlChangedAsync(string? value)
+    {
+        var url = CoverUrls.Normalize(value);
+        if (url is not null && !(Uri.TryCreate(url, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps))
+        {
+            // Only https images: http would be blocked as mixed content anyway.
+            return;
+        }
+
+        if (url is null)
+        {
+            RemoveCover();
+            return;
+        }
+
+        if (!string.Equals(url, _model.CoverUrl, StringComparison.Ordinal))
+        {
+            _model.CoverUrl = url;
+            _model.DominantColor = null;
+            await RefreshCoverColorAsync();
+        }
+    }
+
+    private void RemoveCover() => _model.RemoveCover();
+
+    private void UseCoverColorForSpine()
+    {
+        _model.SpineColor = _model.DominantColor;
+        _model.SpineColorFollowsCover = true; // stored as "no override", so it keeps following the cover
+    }
+
+    /// <summary>Extracts the cover's color when there's a cover without one. Stale results are ignored.</summary>
+    private async Task RefreshCoverColorAsync()
+    {
+        var url = _model.CoverUrl;
+        if (url is null || _model.DominantColor is not null || url == _colorPendingFor)
+        {
+            return;
+        }
+
+        _colorPendingFor = url;
+        try
+        {
+            var hex = await CoverColors.DominantColorAsync(url);
+            if (hex is not null && string.Equals(url, _model.CoverUrl, StringComparison.Ordinal))
+            {
+                _model.UseCoverColor(hex);
+                StateHasChanged();
+            }
+        }
+        finally
+        {
+            _colorPendingFor = null;
+        }
     }
 
     /// <summary>The book as it would look with the current form values.</summary>
@@ -202,10 +396,7 @@
 
             if (_entry is not null)
             {
-                // Keep known physical dimensions so the preview matches the shelf.
-                book.HeightMm = _entry.Book.HeightMm;
-                book.WidthMm = _entry.Book.WidthMm;
-                book.ThicknessMm = _entry.Book.ThicknessMm;
+                // Per-copy size overrides aren't edited here; keep them so the preview matches the shelf.
                 item.Appearance.HeightMmOverride = _entry.Item.Appearance.HeightMmOverride;
                 item.Appearance.ThicknessMmOverride = _entry.Item.Appearance.ThicknessMmOverride;
             }
