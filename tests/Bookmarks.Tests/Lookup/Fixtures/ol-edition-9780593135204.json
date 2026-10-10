@@ -1,0 +1,33 @@
+{
+  "title": "Project Hail Mary",
+  "authors": [
+    {
+      "key": "/authors/OL7234434A"
+    }
+  ],
+  "publish_date": "May 04, 2021",
+  "publishers": [
+    "Ballantine Books"
+  ],
+  "covers": [
+    12455001,
+    12455000,
+    10415294
+  ],
+  "physical_format": "hardcover",
+  "full_title": "Project Hail Mary A Novel",
+  "key": "/books/OL30036715M",
+  "number_of_pages": 496,
+  "works": [
+    {
+      "key": "/works/OL21745884W"
+    }
+  ],
+  "isbn_10": [
+    "0593135202"
+  ],
+  "isbn_13": [
+    "9780593135204"
+  ],
+  "physical_dimensions": "24.2 x 16.2 x 3.9 centimeters"
+}

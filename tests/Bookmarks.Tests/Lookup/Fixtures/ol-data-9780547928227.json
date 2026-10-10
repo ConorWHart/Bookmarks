@@ -1,0 +1,69 @@
+{
+  "ISBN:9780547928227": {
+    "key": "/books/OL33891995M",
+    "title": "The Hobbit",
+    "authors": [
+      {
+        "name": "J.R.R. Tolkien",
+        "url": "http://openlibrary.org/authors/OL26320A/J.R.R._Tolkien"
+      }
+    ],
+    "number_of_pages": 300,
+    "pagination": "300p.",
+    "publishers": [
+      {
+        "name": "Mariner Books"
+      }
+    ],
+    "publish_date": "2012",
+    "subjects": [
+      {
+        "name": "Fantasy"
+      },
+      {
+        "name": "Arkenstone"
+      },
+      {
+        "name": "Battle of Five Armies"
+      },
+      {
+        "name": "invisibility"
+      },
+      {
+        "name": "thrushes"
+      },
+      {
+        "name": "eagles"
+      },
+      {
+        "name": "hobbits"
+      },
+      {
+        "name": "wizards"
+      },
+      {
+        "name": "dragons"
+      },
+      {
+        "name": "dwarves"
+      },
+      {
+        "name": "elves"
+      },
+      {
+        "name": "men"
+      },
+      {
+        "name": "trolls"
+      },
+      {
+        "name": "goblins"
+      }
+    ],
+    "cover": {
+      "small": "https://covers.openlibrary.org/b/id/12003329-S.jpg",
+      "medium": "https://covers.openlibrary.org/b/id/12003329-M.jpg",
+      "large": "https://covers.openlibrary.org/b/id/12003329-L.jpg"
+    }
+  }
+}

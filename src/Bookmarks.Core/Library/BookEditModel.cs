@@ -1,3 +1,4 @@
+using Bookmarks.Core.Lookup;
 using Bookmarks.Shared.Domain;
 
 namespace Bookmarks.Core.Library;
@@ -41,6 +42,7 @@ public sealed class BookEditModel
 
     private decimal? _originalRating;
     private int _originalStars;
+    private string? _spineColor;
 
     public string? Isbn13 { get; set; }
 
@@ -60,6 +62,20 @@ public sealed class BookEditModel
     /// <summary>Comma-separated.</summary>
     public string? GenresText { get; set; }
 
+    /// <summary>Cover image (medium size), usually from a lookup.</summary>
+    public string? CoverUrl { get; set; }
+
+    /// <summary>Dominant color of <see cref="CoverUrl"/> (#RRGGBB); set through <see cref="UseCoverColor"/>.</summary>
+    public string? DominantColor { get; set; }
+
+    public int? HeightMm { get; set; }
+
+    public int? WidthMm { get; set; }
+
+    public int? ThicknessMm { get; set; }
+
+    public BookSource Source { get; set; }
+
     public string? Series { get; set; }
 
     public decimal? SeriesNumber { get; set; }
@@ -78,8 +94,22 @@ public sealed class BookEditModel
     /// <summary>0 = not rated. Whole stars in the editor; half-star ratings are kept unless changed.</summary>
     public int RatingStars { get; set; }
 
-    /// <summary>Effective spine color (#RRGGBB).</summary>
-    public string? SpineColor { get; set; }
+    /// <summary>Effective spine color (#RRGGBB). Setting it (the color picker) stops it following the cover.</summary>
+    public string? SpineColor
+    {
+        get => _spineColor;
+        set
+        {
+            _spineColor = value;
+            SpineColorFollowsCover = false;
+        }
+    }
+
+    /// <summary>
+    /// True while the user hasn't chosen a spine color (a new book's random swatch, or a book with no override),
+    /// so a newly extracted cover color becomes the spine color. Set after <see cref="SpineColor"/> in initializers.
+    /// </summary>
+    public bool SpineColorFollowsCover { get; set; }
 
     /// <summary>Spine lettering color (#RRGGBB); null = automatic (contrast, or gilt on ornate).</summary>
     public string? TextColor { get; set; }
@@ -98,6 +128,7 @@ public sealed class BookEditModel
         {
             ShelfId = shelfId,
             SpineColor = SpinePalette[(random ?? Random.Shared).Next(SpinePalette.Count)],
+            SpineColorFollowsCover = true,
         };
 
     public static BookEditModel FromEntry(LibraryEntry entry)
@@ -116,6 +147,12 @@ public sealed class BookEditModel
             PublishedYear = book.PublishedYear,
             PageCount = book.PageCount,
             GenresText = string.Join(", ", book.Genres),
+            CoverUrl = book.CoverUrl,
+            DominantColor = book.DominantColor,
+            HeightMm = book.HeightMm,
+            WidthMm = book.WidthMm,
+            ThicknessMm = book.ThicknessMm,
+            Source = book.Source,
             Series = book.Series,
             SeriesNumber = book.SeriesNumber,
             Status = item.Status,
@@ -125,6 +162,7 @@ public sealed class BookEditModel
             WantToReread = item.WantToReread,
             RatingStars = stars,
             SpineColor = entry.SpineColor,
+            SpineColorFollowsCover = item.Appearance.SpineColor is null,
             TextColor = item.Appearance.TextColor,
             Style = ToChoice(item.Appearance.Style),
             FaceOut = item.Appearance.FaceOut,
@@ -139,7 +177,9 @@ public sealed class BookEditModel
         ArgumentNullException.ThrowIfNull(book);
         ArgumentNullException.ThrowIfNull(item);
 
-        book.Isbn13 = Clean(Isbn13)?.Replace("-", "", StringComparison.Ordinal).Replace(" ", "", StringComparison.Ordinal);
+        book.Isbn13 = Isbn.TryNormalize(Isbn13, out var isbn13)
+            ? isbn13
+            : Clean(Isbn13)?.Replace("-", "", StringComparison.Ordinal).Replace(" ", "", StringComparison.Ordinal);
         book.Title = Title.Trim();
         book.Subtitle = Clean(Subtitle);
         book.Authors = SplitList(AuthorsText).ToList();
@@ -149,6 +189,12 @@ public sealed class BookEditModel
         book.Genres = SplitList(GenresText).ToList();
         book.Series = Clean(Series);
         book.SeriesNumber = book.Series is null ? null : SeriesNumber;
+        book.CoverUrl = Clean(CoverUrl);
+        book.DominantColor = Clean(DominantColor)?.ToUpperInvariant();
+        book.HeightMm = HeightMm is > 0 ? HeightMm : null;
+        book.WidthMm = WidthMm is > 0 ? WidthMm : null;
+        book.ThicknessMm = ThicknessMm is > 0 ? ThicknessMm : null;
+        book.Source = Source;
 
         item.Status = Status;
         item.Format = Format;
@@ -165,6 +211,27 @@ public sealed class BookEditModel
         item.Appearance.TextColor = Clean(TextColor)?.ToUpperInvariant();
         item.Appearance.Style = ToStyle(Style);
         item.Appearance.FaceOut = FaceOut;
+    }
+
+    /// <summary>
+    /// Records the color extracted from the cover. The spine takes it too unless the user has chosen a spine color;
+    /// <see cref="ApplyTo"/> then stores no override, so the spine keeps following the book's cover color.
+    /// </summary>
+    public void UseCoverColor(string? hex)
+    {
+        DominantColor = Clean(hex)?.ToUpperInvariant();
+        if (SpineColorFollowsCover && DominantColor is not null)
+        {
+            _spineColor = DominantColor;
+        }
+    }
+
+    /// <summary>Removes the cover; the spine keeps its current color (stored as an override from then on).</summary>
+    public void RemoveCover()
+    {
+        CoverUrl = null;
+        DominantColor = null;
+        SpineColorFollowsCover = false;
     }
 
     /// <summary>Splits "a, b,,c " into ["a", "b", "c"], dropping duplicates (case-insensitive).</summary>

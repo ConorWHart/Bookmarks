@@ -1,0 +1,69 @@
+{
+  "ISBN:9780765326355": {
+    "key": "/books/OL25883754M",
+    "title": "The Way of Kings",
+    "subtitle": "Book One of the Stormlight Archive",
+    "authors": [
+      {
+        "name": "Brandon Sanderson",
+        "url": "http://openlibrary.org/authors/OL1394865A/Brandon_Sanderson"
+      }
+    ],
+    "number_of_pages": 1008,
+    "publishers": [
+      {
+        "name": "Tor"
+      }
+    ],
+    "publish_date": "August 31st 2010",
+    "subjects": [
+      {
+        "name": "New York Times Bestseller"
+      },
+      {
+        "name": "Fantasy"
+      },
+      {
+        "name": "Epic Fantasy"
+      },
+      {
+        "name": "Imaginary places"
+      },
+      {
+        "name": "Kings and rulers"
+      },
+      {
+        "name": "Magic"
+      },
+      {
+        "name": "Imaginary wars and battles"
+      },
+      {
+        "name": "Manuscripts"
+      },
+      {
+        "name": "Slavery"
+      },
+      {
+        "name": "Fiction"
+      },
+      {
+        "name": "Fiction, fantasy, epic"
+      },
+      {
+        "name": "high fantasy"
+      },
+      {
+        "name": "nyt:hardcover-fiction=2010-09-19"
+      },
+      {
+        "name": "Fiction, fantasy, general"
+      }
+    ],
+    "cover": {
+      "small": "https://covers.openlibrary.org/b/id/7429768-S.jpg",
+      "medium": "https://covers.openlibrary.org/b/id/7429768-M.jpg",
+      "large": "https://covers.openlibrary.org/b/id/7429768-L.jpg"
+    }
+  }
+}

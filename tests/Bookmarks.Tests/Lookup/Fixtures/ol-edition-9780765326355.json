@@ -1,0 +1,27 @@
+{
+  "title": "The Way of Kings",
+  "subtitle": "Book One of the Stormlight Archive",
+  "publish_date": "August 31st 2010",
+  "publishers": [
+    "Tor"
+  ],
+  "covers": [
+    7429768,
+    7389193
+  ],
+  "physical_format": "Hardcover",
+  "isbn_13": [
+    "9780765326355"
+  ],
+  "isbn_10": [
+    "0765326353"
+  ],
+  "physical_dimensions": "9.5 x 6.4 x 2 inches",
+  "key": "/books/OL25883754M",
+  "number_of_pages": 1008,
+  "works": [
+    {
+      "key": "/works/OL15358691W"
+    }
+  ]
+}

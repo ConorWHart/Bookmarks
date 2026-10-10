@@ -1,0 +1,26 @@
+{
+  "works": [
+    {
+      "key": "/works/OL27482W"
+    }
+  ],
+  "title": "The Hobbit",
+  "publishers": [
+    "Mariner Books"
+  ],
+  "publish_date": "2012",
+  "key": "/books/OL33891995M",
+  "covers": [
+    12003329
+  ],
+  "isbn_10": [
+    "054792822X"
+  ],
+  "isbn_13": [
+    "9780547928227"
+  ],
+  "pagination": "300p.",
+  "physical_format": "Paperback",
+  "edition_name": "75th Anniversary Edition; First Mariner Books Edition (1)",
+  "number_of_pages": 300
+}

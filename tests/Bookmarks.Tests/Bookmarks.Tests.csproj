@@ -21,4 +21,9 @@
     <ProjectReference Include="..\..\src\Bookmarks.Core\Bookmarks.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Trimmed real Open Library responses (captured 2026-10-09) -->
+    <None Include="Lookup\Fixtures\*.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

@@ -1,0 +1,68 @@
+{
+  "ISBN:9780593135204": {
+    "key": "/books/OL30036715M",
+    "title": "Project Hail Mary",
+    "authors": [
+      {
+        "name": "Andy Weir",
+        "url": "http://openlibrary.org/authors/OL7234434A/Andy_Weir"
+      }
+    ],
+    "number_of_pages": 496,
+    "publishers": [
+      {
+        "name": "Ballantine Books"
+      }
+    ],
+    "publish_date": "May 04, 2021",
+    "subjects": [
+      {
+        "name": "hard science-fiction"
+      },
+      {
+        "name": "science-fiction"
+      },
+      {
+        "name": "sci-fi"
+      },
+      {
+        "name": "hard sci-fi"
+      },
+      {
+        "name": "nyt:hardcover-fiction=2021-05-23"
+      },
+      {
+        "name": "New York Times bestseller"
+      },
+      {
+        "name": "New York Times reviewed"
+      },
+      {
+        "name": "Fiction, science fiction, action & adventure"
+      },
+      {
+        "name": "Fiction, science fiction, hard science fiction"
+      },
+      {
+        "name": "End of the world"
+      },
+      {
+        "name": "Fiction"
+      },
+      {
+        "name": "Astronauts"
+      },
+      {
+        "name": "Space flight"
+      },
+      {
+        "name": "Memory disorders"
+      }
+    ],
+    "cover": {
+      "small": "https://covers.openlibrary.org/b/id/12455001-S.jpg",
+      "medium": "https://covers.openlibrary.org/b/id/12455001-M.jpg",
+      "large": "https://covers.openlibrary.org/b/id/12455001-L.jpg"
+    }
+  }
+}
