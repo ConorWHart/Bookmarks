@@ -101,6 +101,16 @@ public class CatalogParsingTests
         => Assert.Equal(new[] { "Tara Westover", "Orah Danḳner" },
             CatalogText.FilterByStatement(new[] { "Tara Westover", "Orah Danḳner" }, byStatement).ToArray());
 
+    [Theory]
+    [InlineData("The Way of Kings", "way of kings")]
+    [InlineData("Way of Kings!", "way of kings")]
+    [InlineData("Educated: A Memoir", "educated a memoir")]
+    [InlineData("Les Misérables", "les miserables")]
+    [InlineData("The", "the")]
+    [InlineData(null, "")]
+    public void Titles_are_normalized_for_matching(string? title, string expected)
+        => Assert.Equal(expected, CatalogText.NormalizeTitle(title));
+
     [Fact]
     public void Genres_come_from_a_small_vocabulary()
     {

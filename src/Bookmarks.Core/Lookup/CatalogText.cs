@@ -116,6 +116,33 @@ public static partial class CatalogText
         }
     }
 
+    /// <summary>
+    /// A title reduced for comparison: lower case, no accents or punctuation, single spaces, no leading article.
+    /// "The Way of Kings" and "Way of Kings!" both become "way of kings".
+    /// </summary>
+    public static string NormalizeTitle(string? title)
+    {
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            return "";
+        }
+
+        var folded = Fold(title);
+        var sb = new System.Text.StringBuilder(folded.Length);
+        foreach (var c in folded)
+        {
+            sb.Append(char.IsLetterOrDigit(c) ? c : ' ');
+        }
+
+        var words = sb.ToString().Split(' ', StringSplitOptions.RemoveEmptyEntries).ToList();
+        if (words.Count > 1 && words[0] is "the" or "a" or "an")
+        {
+            words.RemoveAt(0);
+        }
+
+        return string.Join(' ', words);
+    }
+
     /// <summary>Lower case without accents, so "Danḳner" matches "Dankner".</summary>
     private static string Fold(string text)
     {

@@ -1,6 +1,9 @@
 @* Add or edit a book. Edits a BookEditModel copy; nothing is stored until Save. *@
 @inject LibraryService LibraryData
 @inject ICoverColorService CoverColors
+@inject IAppStatusService AppStatus
+@inject IDialogService Dialogs
+@inject IBrowserViewportService Viewport
 
 <MudDialog ContentClass="bm-editor-content">
     <TitleContent>
@@ -210,6 +213,12 @@
                         </MudTooltip>
                     </div>
                 }
+                <div class="bm-editor__cover-actions">
+                    <MudTooltip Text="@ChooseCoverTooltip">
+                        <MudButton Variant="Variant.Text" Size="Size.Small" StartIcon="@Icons.Material.Filled.PhotoLibrary"
+                                   OnClick="ChooseCoverAsync" Disabled="@(!CanChooseCover)">@ChooseCoverLabel</MudButton>
+                    </MudTooltip>
+                </div>
                 <div class="bm-editor__stage" aria-hidden="true">
                     <BookSpine Book="Preview" Scale="PreviewScale" />
                 </div>
@@ -409,6 +418,39 @@
     }
 
     private void RemoveCover() => _model.RemoveCover();
+
+    private bool CanChooseCover => AppStatus.IsOnline
+        && (Isbn.TryNormalize(_model.Isbn13, out _) || !string.IsNullOrWhiteSpace(_model.Title));
+
+    private string ChooseCoverLabel => _model.CoverUrl is null ? "Find a cover" : "Change cover";
+
+    private string ChooseCoverTooltip => !AppStatus.IsOnline ? "Choosing a cover needs a connection"
+        : CanChooseCover ? "Choose from this book's covers on Open Library"
+        : "Enter an ISBN or title first";
+
+    /// <summary>Lets the user pick another Open Library cover; only the cover (and its color) changes.</summary>
+    private async Task ChooseCoverAsync()
+    {
+        var isbn = Isbn.TryNormalize(_model.Isbn13, out var normalized) ? normalized : null;
+        var parameters = new DialogParameters
+        {
+            { nameof(CoverPickerDialog.Isbn13), isbn },
+            { nameof(CoverPickerDialog.Title), _model.Title },
+            { nameof(CoverPickerDialog.Author), BookEditModel.SplitList(_model.AuthorsText).FirstOrDefault() },
+            { nameof(CoverPickerDialog.CurrentCoverUrl), _model.CoverUrl },
+        };
+        var options = await DialogDefaults.EditorAsync(Viewport, MaxWidth.Medium);
+        var dialog = await Dialogs.ShowAsync<CoverPickerDialog>(null, parameters, options);
+        if (await dialog.Result is not { Canceled: false, Data: string url } || string.Equals(url, _model.CoverUrl, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _model.CoverUrl = url;
+        _model.DominantColor = null;
+        StateHasChanged();
+        await RefreshCoverColorAsync();
+    }
 
     private void UseCoverColorForSpine()
     {

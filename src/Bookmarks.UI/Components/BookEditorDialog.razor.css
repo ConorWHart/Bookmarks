@@ -39,6 +39,12 @@
     box-shadow: 0 1px 4px rgb(0 0 0 / 0.3);
 }
 
+.bm-editor__cover-actions {
+    display: flex;
+    justify-content: center;
+    margin: -6px 0 10px;
+}
+
 .bm-editor__swatch {
     display: inline-block;
     width: 14px;

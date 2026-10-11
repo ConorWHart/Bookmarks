@@ -85,15 +85,178 @@ public sealed class OpenLibraryLookup(HttpClient http) : IBookLookup
 
         foreach (var w in works.EnumerateArray())
         {
-            var key = Str(w, "key");
-            if (key is not null && key.StartsWith("/works/OL", StringComparison.Ordinal) && key.EndsWith('W')
-                && key[9..^1].All(char.IsAsciiDigit) && key.Length > 10)
+            if (Str(w, "key") is { } key && IsWorkKey(key))
             {
                 return key;
             }
         }
 
         return null;
+    }
+
+    private static bool IsWorkKey(string key)
+        => key.Length > 10 && key.StartsWith("/works/OL", StringComparison.Ordinal) && key.EndsWith('W') && key[9..^1].All(char.IsAsciiDigit);
+
+    /// <summary>Most covers a picker shows.</summary>
+    public const int MaxCoverChoices = 60;
+
+    /// <summary>Most works (Open Library records of the same book) whose covers a picker gathers.</summary>
+    public const int MaxCoverWorks = 3;
+
+    public async Task<IReadOnlyList<string>> FindCoversAsync(string? isbn, string? title, string? author, CancellationToken ct = default)
+    {
+        JsonDocument? edition = null;
+        var docs = new List<JsonDocument?>();
+        try
+        {
+            // 1. The edition and its work, from the ISBN.
+            var workKeys = new List<string>();
+            if (Isbn.TryNormalize(isbn, out var isbn13))
+            {
+                edition = await GetEditionAsync(isbn13, ct).ConfigureAwait(false);
+                if (WorkKey(edition?.RootElement) is { } key)
+                {
+                    workKeys.Add(key);
+                }
+            }
+
+            // 2. Every other record of the same book, by title and author: Open Library often has several
+            //    works for one book, each with its own covers.
+            if (!string.IsNullOrWhiteSpace(title))
+            {
+                var query = $"{title} {author}".Trim();
+                using var search = await GetJsonAsync(
+                    $"search.json?q={Uri.EscapeDataString(query)}&fields=key,title&limit=10&lang={Uri.EscapeDataString(Language)}", ct).ConfigureAwait(false);
+                workKeys.AddRange(MatchingWorkKeys(search?.RootElement, title, fallbackToFirst: workKeys.Count == 0));
+            }
+
+            workKeys = workKeys.Distinct(StringComparer.Ordinal).Take(MaxCoverWorks).ToList();
+
+            // 3. Each work's covers and its editions' covers, fetched together.
+            var tasks = workKeys
+                .SelectMany(k => new[] { GetJsonAsync(k.TrimStart('/') + ".json", ct), GetJsonAsync(k.TrimStart('/') + "/editions.json?limit=50", ct) })
+                .ToList();
+            docs.AddRange(await Task.WhenAll(tasks).ConfigureAwait(false));
+
+            var works = new List<(JsonElement? Work, JsonElement? Editions)>();
+            for (var i = 0; i + 1 < docs.Count; i += 2)
+            {
+                works.Add((docs[i]?.RootElement, docs[i + 1]?.RootElement));
+            }
+
+            return CollectCoverIds(edition?.RootElement, works)
+                .Select(id => CoverUrls.ForOpenLibraryId(id))
+                .ToList();
+        }
+        finally
+        {
+            edition?.Dispose();
+            foreach (var d in docs)
+            {
+                d?.Dispose();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Works from a search whose title is this book's title (ignoring case, punctuation and a leading article; a
+    /// subtitle after it is fine). With <paramref name="fallbackToFirst"/>, the top result when none match exactly.
+    /// </summary>
+    internal static IReadOnlyList<string> MatchingWorkKeys(JsonElement? search, string title, bool fallbackToFirst)
+    {
+        var keys = new List<string>();
+        string? first = null;
+        var wanted = CatalogText.NormalizeTitle(title);
+        if (Arr(search, "docs") is { } docs)
+        {
+            foreach (var doc in docs.EnumerateArray())
+            {
+                if (Str(doc, "key") is not { } key || !IsWorkKey(key))
+                {
+                    continue;
+                }
+
+                first ??= key;
+                var found = CatalogText.NormalizeTitle(Str(doc, "title"));
+                if (wanted.Length > 0 && (found == wanted || found.StartsWith(wanted + " ", StringComparison.Ordinal)))
+                {
+                    keys.Add(key);
+                }
+            }
+        }
+
+        if (keys.Count == 0 && fallbackToFirst && first is not null)
+        {
+            keys.Add(first);
+        }
+
+        return keys;
+    }
+
+    /// <summary>
+    /// Cover ids in picking order: this edition's; then for each work in turn (the ISBN's own first) the work's covers
+    /// (curated by Open Library) and its editions' covers, English editions first. Deleted (-1) and repeated ids are
+    /// skipped.
+    /// </summary>
+    internal static IReadOnlyList<long> CollectCoverIds(
+        JsonElement? edition, IEnumerable<(JsonElement? Work, JsonElement? Editions)> works, int max = MaxCoverChoices)
+    {
+        var ids = new List<long>();
+        var seen = new HashSet<long>();
+
+        void Add(JsonElement? covers)
+        {
+            if (covers is not { } arr)
+            {
+                return;
+            }
+
+            foreach (var c in arr.EnumerateArray())
+            {
+                if (ids.Count < max && c.ValueKind == JsonValueKind.Number && c.TryGetInt64(out var id) && id > 0 && seen.Add(id))
+                {
+                    ids.Add(id);
+                }
+            }
+        }
+
+        Add(Arr(edition, "covers"));
+        foreach (var (work, editions) in works)
+        {
+            Add(Arr(work, "covers"));
+            if (Arr(editions, "entries") is { } entries)
+            {
+                var english = new List<JsonElement>();
+                var others = new List<JsonElement>();
+                foreach (var e in entries.EnumerateArray())
+                {
+                    (IsEnglish(e) ? english : others).Add(e);
+                }
+
+                foreach (var e in english.Concat(others))
+                {
+                    Add(Arr(e, "covers"));
+                }
+            }
+        }
+
+        return ids;
+
+        static bool IsEnglish(JsonElement e)
+        {
+            if (Arr(e, "languages") is { } langs)
+            {
+                foreach (var l in langs.EnumerateArray())
+                {
+                    if (Str(l, "key") == "/languages/eng")
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
     }
 
     public async Task<IReadOnlyList<BookSearchHit>> SearchAsync(string query, int limit = 20, CancellationToken ct = default)

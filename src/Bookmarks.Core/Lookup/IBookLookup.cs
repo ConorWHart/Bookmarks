@@ -16,4 +16,10 @@ public interface IBookLookup
 
     /// <summary>Free-text title / author search, best matches first.</summary>
     Task<IReadOnlyList<BookSearchHit>> SearchAsync(string query, int limit = 20, CancellationToken ct = default);
+
+    /// <summary>
+    /// Cover images to choose from for a book (medium-size URLs, best first): this edition's, the work's, then other
+    /// editions'. Found by ISBN, or by title and author when there's no ISBN. Empty when nothing is found.
+    /// </summary>
+    Task<IReadOnlyList<string>> FindCoversAsync(string? isbn, string? title, string? author, CancellationToken ct = default);
 }

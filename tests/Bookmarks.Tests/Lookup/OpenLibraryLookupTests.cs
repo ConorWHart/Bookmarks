@@ -147,6 +147,68 @@ public class OpenLibraryLookupTests
     }
 
     [Fact]
+    public async Task Cover_choices_come_from_the_edition_the_work_and_english_editions_first()
+    {
+        var (lookup, handler) = Create();
+        handler.Set("isbn/9780525589983.json", "{\"covers\":[1,-1],\"works\":[{\"key\":\"/works/OL18139176W\"}]}");
+        handler.Set("works/OL18139176W.json", "{\"covers\":[2,3,1]}");
+        handler.Set("works/OL18139176W/editions.json?limit=50",
+            "{\"entries\":[{\"covers\":[4],\"languages\":[{\"key\":\"/languages/fre\"}]},{\"covers\":[5,2],\"languages\":[{\"key\":\"/languages/eng\"}]},{}]}");
+
+        var covers = await lookup.FindCoversAsync("9780525589983", "Educated", "Tara Westover");
+
+        Assert.Equal(
+            new[] { 1L, 2, 3, 5, 4 }.Select(id => $"https://covers.openlibrary.org/b/id/{id}-M.jpg").ToArray(),
+            covers.ToArray());
+    }
+
+    [Fact]
+    public async Task Cover_choices_also_include_other_records_of_the_same_title()
+    {
+        var (lookup, handler) = Create();
+        handler.Set("isbn/9780525589983.json", "{\"covers\":[1],\"works\":[{\"key\":\"/works/OL18139176W\"}]}");
+        handler.Set("works/OL18139176W.json", "{\"covers\":[2]}");
+        handler.SetPrefix("search.json?",
+            "{\"docs\":[{\"key\":\"/works/OL18139176W\",\"title\":\"Educated\"},{\"key\":\"/works/OL2W\",\"title\":\"Educated: A Memoir\"},{\"key\":\"/works/OL3W\",\"title\":\"Uneducated\"}]}");
+        handler.Set("works/OL2W.json", "{\"covers\":[3,2]}");
+        handler.Set("works/OL3W.json", "{\"covers\":[99]}");
+
+        var covers = await lookup.FindCoversAsync("9780525589983", "Educated", "Tara Westover");
+
+        Assert.Equal(
+            new[] { 1L, 2, 3 }.Select(id => $"https://covers.openlibrary.org/b/id/{id}-M.jpg").ToArray(),
+            covers.ToArray());
+        Assert.DoesNotContain("works/OL3W.json", handler.Requests); // a different book
+    }
+
+    [Fact]
+    public async Task Without_an_isbn_cover_choices_are_found_by_title()
+    {
+        var (lookup, handler) = Create();
+        handler.Set("works/OL15358691W.json", "{\"covers\":[7429768]}");
+
+        var covers = await lookup.FindCoversAsync(null, "The Way of Kings", "Brandon Sanderson");
+
+        Assert.Equal(new[] { "https://covers.openlibrary.org/b/id/7429768-M.jpg" }, covers.ToArray());
+        Assert.Contains(handler.Requests, r => r.StartsWith("search.json?q=The%20Way%20of%20Kings%20Brandon%20Sanderson&fields=key,title&limit=10", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task No_book_means_no_cover_choices()
+    {
+        var (lookup, _) = Create();
+        Assert.Empty(await lookup.FindCoversAsync(null, null, null));
+    }
+
+    [Fact]
+    public void Cover_choices_are_capped()
+    {
+        using var work = System.Text.Json.JsonDocument.Parse("{\"covers\":[" + string.Join(',', Enumerable.Range(1, 100)) + "]}");
+        var works = new[] { ((System.Text.Json.JsonElement?)work.RootElement, (System.Text.Json.JsonElement?)null) };
+        Assert.Equal(OpenLibraryLookup.MaxCoverChoices, OpenLibraryLookup.CollectCoverIds(null, works).Count);
+    }
+
+    [Fact]
     public async Task Unknown_isbn_returns_null()
     {
         var (lookup, _) = Create();

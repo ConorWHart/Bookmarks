@@ -1,0 +1,124 @@
+@* Choose another Open Library cover for a book. Closes with the chosen medium-size cover URL. *@
+@using System.Text.Json
+@implements IDisposable
+@inject IBookLookup Lookup
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">Choose a cover</MudText>
+    </TitleContent>
+
+    <DialogContent>
+        @if (_loading)
+        {
+            <div class="d-flex align-center gap-3 py-6">
+                <MudProgressCircular Indeterminate="true" Size="Size.Small" Color="Color.Primary" />
+                <MudText>Looking for covers on Open Library…</MudText>
+            </div>
+        }
+        else if (_error is not null)
+        {
+            <MudAlert Severity="Severity.Error" Dense="true">@_error</MudAlert>
+        }
+        else if (VisibleCovers.Count == 0)
+        {
+            <MudText>Open Library has no covers for this book. You can paste a link to an image under “Cover and size”.</MudText>
+        }
+        else
+        {
+            <MudText Typo="Typo.body2" Class="mb-3 mud-text-secondary">
+                Covers of this book's editions from Open Library. Pick the one that looks most like your copy.
+            </MudText>
+            <div class="bm-covers" role="listbox" aria-label="Covers">
+                @foreach (var url in VisibleCovers)
+                {
+                    var selected = IsCurrent(url);
+                    <button type="button" @key="url" role="option" aria-selected="@(selected ? "true" : "false")"
+                            class="@(selected ? "bm-covers__item bm-covers__item--on" : "bm-covers__item")"
+                            @onclick="() => Pick(url)">
+                        <img src="@PreviewSrc(url)" alt="" loading="lazy" decoding="async" crossorigin="anonymous"
+                             @onerror="() => Hide(url)" />
+                        @if (selected)
+                        {
+                            <span class="bm-covers__check" aria-hidden="true">
+                                <MudIcon Icon="@Icons.Material.Filled.Check" Size="Size.Small" />
+                            </span>
+                        }
+                    </button>
+                }
+            </div>
+        }
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public string? Isbn13 { get; set; }
+
+    [Parameter] public string? Title { get; set; }
+
+    [Parameter] public string? Author { get; set; }
+
+    [Parameter] public string? CurrentCoverUrl { get; set; }
+
+    private readonly CancellationTokenSource _cts = new();
+    private readonly HashSet<string> _hidden = new(StringComparer.Ordinal);
+    private IReadOnlyList<string> _covers = [];
+    private bool _loading = true;
+    private string? _error;
+
+    private List<string> VisibleCovers => _covers.Where(c => !_hidden.Contains(c)).ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var covers = (await Lookup.FindCoversAsync(Isbn13, Title, Author, _cts.Token)).ToList();
+
+            // The current cover first, so it's easy to keep.
+            if (CurrentCoverUrl is { } current && CoverUrls.IsOpenLibrary(current))
+            {
+                var normalized = CoverUrls.WithSize(current, CoverSize.Medium);
+                covers.RemoveAll(c => string.Equals(c, normalized, StringComparison.Ordinal));
+                covers.Insert(0, normalized);
+            }
+
+            _covers = covers;
+        }
+        catch (OperationCanceledException) when (_cts.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
+        {
+            _error = "Couldn't reach Open Library. Check your connection and try again.";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    // ?default=false makes Open Library answer 404 for an id without an image, instead of a blank placeholder,
+    // so those tiles can be hidden.
+    private static string PreviewSrc(string url) => url + "?default=false";
+
+    private bool IsCurrent(string url)
+        => CurrentCoverUrl is { } current && string.Equals(CoverUrls.WithSize(current, CoverSize.Medium), url, StringComparison.Ordinal);
+
+    private void Hide(string url) => _hidden.Add(url);
+
+    private void Pick(string url) => MudDialog.Close(DialogResult.Ok(url));
+
+    private void Cancel() => MudDialog.Cancel();
+
+    public void Dispose()
+    {
+        _cts.Cancel();
+        _cts.Dispose();
+    }
+}
