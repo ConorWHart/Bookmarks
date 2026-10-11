@@ -12,13 +12,13 @@
             <div class="bm-editor__form">
 
                 @* ---------- Find on Open Library ---------- *@
-                <BookFinder @ref="_finder" InitialQuery="@_initialQuery" AutoFocus="IsNew" OnFound="ApplyLookupAsync" OnIsbnNotFound="KeepIsbn" />
+                <BookFinder @ref="_finder" InitialQuery="@_initialQuery" AutoFocus="IsNew" OnFound="ApplyLookupAsync" OnIsbnNotFound="KeepIsbn" OnScanned="UseScannedIsbn" />
                 @if (_lookupSummary is not null)
                 {
                     <MudAlert Severity="Severity.Success" Dense="true" Class="mt-2" ShowCloseIcon="true" CloseIconClicked="() => _lookupSummary = null">
                         <div class="d-flex align-center flex-wrap gap-2">
                             <span>@_lookupSummary</span>
-                            @if (!IsNew && _lastLookup is not null && !_replaced)
+                            @if (_lastLookup is not null && !_replaced)
                             {
                                 <MudButton Variant="Variant.Text" Size="Size.Small" Color="Color.Primary" OnClick="ReplaceAllAsync">Replace all fields</MudButton>
                             }
@@ -252,6 +252,10 @@
     private BookFinder? _finder;
     private string? _autoLookupIsbn;
 
+    // The ISBN of the book the form currently shows: the one it was opened with, or the last one filled in from a
+    // lookup. A lookup with a different ISBN is a different book and replaces every book detail.
+    private string? _bookIsbn;
+
     private bool IsNew => _entry is null;
 
     private Guid ShelfChoice
@@ -269,7 +273,7 @@
         if (_entry is not null)
         {
             _initialQuery = Isbn.TryNormalize(_model.Isbn13, out var isbn)
-                ? _autoLookupIsbn = isbn
+                ? _autoLookupIsbn = _bookIsbn = isbn
                 : $"{_model.Title} {BookEditModel.SplitList(_model.AuthorsText).FirstOrDefault()}".Trim();
         }
 
@@ -333,12 +337,20 @@
 
     private async Task ApplyLookupAsync(BookLookupResult result)
     {
+        var mode = LookupMerge.ModeFor(_bookIsbn, result);
         _lastLookup = result;
-        _replaced = false;
-        var changed = LookupMerge.Apply(_model, result, LookupApplyMode.FillEmpty, IsNew);
-        _lookupSummary = changed.Count == 0
-            ? "Open Library had nothing new to add."
-            : $"{LookupMerge.Describe(changed)} from Open Library.";
+        _replaced = mode == LookupApplyMode.ReplaceBook; // nothing more to replace
+        var changed = LookupMerge.Apply(_model, result, mode, IsNew);
+        if (Isbn.TryNormalize(result.Isbn13, out var isbn))
+        {
+            _bookIsbn = isbn;
+        }
+
+        _lookupSummary = mode == LookupApplyMode.ReplaceBook
+            ? $"Replaced the book details with “{result.Title}” from Open Library."
+            : changed.Count == 0
+                ? "Open Library had nothing new to add."
+                : $"{LookupMerge.Describe(changed)} from Open Library.";
         StateHasChanged();
         await RefreshCoverColorAsync();
     }
@@ -356,6 +368,13 @@
             ? "Already matches Open Library."
             : $"{LookupMerge.Describe(changed)} from Open Library.";
         await RefreshCoverColorAsync();
+    }
+
+    /// <summary>A scanned barcode is this copy's ISBN, so it replaces whatever was there.</summary>
+    private void UseScannedIsbn(string isbn)
+    {
+        _model.Isbn13 = isbn;
+        _autoLookupIsbn = isbn; // the finder looks it up; don't repeat that from the ISBN field
     }
 
     private void KeepIsbn(string isbn)

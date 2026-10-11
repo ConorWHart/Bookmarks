@@ -118,6 +118,61 @@ public class LookupMergeTests
     }
 
     [Fact]
+    public void A_different_book_replaces_every_book_detail_and_clears_the_rest()
+    {
+        var model = BookEditModel.ForNew();
+        LookupMerge.Apply(model, HailMary, LookupApplyMode.FillEmpty, isNewBook: true);
+        model.Subtitle = "A Novel of Survival";
+        model.Series = "Some Series";
+        model.SeriesNumber = 2;
+        model.Status = OwnershipStatus.Wishlist;
+        model.DominantColor = "#112233";
+
+        var other = new BookLookupResult
+        {
+            Isbn13 = "9781452113227",
+            Title = "F for Effort!",
+            Authors = ["Richard Benson"],
+            PageCount = 127,
+            CoverUrl = "https://covers.openlibrary.org/b/id/7-M.jpg",
+            Format = BookFormat.Paperback,
+        };
+        LookupMerge.Apply(model, other, LookupApplyMode.ReplaceBook, isNewBook: true);
+
+        Assert.Equal("F for Effort!", model.Title);
+        Assert.Equal("Richard Benson", model.AuthorsText);
+        Assert.Equal(127, model.PageCount);
+        Assert.Null(model.Subtitle);       // cleared: the new book has none
+        Assert.Null(model.Publisher);
+        Assert.Null(model.PublishedYear);
+        Assert.Null(model.GenresText);
+        Assert.Null(model.Series);
+        Assert.Null(model.SeriesNumber);
+        Assert.Null(model.HeightMm);
+        Assert.Equal(other.CoverUrl, model.CoverUrl);
+        Assert.Null(model.DominantColor);  // re-extracted from the new cover
+        Assert.Equal(BookFormat.Paperback, model.Format);
+        Assert.Equal(OwnershipStatus.Wishlist, model.Status); // "your copy" untouched
+    }
+
+    [Fact]
+    public void Replace_book_on_an_existing_book_also_sets_the_binding()
+    {
+        var model = new BookEditModel { Title = "X", Format = BookFormat.Hardcover };
+        LookupMerge.Apply(model, HailMary with { Format = BookFormat.Paperback }, LookupApplyMode.ReplaceBook, isNewBook: false);
+        Assert.Equal(BookFormat.Paperback, model.Format);
+    }
+
+    [Theory]
+    [InlineData(null, "9780593135204", LookupApplyMode.FillEmpty)]            // nothing looked up yet: keep what was typed
+    [InlineData("9780593135204", "9780593135204", LookupApplyMode.FillEmpty)] // same book again
+    [InlineData("0-593-13520-2", "9780593135204", LookupApplyMode.FillEmpty)] // same book, ISBN-10 form
+    [InlineData("9780593135204", "9781452113227", LookupApplyMode.ReplaceBook)]
+    [InlineData("9780593135204", null, LookupApplyMode.FillEmpty)]            // a search hit without an ISBN
+    public void Mode_depends_on_whether_it_is_a_different_book(string? current, string? found, LookupApplyMode expected)
+        => Assert.Equal(expected, LookupMerge.ModeFor(current, new BookLookupResult { Title = "X", Isbn13 = found }));
+
+    [Fact]
     public void Describe_summarizes()
     {
         Assert.Equal("Updated title", LookupMerge.Describe(["Title"]));

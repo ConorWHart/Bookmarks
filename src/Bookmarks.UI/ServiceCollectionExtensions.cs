@@ -23,6 +23,7 @@ public static class ServiceCollectionExtensions
         services.TryAddScoped<ISyncService, NullSyncService>();
         services.TryAddSingleton<ILocalLibraryEraser, NullLocalLibraryEraser>();
         services.TryAddScoped<ICoverColorService, NullCoverColorService>();
+        services.TryAddScoped<IBarcodeScanner, NullBarcodeScanner>();
 
         // Book lookup (Phase 5): Open Library straight from the app; it allows CORS, so no server is involved.
         services.TryAddSingleton<IBookLookup>(_ => new OpenLibraryLookup(new HttpClient

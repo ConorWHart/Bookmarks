@@ -47,6 +47,9 @@ builder.Services.AddScoped<IAppStatusService, BrowserAppStatusService>();
 // Cover colors for spines (Phase 5): sampled on a canvas (js/covers.js).
 builder.Services.AddScoped<ICoverColorService, BrowserCoverColorService>();
 
+// Barcode scanning (Phase 5): BarcodeDetector where the browser has it, else ZXing (js/scanner.js).
+builder.Services.AddScoped<IBarcodeScanner, BrowserBarcodeScanner>();
+
 // The API lives on another origin (localhost:7201 in development, App Service once deployed).
 var apiBaseAddress = new Uri(builder.Configuration["Api:BaseAddress"] ?? baseAddress.ToString());
 builder.Services.AddScoped(sp => new BookmarksApiClient(

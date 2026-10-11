@@ -3,6 +3,9 @@
 @implements IDisposable
 @inject IBookLookup Lookup
 @inject IAppStatusService AppStatus
+@inject IBarcodeScanner Scanner
+@inject IDialogService Dialogs
+@inject IBrowserViewportService Viewport
 
 <div class="bm-finder">
     <div class="bm-finder__bar" @onkeydown="OnKeyDownAsync">
@@ -11,8 +14,9 @@
                       Disabled="@(!AppStatus.IsOnline)" HelperText="@Helper"
                       Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Search"
                       OnAdornmentClick="RunAsync" AdornmentAriaLabel="Search" Class="flex-grow-1" />
-        <MudTooltip Text="Barcode scanning is coming soon">
-            <MudIconButton Icon="@Icons.Material.Filled.QrCodeScanner" Disabled="true" aria-label="Scan barcode (coming soon)" />
+        <MudTooltip Text="@ScanTooltip">
+            <MudIconButton Icon="@Icons.Material.Filled.QrCodeScanner" Disabled="@(!_canScan || _busy)"
+                           OnClick="ScanAsync" aria-label="Scan a barcode" />
         </MudTooltip>
     </div>
 
@@ -64,6 +68,15 @@
     /// <summary>A valid ISBN that Open Library doesn't know; the editor keeps it for manual entry.</summary>
     [Parameter] public EventCallback<string> OnIsbnNotFound { get; set; }
 
+    /// <summary>A barcode was scanned (before it's looked up), so the editor can keep the ISBN even offline.</summary>
+    [Parameter] public EventCallback<string> OnScanned { get; set; }
+
+    private bool _canScan;
+
+    private string ScanTooltip => _canScan
+        ? "Scan a barcode"
+        : "Scanning needs a camera and a secure (https) connection";
+
     private string? _query;
     private bool _busy;
     private string? _message;
@@ -75,10 +88,37 @@
         ? "Press Enter to search"
         : "Finding books needs a connection; you can still enter the details by hand";
 
+    protected override async Task OnInitializedAsync()
+    {
+        _canScan = await Scanner.IsSupportedAsync();
+    }
+
     protected override void OnInitialized()
     {
         _query = InitialQuery;
         AppStatus.Changed += OnStatusChanged;
+    }
+
+    /// <summary>Opens the camera scanner; a scanned ISBN is looked up straight away (or kept for later when offline).</summary>
+    private async Task ScanAsync()
+    {
+        var options = await DialogDefaults.EditorAsync(Viewport, MaxWidth.Small);
+        var dialog = await Dialogs.ShowAsync<ScannerDialog>(null, new DialogParameters(), options);
+        if (await dialog.Result is not { Canceled: false, Data: string isbn })
+        {
+            return;
+        }
+
+        await OnScanned.InvokeAsync(isbn);
+        if (AppStatus.IsOnline)
+        {
+            await FindAsync(isbn);
+        }
+        else
+        {
+            _query = isbn;
+            Show(Severity.Info, $"Scanned ISBN {isbn}. You're offline, so it's been put in the ISBN field; look the book up when you're back online.");
+        }
     }
 
     /// <summary>Runs a query from outside (barcode scanner).</summary>

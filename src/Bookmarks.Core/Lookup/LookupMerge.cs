@@ -11,6 +11,12 @@ public enum LookupApplyMode
 
     /// <summary>Every field the lookup found replaces the current value (fields it didn't find are kept).</summary>
     ReplaceAll,
+
+    /// <summary>
+    /// The lookup is a different book (another ISBN): every book detail and the cover come from it, and details it
+    /// doesn't have are cleared, so nothing of the previous book is left behind. "Your copy" fields are kept.
+    /// </summary>
+    ReplaceBook,
 }
 
 /// <summary>Applies a lookup result to the editor model.</summary>
@@ -31,16 +37,24 @@ public static class LookupMerge
         ArgumentNullException.ThrowIfNull(result);
 
         var changed = new List<string>();
-        var replace = mode == LookupApplyMode.ReplaceAll;
+        var clear = mode == LookupApplyMode.ReplaceBook;
+        var replace = mode is LookupApplyMode.ReplaceAll or LookupApplyMode.ReplaceBook;
 
         void Text(string name, Func<string?> get, Action<string?> set, string? value)
         {
+            var current = get();
             if (string.IsNullOrWhiteSpace(value))
             {
+                // A different book: drop the previous book's detail. Title and ISBN are never blanked.
+                if (clear && !string.IsNullOrWhiteSpace(current) && name is not ("Title" or "ISBN"))
+                {
+                    set(null);
+                    changed.Add(name);
+                }
+
                 return;
             }
 
-            var current = get();
             if ((replace || string.IsNullOrWhiteSpace(current)) && !string.Equals(current?.Trim(), value.Trim(), StringComparison.Ordinal))
             {
                 set(value.Trim());
@@ -51,12 +65,18 @@ public static class LookupMerge
         void Number<T>(string name, Func<T?> get, Action<T?> set, T? value)
             where T : struct
         {
+            var current = get();
             if (value is null)
             {
+                if (clear && current is not null)
+                {
+                    set(null);
+                    changed.Add(name);
+                }
+
                 return;
             }
 
-            var current = get();
             if ((replace || current is null) && !Equals(current, value))
             {
                 set(value);
@@ -74,7 +94,13 @@ public static class LookupMerge
         Text("Genres", () => model.GenresText, v => model.GenresText = v, Join(result.Genres));
 
         // Series and number go together.
-        if (!string.IsNullOrWhiteSpace(result.Series) && (replace || string.IsNullOrWhiteSpace(model.Series))
+        if (clear && string.IsNullOrWhiteSpace(result.Series) && !string.IsNullOrWhiteSpace(model.Series))
+        {
+            model.Series = null;
+            model.SeriesNumber = null;
+            changed.Add("Series");
+        }
+        else if (!string.IsNullOrWhiteSpace(result.Series) && (replace || string.IsNullOrWhiteSpace(model.Series))
             && !(string.Equals(model.Series, result.Series, StringComparison.Ordinal) && model.SeriesNumber == result.SeriesNumber))
         {
             model.Series = result.Series;
@@ -93,7 +119,7 @@ public static class LookupMerge
         Number("Width", () => model.WidthMm, v => model.WidthMm = v, result.WidthMm);
         Number("Thickness", () => model.ThicknessMm, v => model.ThicknessMm = v, result.ThicknessMm);
 
-        if (isNewBook && result.Format is { } format && model.Format != format)
+        if ((isNewBook || clear) && result.Format is { } format && model.Format != format)
         {
             model.Format = format;
             changed.Add("Format");
@@ -105,6 +131,21 @@ public static class LookupMerge
         }
 
         return changed;
+    }
+
+    /// <summary>
+    /// <see cref="LookupApplyMode.ReplaceBook"/> when the result has a different ISBN from the book the form currently
+    /// shows (<paramref name="currentBookIsbn"/>: the ISBN the form was opened with or last filled from); otherwise
+    /// <see cref="LookupApplyMode.FillEmpty"/>, so details the user typed in are kept.
+    /// </summary>
+    public static LookupApplyMode ModeFor(string? currentBookIsbn, BookLookupResult result)
+    {
+        ArgumentNullException.ThrowIfNull(result);
+        return Isbn.TryNormalize(currentBookIsbn, out var current)
+            && Isbn.TryNormalize(result.Isbn13, out var found)
+            && current != found
+                ? LookupApplyMode.ReplaceBook
+                : LookupApplyMode.FillEmpty;
     }
 
     /// <summary>"Filled title, authors and 4 more" style summary of <see cref="Apply"/>'s result.</summary>
