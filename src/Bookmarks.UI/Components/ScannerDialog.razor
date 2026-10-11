@@ -15,6 +15,13 @@
             {
                 <div class="bm-scanner__guide" aria-hidden="true"></div>
             }
+            @if (_torchAvailable && _error is null)
+            {
+                <button type="button" class="@TorchClass" aria-pressed="@(_torchOn ? "true" : "false")" @onclick="ToggleTorchAsync">
+                    <MudIcon Icon="@TorchIcon" Size="Size.Small" />
+                    <span>@TorchLabel</span>
+                </button>
+            }
             @if (_starting)
             {
                 <div class="bm-scanner__status">
@@ -35,14 +42,6 @@
     </DialogContent>
 
     <DialogActions>
-        @if (_torchAvailable)
-        {
-            <MudTooltip Text="@TorchLabel">
-                <MudIconButton Icon="@(_torchOn ? Icons.Material.Filled.FlashOff : Icons.Material.Filled.FlashOn)"
-                               OnClick="ToggleTorchAsync" aria-label="Toggle the camera light" />
-            </MudTooltip>
-        }
-        <MudSpacer />
         <MudButton OnClick="Cancel">Cancel</MudButton>
     </DialogActions>
 </MudDialog>
@@ -134,7 +133,11 @@
         MudDialog.Cancel();
     }
 
-    private string TorchLabel => _torchOn ? "Turn the light off" : "Turn the light on";
+    private string TorchLabel => _torchOn ? "Turn off light" : "Turn on light";
+
+    private string TorchIcon => _torchOn ? Icons.Material.Filled.FlashOff : Icons.Material.Filled.FlashOn;
+
+    private string TorchClass => _torchOn ? "bm-scanner__torch bm-scanner__torch--on" : "bm-scanner__torch";
 
     private static string Message(string error) => error switch
     {

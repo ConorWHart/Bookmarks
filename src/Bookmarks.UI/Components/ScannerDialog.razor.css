@@ -54,6 +54,46 @@
     }
 }
 
+/* Light toggle on the camera view itself, where the eye already is. */
+.bm-scanner__torch {
+    position: absolute;
+    left: 50%;
+    bottom: 14px;
+    z-index: 2;
+    transform: translateX(-50%);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px; /* comfortable touch target */
+    padding: 10px 18px;
+    border: 1px solid rgb(255 255 255 / 0.55);
+    border-radius: 999px;
+    background: rgb(0 0 0 / 0.6);
+    color: #fff;
+    font: inherit;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    backdrop-filter: blur(4px);
+    transition: background 120ms ease, color 120ms ease;
+}
+
+.bm-scanner__torch:hover,
+.bm-scanner__torch:focus-visible {
+    background: rgb(0 0 0 / 0.75);
+    outline: 2px solid #fff;
+    outline-offset: 2px;
+}
+
+.bm-scanner__torch--on,
+.bm-scanner__torch--on:hover,
+.bm-scanner__torch--on:focus-visible {
+    border-color: #F2C14E;
+    background: #F2C14E;
+    color: #1A1A1A;
+}
+
 .bm-scanner__status {
     position: absolute;
     inset: 0;
