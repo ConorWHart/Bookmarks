@@ -116,6 +116,9 @@
                     <MudButton Href="bookcases" Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
                                StartIcon="@Icons.Material.Filled.ViewWeek">Bookcases</MudButton>
 
+                    <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
+                               StartIcon="@Icons.Material.Filled.ImageSearch" OnClick="OpenFindCoversAsync">Find covers</MudButton>
+
                     <div style="width:160px">
                         <MudSlider T="double" @bind-Value="_scale" @bind-Value:after="SaveScale" Min="MinScale" Max="MaxScale" Step="0.05" Size="Size.Small">Size</MudSlider>
                     </div>
@@ -292,6 +295,13 @@
         }
 
         _ = InvokeAsync(StateHasChanged);
+    }
+
+    /// <summary>"Find covers &amp; details" for books already in the library (Phase 5).</summary>
+    private async Task OpenFindCoversAsync()
+    {
+        var options = await DialogDefaults.EditorAsync(Viewport, MaxWidth.Small);
+        await Dialogs.ShowAsync<FindCoversDialog>(null, new DialogParameters(), options);
     }
 
     /// <summary>Add (entry = null) or edit a book.</summary>

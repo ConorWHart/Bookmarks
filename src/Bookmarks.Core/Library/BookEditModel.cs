@@ -223,6 +223,19 @@ public sealed class BookEditModel
         if (SpineColorFollowsCover && DominantColor is not null)
         {
             _spineColor = DominantColor;
+            EnsureReadableText();
+        }
+    }
+
+    /// <summary>
+    /// After the spine color changes on its own (a cover color), drops a chosen text color that would be hard to read
+    /// on it, so the lettering goes back to automatic (black or white by contrast).
+    /// </summary>
+    public void EnsureReadableText()
+    {
+        if (TextColor is { } text && SpineColor is { } spine && ColorUtil.ContrastRatio(text, spine) < ColorUtil.ComfortableContrast)
+        {
+            TextColor = null;
         }
     }
 

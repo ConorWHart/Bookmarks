@@ -151,6 +151,10 @@
             {
                 _busy = false;
             }
+
+            // Also needed when the lookup was started from outside (FindAsync): Blazor only re-renders a component
+            // by itself after its own UI events, so the progress bar would otherwise stay up.
+            StateHasChanged();
         }
     }
 
@@ -198,6 +202,10 @@
             {
                 _busy = false;
             }
+
+            // Also needed when the lookup was started from outside (FindAsync): Blazor only re-renders a component
+            // by itself after its own UI events, so the progress bar would otherwise stay up.
+            StateHasChanged();
         }
     }
 

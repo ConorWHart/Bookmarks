@@ -1,13 +1,17 @@
-@* Face-out grid of every book. Covers are color tiles until cover images arrive in Phase 5.
+@* Face-out grid of every book: the real cover when there is one, otherwise (or when it can't load) a color tile.
    TODO: virtualize by row for very large libraries. *@
 
 <div class="bm-grid">
     @foreach (var entry in Entries)
     {
-        <button type="button" @key="entry.Id" class="bm-grid__item" @onclick="() => OnSelected.InvokeAsync(entry)"
+        <button type="button" @key="entry.Id" class="@ItemClass(entry)" @onclick="() => OnSelected.InvokeAsync(entry)"
                 style="@TileStyle(entry)" title="@entry.Title">
             <span class="bm-grid__title">@entry.Title</span>
             <span class="bm-grid__author">@entry.Author</span>
+            @if (entry.Book.CoverUrl is { } cover)
+            {
+                <CoverImage Url="@cover" Size="CoverSize.Medium" Class="bm-grid__cover" />
+            }
             @if (entry.Item.Status == OwnershipStatus.Wishlist)
             {
                 <span class="bm-grid__badge">Wishlist</span>
@@ -21,9 +25,12 @@
 
     [Parameter] public EventCallback<LibraryEntry> OnSelected { get; set; }
 
+    private static string ItemClass(LibraryEntry e)
+        => e.Book.CoverUrl is null ? "bm-grid__item" : "bm-grid__item bm-grid__item--cover";
+
     private static string TileStyle(LibraryEntry e)
     {
-        var fg = e.Item.Appearance.TextColor ?? ColorUtil.ContrastText(e.SpineColor);
+        var fg = ColorUtil.SpineTextColor(e.SpineColor, e.Item.Appearance.TextColor, ornate: false);
         return $"--bm-book-bg:{e.SpineColor};--bm-book-fg:{fg};--bm-book-emboss:{ColorUtil.EmbossShadow(fg)};";
     }
 }

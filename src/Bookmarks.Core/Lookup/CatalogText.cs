@@ -92,13 +92,60 @@ public static partial class CatalogText
         return (series, ParseNumber(m.Groups["n"].Value));
     }
 
-    /// <summary>Subtitles that add nothing ("A Novel", "A Novel.") are dropped.</summary>
+    /// <summary>
+    /// Open Library sometimes lists translators or narrators as authors of a work ("Tara Westover, Orah Danḳner").
+    /// When the edition's "by" statement ("by Tara Westover") names some of them, only those are kept; otherwise the
+    /// list is returned unchanged.
+    /// </summary>
+    public static IReadOnlyList<string> FilterByStatement(IReadOnlyList<string> authors, string? byStatement)
+    {
+        ArgumentNullException.ThrowIfNull(authors);
+        if (authors.Count < 2 || string.IsNullOrWhiteSpace(byStatement))
+        {
+            return authors;
+        }
+
+        var by = Fold(byStatement);
+        var credited = authors.Where(a => Surname(a) is { Length: > 1 } s && by.Contains(s, StringComparison.Ordinal)).ToList();
+        return credited.Count > 0 ? credited : authors;
+
+        static string? Surname(string name)
+        {
+            var parts = Fold(name).Split(new[] { ' ', '.', ',' }, StringSplitOptions.RemoveEmptyEntries);
+            return parts.Length == 0 ? null : parts[^1];
+        }
+    }
+
+    /// <summary>Lower case without accents, so "Danḳner" matches "Dankner".</summary>
+    private static string Fold(string text)
+    {
+        var decomposed = text.Normalize(System.Text.NormalizationForm.FormD);
+        var sb = new System.Text.StringBuilder(decomposed.Length);
+        foreach (var c in decomposed)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)
+            {
+                sb.Append(char.ToLowerInvariant(c));
+            }
+        }
+
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Subtitles that add nothing ("A Novel", "A Novel.") are dropped; catalog records often store the rest in lower
+    /// case ("a memoir"), so the first letter is capitalized.
+    /// </summary>
     public static string? CleanSubtitle(string? subtitle)
     {
         var s = subtitle?.Trim().TrimEnd('.');
-        return string.IsNullOrEmpty(s) || s.Equals("a novel", StringComparison.OrdinalIgnoreCase) || s.Equals("novel", StringComparison.OrdinalIgnoreCase)
-            ? null
-            : subtitle!.Trim();
+        if (string.IsNullOrEmpty(s) || s.Equals("a novel", StringComparison.OrdinalIgnoreCase) || s.Equals("novel", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        var trimmed = subtitle!.Trim();
+        return char.ToUpperInvariant(trimmed[0]) + trimmed[1..];
     }
 
     private static decimal? ParseNumber(string text)

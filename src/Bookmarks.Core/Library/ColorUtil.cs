@@ -4,6 +4,16 @@ namespace Bookmarks.Core.Library;
 
 public static class ColorUtil
 {
+    public const string LightText = "#FFFFFF";
+    public const string DarkText = "#1A1A1A";
+    public const string Gilt = "#E9C46A";
+
+    /// <summary>Contrast for comfortable reading of large text like spine titles (WCAG AA for large text).</summary>
+    public const double ComfortableContrast = 3.0;
+
+    /// <summary>Below this a chosen text color is effectively unreadable, so the automatic color is used instead.</summary>
+    public const double MinimumCustomContrast = 2.0;
+
     /// <summary>Parses #RGB or #RRGGBB. Returns false for anything else.</summary>
     public static bool TryParseHex(string? hex, out (byte R, byte G, byte B) rgb)
     {
@@ -100,16 +110,54 @@ public static class ColorUtil
             : "0 1px 0 rgb(255 255 255 / 0.35)";
     }
 
-    /// <summary>Black or white, whichever reads better on the given background.</summary>
+    /// <summary>Black or white, whichever has the higher contrast ratio on the given background.</summary>
     public static string ContrastText(string? backgroundHex)
     {
-        if (!TryParseHex(backgroundHex, out var c))
+        if (!TryParseHex(backgroundHex, out _))
         {
-            return "#FFFFFF";
+            return LightText;
         }
 
-        // Relative luminance (sRGB approximation is fine for this purpose).
-        var lum = ((0.299 * c.R) + (0.587 * c.G) + (0.114 * c.B)) / 255;
-        return lum > 0.6 ? "#1A1A1A" : "#FFFFFF";
+        return ContrastRatio(LightText, backgroundHex) >= ContrastRatio(DarkText, backgroundHex) ? LightText : DarkText;
+    }
+
+    /// <summary>
+    /// The lettering color for a spine or cover tile: the user's choice when it's readable on the background,
+    /// otherwise black or white by contrast; ornate (leather) spines get gilt where gilt stands out well enough.
+    /// </summary>
+    public static string SpineTextColor(string? backgroundHex, string? customHex, bool ornate)
+    {
+        if (customHex is not null && ContrastRatio(customHex, backgroundHex) >= MinimumCustomContrast)
+        {
+            return customHex;
+        }
+
+        var automatic = ContrastText(backgroundHex);
+        return ornate && automatic == LightText && ContrastRatio(Gilt, backgroundHex) >= ComfortableContrast
+            ? Gilt
+            : automatic;
+    }
+
+    /// <summary>WCAG contrast ratio, 1 (none) to 21 (black on white). Unparseable colors count as fully readable.</summary>
+    public static double ContrastRatio(string? foregroundHex, string? backgroundHex)
+    {
+        if (!TryParseHex(foregroundHex, out var fg) || !TryParseHex(backgroundHex, out var bg))
+        {
+            return 21;
+        }
+
+        var a = RelativeLuminance(fg);
+        var b = RelativeLuminance(bg);
+        return (Math.Max(a, b) + 0.05) / (Math.Min(a, b) + 0.05);
+    }
+
+    /// <summary>WCAG relative luminance, 0 (black) to 1 (white).</summary>
+    public static double RelativeLuminance((byte R, byte G, byte B) c)
+        => (0.2126 * Linear(c.R)) + (0.7152 * Linear(c.G)) + (0.0722 * Linear(c.B));
+
+    private static double Linear(byte channel)
+    {
+        var v = channel / 255d;
+        return v <= 0.04045 ? v / 12.92 : Math.Pow((v + 0.055) / 1.055, 2.4);
     }
 }

@@ -16,6 +16,8 @@ namespace Bookmarks.Core.Lookup;
 /// <item><c>/isbn/{isbn}.json</c>: the raw edition, for what the first leaves out (binding, physical dimensions,
 /// subtitle, cover ids). Optional: if it fails, the lookup still succeeds.</item>
 /// </list>
+/// <para>Many editions have no cover or subjects of their own; the work (the book across all its editions) usually
+/// does. Only then is a third request made, for <c>/works/{id}.json</c>, to borrow its main cover and subjects.</para>
 /// <para>Responses are read with <see cref="JsonDocument"/> rather than typed models: the records are user-edited
 /// and inconsistent (publishers as strings or objects, numbers as strings, missing fields), and this stays trim-safe.
 /// Open Library asks for ≤ 1 request per second for unidentified clients; bulk callers must pace themselves.</para>
@@ -42,7 +44,56 @@ public sealed class OpenLibraryLookup(HttpClient http) : IBookLookup
         using var data = await GetJsonAsync($"api/books?bibkeys=ISBN:{isbn13}&jscmd=data&format=json", ct).ConfigureAwait(false);
         using var edition = await editionTask.ConfigureAwait(false);
 
-        return ParseIsbnLookup(isbn13, data?.RootElement, edition?.RootElement);
+        var result = ParseIsbnLookup(isbn13, data?.RootElement, edition?.RootElement);
+        if (result is not null && (result.CoverUrl is null || result.Genres.Count == 0) && WorkKey(edition?.RootElement) is { } workKey)
+        {
+            result = await AddWorkDetailsAsync(result, workKey, ct).ConfigureAwait(false);
+        }
+
+        return result;
+    }
+
+    /// <summary>Fills a missing cover and genres from the work record. Failures leave the result as it was.</summary>
+    private async Task<BookLookupResult> AddWorkDetailsAsync(BookLookupResult result, string workKey, CancellationToken ct)
+    {
+        try
+        {
+            using var work = await GetJsonAsync(workKey.TrimStart('/') + ".json", ct).ConfigureAwait(false);
+            return work is null ? result : MergeWork(result, work.RootElement);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or JsonException)
+        {
+            return result;
+        }
+    }
+
+    internal static BookLookupResult MergeWork(BookLookupResult result, JsonElement work)
+    {
+        var cover = result.CoverUrl
+            ?? (FirstCoverId(Arr(work, "covers")) is { } id ? CoverUrls.ForOpenLibraryId(id) : null);
+        var genres = result.Genres.Count > 0 ? result.Genres : GenreMapper.FromSubjects(Strings(Arr(work, "subjects")));
+        return result with { CoverUrl = cover, Genres = genres };
+    }
+
+    /// <summary>The edition's work, e.g. "/works/OL18139176W"; only well-formed keys, since it becomes part of a URL.</summary>
+    internal static string? WorkKey(JsonElement? edition)
+    {
+        if (Arr(edition, "works") is not { } works)
+        {
+            return null;
+        }
+
+        foreach (var w in works.EnumerateArray())
+        {
+            var key = Str(w, "key");
+            if (key is not null && key.StartsWith("/works/OL", StringComparison.Ordinal) && key.EndsWith('W')
+                && key[9..^1].All(char.IsAsciiDigit) && key.Length > 10)
+            {
+                return key;
+            }
+        }
+
+        return null;
     }
 
     public async Task<IReadOnlyList<BookSearchHit>> SearchAsync(string query, int limit = 20, CancellationToken ct = default)
@@ -113,7 +164,7 @@ public sealed class OpenLibraryLookup(HttpClient http) : IBookLookup
             Isbn13 = isbn13,
             Title = title.Trim(),
             Subtitle = CatalogText.CleanSubtitle(subtitle),
-            Authors = Names(Arr(data, "authors")),
+            Authors = CatalogText.FilterByStatement(Names(Arr(data, "authors")), Str(edition, "by_statement")),
             Publisher = Names(Arr(data, "publishers")).FirstOrDefault() ?? Names(Arr(edition, "publishers")).FirstOrDefault(),
             PublishedYear = CatalogText.ExtractYear(Str(data, "publish_date") ?? Str(edition, "publish_date")),
             PageCount = Pages(Int(data, "number_of_pages") ?? Int(edition, "number_of_pages")),

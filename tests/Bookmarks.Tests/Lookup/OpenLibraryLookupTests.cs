@@ -94,6 +94,59 @@ public class OpenLibraryLookupTests
     }
 
     [Fact]
+    public async Task An_edition_without_a_cover_borrows_the_works_cover_and_subjects()
+    {
+        // Real case: the 2018 hardcover of Educated has no cover or subjects of its own (2026-10-10).
+        var (lookup, handler) = Create();
+        handler.Set("api/books?bibkeys=ISBN:9780525589983&jscmd=data&format=json",
+            "{\"ISBN:9780525589983\":{\"key\":\"/books/OL26620627M\",\"title\":\"Educated\",\"subtitle\":\"a memoir\",\"authors\":[{\"name\":\"Tara Westover\"}],\"publish_date\":\"2018\"}}");
+        handler.Set("isbn/9780525589983.json", "{\"title\":\"Educated\",\"works\":[{\"key\":\"/works/OL18139176W\"}]}");
+        handler.Set("works/OL18139176W.json", "{\"title\":\"Educated\",\"covers\":[-1,8314077,8815122],\"subjects\":[\"Autobiography\",\"Survivalism\"]}");
+
+        var r = await lookup.FindByIsbnAsync("9780525589983");
+
+        Assert.NotNull(r);
+        Assert.Equal("A memoir", r.Subtitle);
+        Assert.Equal("https://covers.openlibrary.org/b/id/8314077-M.jpg", r.CoverUrl);
+        Assert.Equal(new[] { "Biography" }, r.Genres.ToArray());
+        Assert.Contains("works/OL18139176W.json", handler.Requests);
+    }
+
+    [Fact]
+    public async Task An_edition_with_a_cover_and_genres_makes_no_work_request()
+    {
+        var (lookup, handler) = Create();
+
+        await lookup.FindByIsbnAsync("9780593135204");
+
+        Assert.DoesNotContain(handler.Requests, r => r.StartsWith("works/", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task A_missing_work_record_leaves_the_result_as_it_was()
+    {
+        var (lookup, handler) = Create();
+        handler.Set("api/books?bibkeys=ISBN:9780525589983&jscmd=data&format=json", "{\"ISBN:9780525589983\":{\"title\":\"Educated\"}}");
+        handler.Set("isbn/9780525589983.json", "{\"title\":\"Educated\",\"works\":[{\"key\":\"/works/OL18139176W\"}]}");
+
+        var r = await lookup.FindByIsbnAsync("9780525589983");
+
+        Assert.NotNull(r);
+        Assert.Null(r.CoverUrl);
+    }
+
+    [Theory]
+    [InlineData("/works/OL18139176W", "/works/OL18139176W")]
+    [InlineData("/works/../../evil", null)]
+    [InlineData("/authors/OL26320A", null)]
+    [InlineData("/works/OLW", null)]
+    public void Work_keys_are_validated(string key, string? expected)
+    {
+        using var doc = System.Text.Json.JsonDocument.Parse("{\"works\":[{\"key\":\"" + key + "\"}]}");
+        Assert.Equal(expected, OpenLibraryLookup.WorkKey(doc.RootElement));
+    }
+
+    [Fact]
     public async Task Unknown_isbn_returns_null()
     {
         var (lookup, _) = Create();

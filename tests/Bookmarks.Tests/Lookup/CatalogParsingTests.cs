@@ -78,9 +78,28 @@ public class CatalogParsingTests
     [Theory]
     [InlineData("A Novel", null)]
     [InlineData("a novel.", null)]
-    [InlineData(" or There and Back Again ", "or There and Back Again")]
+    [InlineData(" or There and Back Again ", "Or There and Back Again")]
+    [InlineData("a memoir", "A memoir")]
     public void Subtitle_is_cleaned(string subtitle, string? expected)
         => Assert.Equal(expected, CatalogText.CleanSubtitle(subtitle));
+
+    [Fact]
+    public void Authors_missing_from_the_by_statement_are_dropped()
+        => Assert.Equal(new[] { "Tara Westover" },
+            CatalogText.FilterByStatement(new[] { "Tara Westover", "Orah Danḳner" }, "Tara Westover").ToArray());
+
+    [Fact]
+    public void Co_authors_named_in_the_by_statement_are_kept()
+        => Assert.Equal(new[] { "Terry Pratchett", "Neil Gaiman" },
+            CatalogText.FilterByStatement(new[] { "Terry Pratchett", "Neil Gaiman" }, "by Terry Pratchett & Neil Gaiman.").ToArray());
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("edited by somebody else")]
+    public void Without_a_useful_by_statement_authors_are_unchanged(string? byStatement)
+        => Assert.Equal(new[] { "Tara Westover", "Orah Danḳner" },
+            CatalogText.FilterByStatement(new[] { "Tara Westover", "Orah Danḳner" }, byStatement).ToArray());
 
     [Fact]
     public void Genres_come_from_a_small_vocabulary()

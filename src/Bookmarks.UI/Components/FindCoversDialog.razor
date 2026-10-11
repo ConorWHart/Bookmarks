@@ -1,0 +1,338 @@
+@* "Find covers & details": fills in covers, cover colors and blank details for books already in the library. *@
+@using System.Diagnostics
+@using System.Text.Json
+@implements IDisposable
+@inject LibraryService LibraryData
+@inject IBookLookup Lookup
+@inject ICoverColorService CoverColors
+@inject IAppStatusService AppStatus
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">Find covers &amp; details</MudText>
+    </TitleContent>
+
+    <DialogContent>
+        @switch (_state)
+        {
+            case RunState.Ready:
+                if (_plan.Total == 0)
+                {
+                    <MudText>Every book with an ISBN already has its cover and details.</MudText>
+                    if (_plan.WithoutIsbn > 0)
+                    {
+                        <MudText Typo="Typo.body2" Class="mt-3 mud-text-secondary">
+                            @Books(_plan.WithoutIsbn) without an ISBN can't be looked up. Open one and use
+                            “Find on Open Library” in the editor to search by title.
+                        </MudText>
+                    }
+                }
+                else
+                {
+                    if (_plan.Lookups.Count > 0)
+                    {
+                        <MudText>
+                            Looks up @Books(_plan.Lookups.Count) on Open Library by ISBN and fills in the cover and any blank
+                            details. Nothing you've entered is changed.
+                        </MudText>
+                    }
+                    if (_plan.ColorOnly.Count > 0)
+                    {
+                        <MudText Class="mt-2">@ColorOnlyText</MudText>
+                    }
+                    if (_plan.WithoutIsbn > 0)
+                    {
+                        <MudText Typo="Typo.body2" Class="mt-2 mud-text-secondary">
+                            @Books(_plan.WithoutIsbn) without an ISBN will be skipped; use “Find on Open Library” in the editor for those.
+                        </MudText>
+                    }
+
+                    <div class="mt-4">
+                        <MudCheckBox T="bool" @bind-Value="_useCoverColors" Color="Color.Primary" Label="Use cover colors for spines" />
+                        <MudText Typo="Typo.caption" Class="d-block mud-text-secondary" Style="margin-left:42px;margin-top:-6px">
+                            Books that get a cover color show it on the shelf, replacing their current spine color.
+                        </MudText>
+                    </div>
+
+                    if (_plan.Lookups.Count > 0)
+                    {
+                        <MudText Typo="Typo.caption" Class="d-block mt-4 mud-text-secondary">
+                            Takes @CoverBackfill.DescribeDuration(_plan.Lookups.Count): Open Library asks apps to look books up slowly.
+                        </MudText>
+                    }
+                    if (!AppStatus.IsOnline && _plan.Lookups.Count > 0)
+                    {
+                        <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-3">You're offline. Connect to look books up.</MudAlert>
+                    }
+                }
+                break;
+
+            case RunState.Running:
+                <MudText>@_done of @_total<span class="mud-text-secondary"> · @_current</span></MudText>
+                <MudProgressLinear Color="Color.Primary" Value="@Percent" Class="my-3" Rounded="true" Size="Size.Medium" />
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                    Books are saved as they're done, so stopping keeps everything found so far.
+                </MudText>
+                break;
+
+            default:
+                <MudText Typo="Typo.subtitle1" Class="mb-2">@(_stopped ? "Stopped" : "Done")</MudText>
+                <ul class="bm-backfill__summary">
+                    @foreach (var line in SummaryLines())
+                    {
+                        <li>@line</li>
+                    }
+                </ul>
+                if (_error is not null)
+                {
+                    <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-3">@_error</MudAlert>
+                }
+                break;
+        }
+    </DialogContent>
+
+    <DialogActions>
+        @switch (_state)
+        {
+            case RunState.Ready:
+                <MudButton OnClick="Cancel">@(_plan.Total == 0 ? "Close" : "Cancel")</MudButton>
+                if (_plan.Total > 0)
+                {
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="RunAsync" Disabled="@(!CanStart)">Start</MudButton>
+                }
+                break;
+            case RunState.Running:
+                <MudButton OnClick="Stop">Stop</MudButton>
+                break;
+            default:
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Close">Close</MudButton>
+                break;
+        }
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private enum RunState
+    {
+        Ready,
+        Running,
+        Finished,
+    }
+
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private BackfillPlan _plan = new([], [], 0);
+    private RunState _state;
+    private bool _useCoverColors = true;
+    private CancellationTokenSource? _cts;
+
+    private int _total;
+    private int _done;
+    private string _current = "";
+    private bool _stopped;
+    private string? _error;
+
+    // Results
+    private int _covers;
+    private int _details;
+    private int _colors;
+    private int _notFound;
+    private int _failed;
+
+    private string ColorOnlyText => _plan.ColorOnly.Count == 1
+        ? "1 book already has a cover and just needs its color."
+        : $"{_plan.ColorOnly.Count} books already have a cover and just need their colors.";
+
+    private double Percent => _total == 0 ? 0 : 100.0 * _done / _total;
+
+    // Colors alone need no connection; lookups do.
+    private bool CanStart => AppStatus.IsOnline || _plan.Lookups.Count == 0 || _plan.ColorOnly.Count > 0;
+
+    protected override void OnInitialized()
+    {
+        _plan = CoverBackfill.Plan(LibraryData.Entries);
+        AppStatus.Changed += OnStatusChanged;
+    }
+
+    private async Task RunAsync()
+    {
+        _cts = new CancellationTokenSource();
+        var ct = _cts.Token;
+        _state = RunState.Running;
+
+        // Colors first: they're quick and need no lookup.
+        var work = _plan.ColorOnly.Select(e => (Entry: e, Lookup: false))
+            .Concat(AppStatus.IsOnline ? _plan.Lookups.Select(e => (Entry: e, Lookup: true)) : Enumerable.Empty<(LibraryEntry Entry, bool Lookup)>())
+            .ToList();
+        _total = work.Count;
+        var consecutiveFailures = 0;
+
+        foreach (var (planned, lookup) in work)
+        {
+            if (ct.IsCancellationRequested)
+            {
+                break;
+            }
+
+            // Re-read: the book may have been edited or deleted (e.g. by a sync) since the plan was made.
+            if (LibraryData.Find(planned.Id) is not { } entry)
+            {
+                _done++;
+                continue;
+            }
+
+            _current = entry.Title;
+            StateHasChanged();
+            var started = Stopwatch.GetTimestamp();
+
+            try
+            {
+                var model = BookEditModel.FromEntry(entry);
+                var changed = new List<string>();
+
+                if (lookup)
+                {
+                    var result = await Lookup.FindByIsbnAsync(entry.Book.Isbn13!, ct);
+                    consecutiveFailures = 0;
+                    if (result is null)
+                    {
+                        _notFound++;
+                    }
+                    else
+                    {
+                        changed.AddRange(LookupMerge.Apply(model, result, LookupApplyMode.FillEmpty, isNewBook: false));
+                    }
+                }
+
+                if (model.CoverUrl is { } cover && model.DominantColor is null)
+                {
+                    if (await CoverColors.DominantColorAsync(cover, ct) is { } hex)
+                    {
+                        model.UseCoverColor(hex);
+                        changed.Add("Color");
+                    }
+                }
+
+                var spineChanged = _useCoverColors && changed.Count > 0 && CoverBackfill.UseCoverColorForSpine(model);
+                if (changed.Count > 0 || spineChanged)
+                {
+                    // Not cancellable: a book is saved whole or not at all.
+                    await LibraryData.UpdateBookAsync(entry.Id, model, CancellationToken.None);
+                    if (changed.Contains("Cover"))
+                    {
+                        _covers++;
+                    }
+
+                    if (changed.Contains("Color"))
+                    {
+                        _colors++;
+                    }
+
+                    if (changed.Any(c => c is not ("Cover" or "Color")))
+                    {
+                        _details++;
+                    }
+                }
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                break;
+            }
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
+            {
+                _failed++;
+                if (++consecutiveFailures >= 3)
+                {
+                    _error = "Lost touch with Open Library, so the rest were left for now. Try again later.";
+                    break;
+                }
+            }
+
+            _done++;
+            StateHasChanged();
+
+            if (lookup)
+            {
+                await PaceAsync(started, ct);
+            }
+        }
+
+        _stopped = ct.IsCancellationRequested;
+        _state = RunState.Finished;
+        StateHasChanged();
+    }
+
+    /// <summary>Waits out the rest of the per-lookup minimum so we stay within Open Library's request rate.</summary>
+    private static async Task PaceAsync(long started, CancellationToken ct)
+    {
+        var remaining = CoverBackfill.MinTimePerLookup - Stopwatch.GetElapsedTime(started);
+        if (remaining > TimeSpan.Zero)
+        {
+            try
+            {
+                await Task.Delay(remaining, ct);
+            }
+            catch (OperationCanceledException)
+            {
+                // Stopped while waiting.
+            }
+        }
+    }
+
+    private IEnumerable<string> SummaryLines()
+    {
+        if (_covers > 0)
+        {
+            yield return $"Found covers for {Books(_covers)}.";
+        }
+
+        if (_details > 0)
+        {
+            yield return $"Filled in details for {Books(_details)}.";
+        }
+
+        if (_colors > 0)
+        {
+            yield return _useCoverColors
+                ? $"{Books(_colors)} now take{(_colors == 1 ? "s" : "")} {(_colors == 1 ? "its" : "their")} spine color from the cover."
+                : $"Picked up cover colors for {Books(_colors)}.";
+        }
+
+        if (_notFound > 0)
+        {
+            yield return $"Open Library has no record of {Books(_notFound)}.";
+        }
+
+        if (_failed > 0)
+        {
+            yield return $"{Books(_failed)} couldn't be looked up this time.";
+        }
+
+        if (_plan.WithoutIsbn > 0)
+        {
+            yield return $"{Books(_plan.WithoutIsbn)} without an ISBN {(_plan.WithoutIsbn == 1 ? "was" : "were")} skipped.";
+        }
+
+        if (_covers + _details + _colors + _notFound + _failed == 0)
+        {
+            yield return "Nothing new was found.";
+        }
+    }
+
+    private static string Books(int n) => n == 1 ? "1 book" : $"{n} books";
+
+    private void Stop() => _cts?.Cancel();
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private void Close() => MudDialog.Close(DialogResult.Ok(_covers + _details + _colors));
+
+    private void OnStatusChanged() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        AppStatus.Changed -= OnStatusChanged;
+        _cts?.Cancel();
+        _cts?.Dispose();
+    }
+}

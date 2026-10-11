@@ -1,7 +1,7 @@
 // Offline support for the published app.
 // The app shell (framework, DLLs, CSS, JS, icons) is precached on install from the
 // build-generated asset manifest, so the app starts with no network at all.
-// Phase 5 adds a separate, size-capped runtime cache for book cover images.
+// Book covers (Phase 5) go in a separate, size-capped runtime cache: see "Cover cache" below.
 
 self.importScripts('./service-worker-assets.js');
 self.addEventListener('install', event => event.waitUntil(onInstall(event)));
@@ -50,6 +50,10 @@ async function onActivate(event) {
 }
 
 async function onFetch(event) {
+    if (event.request.method === 'GET' && coverUrlPattern.test(event.request.url)) {
+        return coverResponse(event);
+    }
+
     let cachedResponse = null;
     if (event.request.method === 'GET') {
         // For all navigation requests, try to serve index.html from cache,
@@ -63,4 +67,90 @@ async function onFetch(event) {
     }
 
     return cachedResponse || fetch(event.request);
+}
+
+// ---------- Cover cache ----------
+// Open Library covers, cache-first so shelves keep their covers offline. Only CORS responses are cached
+// (the app loads Open Library covers with crossorigin="anonymous"): opaque responses can't be measured and
+// Chrome counts each one as ~7 MB of quota. Entries are kept roughly least-recently-used within a byte budget;
+// each entry records its size in an X-Bm-Size header so the total can be rebuilt after the worker restarts.
+
+const coverCacheName = 'bm-covers-v1';
+const coverUrlPattern = /^https:\/\/covers\.openlibrary\.org\//;
+const coverBudgetBytes = 50 * 1024 * 1024;
+const coverMaxEntryBytes = 2 * 1024 * 1024;
+let coverBytes = null;          // running total; null until counted
+const coverTouched = new Set(); // entries already moved to the "recent" end in this worker's lifetime
+
+async function coverResponse(event) {
+    const cache = await caches.open(coverCacheName);
+    const key = event.request.url;
+    const cached = await cache.match(key);
+    if (cached) {
+        if (!coverTouched.has(key)) {
+            coverTouched.add(key);
+            event.waitUntil(touchCover(cache, key, cached.clone()));
+        }
+        return cached;
+    }
+
+    const response = await fetch(event.request); // offline and not cached: fails, the app shows its fallback
+    if (response.ok && (response.type === 'cors' || response.type === 'basic')) {
+        event.waitUntil(storeCover(cache, key, response.clone()).catch(e => console.warn('Cover cache:', e)));
+    }
+    return response;
+}
+
+async function storeCover(cache, key, response) {
+    const blob = await response.blob();
+    if (blob.size === 0 || blob.size > coverMaxEntryBytes) {
+        return;
+    }
+
+    await countCoverBytes(cache);
+    const headers = new Headers({
+        'Content-Type': response.headers.get('Content-Type') || 'image/jpeg',
+        'Access-Control-Allow-Origin': '*',
+        'X-Bm-Size': String(blob.size),
+    });
+    await cache.put(key, new Response(blob, { status: 200, headers }));
+    coverTouched.add(key);
+    coverBytes += blob.size;
+    await trimCovers(cache);
+}
+
+// Re-inserting moves the entry to the end of cache.keys(), which is insertion-ordered: the front is least recent.
+async function touchCover(cache, key, response) {
+    await cache.delete(key);
+    await cache.put(key, response);
+}
+
+async function countCoverBytes(cache) {
+    if (coverBytes !== null) {
+        return;
+    }
+
+    let total = 0;
+    for (const request of await cache.keys()) {
+        const response = await cache.match(request);
+        total += Number(response?.headers.get('X-Bm-Size')) || 0;
+    }
+    coverBytes = total;
+}
+
+async function trimCovers(cache) {
+    if (coverBytes <= coverBudgetBytes) {
+        return;
+    }
+
+    // Trim to 90% so we don't trim again on every new cover.
+    for (const request of await cache.keys()) {
+        if (coverBytes <= coverBudgetBytes * 0.9) {
+            break;
+        }
+        const response = await cache.match(request);
+        coverBytes -= Number(response?.headers.get('X-Bm-Size')) || 0;
+        await cache.delete(request);
+        coverTouched.delete(request.url);
+    }
 }

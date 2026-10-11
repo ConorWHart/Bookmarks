@@ -1,4 +1,4 @@
-@* A single book on a shelf: a spine, or a face-out cover. Pure CSS, no images required. *@
+@* A single book on a shelf: a spine (pure CSS), or a face-out cover (the real cover image when there is one). *@
 
 <button type="button"
         class="@CssClass"
@@ -10,6 +10,10 @@
     {
         <span class="bm-cover__title">@Book.Entry.Title</span>
         <span class="bm-cover__author">@Book.Entry.Author</span>
+        if (Book.Entry.Book.CoverUrl is { } cover)
+        {
+            <CoverImage Url="@cover" Size="CoverSize.Medium" Class="bm-cover__img" />
+        }
     }
     else
     {
@@ -36,8 +40,6 @@
 
     private string Background => Book.Entry.SpineColor;
 
-    private const string Gilt = "#E9C46A";
-
     private SpineStyle ResolvedStyle => Book.Entry.Item.Appearance.Style ?? DefaultStyle;
 
     /// <summary>User override, else gilt lettering on dark ornate (leather) spines, else black/white by contrast.</summary>
@@ -45,13 +47,7 @@
     {
         get
         {
-            if (Book.Entry.Item.Appearance.TextColor is { } custom)
-            {
-                return custom;
-            }
-
-            var contrast = ColorUtil.ContrastText(Background);
-            return ResolvedStyle == SpineStyle.Ornate && contrast == "#FFFFFF" ? Gilt : contrast;
+            return ColorUtil.SpineTextColor(Background, Book.Entry.Item.Appearance.TextColor, ResolvedStyle == SpineStyle.Ornate);
         }
     }
 
@@ -63,7 +59,9 @@
     {
         get
         {
-            var cls = Book.FaceOut ? "bm-book bm-cover" : $"bm-book bm-spine bm-spine--{ResolvedStyle.ToString().ToLowerInvariant()}";
+            var cls = !Book.FaceOut ? $"bm-book bm-spine bm-spine--{ResolvedStyle.ToString().ToLowerInvariant()}"
+                : Book.Entry.Book.CoverUrl is null ? "bm-book bm-cover"
+                : "bm-book bm-cover bm-cover--image";
             return Dimmed ? cls + " bm-book--dimmed" : cls;
         }
     }

@@ -12,7 +12,7 @@
             <div class="bm-editor__form">
 
                 @* ---------- Find on Open Library ---------- *@
-                <BookFinder InitialQuery="@_initialQuery" AutoFocus="IsNew" OnFound="ApplyLookupAsync" OnIsbnNotFound="KeepIsbn" />
+                <BookFinder @ref="_finder" InitialQuery="@_initialQuery" AutoFocus="IsNew" OnFound="ApplyLookupAsync" OnIsbnNotFound="KeepIsbn" />
                 @if (_lookupSummary is not null)
                 {
                     <MudAlert Severity="Severity.Success" Dense="true" Class="mt-2" ShowCloseIcon="true" CloseIconClicked="() => _lookupSummary = null">
@@ -29,6 +29,12 @@
                 @* ---------- Book ---------- *@
                 <MudText Typo="Typo.subtitle2" Class="bm-editor__section">Book</MudText>
                 <MudGrid Spacing="2">
+                    <MudItem xs="12">
+                        <MudTextField T="string" Value="_model.Isbn13" ValueChanged="OnIsbnChangedAsync" Label="ISBN"
+                                      Immediate="true" DebounceInterval="600" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                      HelperText="Enter an ISBN to fill in the rest from Open Library"
+                                      Error="IsbnInvalid" ErrorText="Check the ISBN: the check digit doesn't match" />
+                    </MudItem>
                     <MudItem xs="12">
                         <MudTextField T="string" @bind-Value="_model.Title" Label="Title" Required="true" RequiredError="A title is required"
                                       Immediate="true" Variant="Variant.Outlined" Margin="Margin.Dense" />
@@ -61,10 +67,6 @@
                     <MudItem xs="12">
                         <MudTextField T="string" @bind-Value="_model.GenresText" Label="Genres" HelperText="Separate with commas"
                                       Variant="Variant.Outlined" Margin="Margin.Dense" />
-                    </MudItem>
-                    <MudItem xs="12" sm="6">
-                        <MudTextField T="string" @bind-Value="_model.Isbn13" Label="ISBN" Immediate="true" Variant="Variant.Outlined" Margin="Margin.Dense"
-                                      Error="IsbnInvalid" ErrorText="Check the ISBN: the check digit doesn't match" />
                     </MudItem>
                 </MudGrid>
 
@@ -181,7 +183,7 @@
                     </MudItem>
                     <MudItem xs="12">
                         <MudText Typo="Typo.caption" Class="d-block mb-1">
-                            Text color @(_model.TextColor is null ? "· automatic" : "")
+                            Text color @TextColorNote
                         </MudText>
                         <SpineColorPicker @bind-Value="_model.TextColor" Palette="BookEditModel.TextPalette" AllowAutomatic="true"
                                           Label="Text color" FallbackColor="#FFFFFF" />
@@ -247,6 +249,8 @@
     private bool _replaced;
     private bool _moreOpen;
     private string? _colorPendingFor;
+    private BookFinder? _finder;
+    private string? _autoLookupIsbn;
 
     private bool IsNew => _entry is null;
 
@@ -265,7 +269,7 @@
         if (_entry is not null)
         {
             _initialQuery = Isbn.TryNormalize(_model.Isbn13, out var isbn)
-                ? isbn
+                ? _autoLookupIsbn = isbn
                 : $"{_model.Title} {BookEditModel.SplitList(_model.AuthorsText).FirstOrDefault()}".Trim();
         }
 
@@ -281,7 +285,44 @@
         }
     }
 
-    private bool IsbnInvalid => !string.IsNullOrWhiteSpace(_model.Isbn13) && !Isbn.TryNormalize(_model.Isbn13, out _);
+    // Only once it's ISBN length, so it doesn't flag while the user is still typing.
+    private bool IsbnInvalid => (_model.Isbn13?.Count(char.IsAsciiDigit) ?? 0) >= 10 && !Isbn.TryNormalize(_model.Isbn13, out _);
+
+    private string TextColorNote
+    {
+        get
+        {
+            if (_model.TextColor is null)
+            {
+                return "· automatic";
+            }
+
+            var contrast = ColorUtil.ContrastRatio(_model.TextColor, _model.SpineColor);
+            return contrast < ColorUtil.MinimumCustomContrast ? "· too close to the spine color, so automatic is used"
+                : contrast < ColorUtil.ComfortableContrast ? "· may be hard to read"
+                : "";
+        }
+    }
+
+    /// <summary>A complete, valid ISBN typed into the ISBN field is looked up straight away, like picking a search result.</summary>
+    private async Task OnIsbnChangedAsync(string? value)
+    {
+        _model.Isbn13 = value;
+        if (!Isbn.TryNormalize(value, out var isbn) || isbn == _autoLookupIsbn || _finder is null)
+        {
+            return;
+        }
+
+        // Part-way through typing a 13-digit ISBN, the first 10 digits can happen to form a valid ISBN-10.
+        var digits = new string(value!.Where(c => char.IsAsciiDigit(c) || c is 'X' or 'x').ToArray());
+        if (digits.Length == 10 && (digits.StartsWith("978", StringComparison.Ordinal) || digits.StartsWith("979", StringComparison.Ordinal)))
+        {
+            return;
+        }
+
+        _autoLookupIsbn = isbn;
+        await _finder.FindAsync(isbn);
+    }
 
     private bool SpineFollowsCover => _model.DominantColor is not null
         && string.Equals(_model.SpineColor, _model.DominantColor, StringComparison.OrdinalIgnoreCase);
@@ -354,6 +395,7 @@
     {
         _model.SpineColor = _model.DominantColor;
         _model.SpineColorFollowsCover = true; // stored as "no override", so it keeps following the cover
+        _model.EnsureReadableText();
     }
 
     /// <summary>Extracts the cover's color when there's a cover without one. Stale results are ignored.</summary>

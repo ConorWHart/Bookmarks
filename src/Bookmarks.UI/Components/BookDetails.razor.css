@@ -1,3 +1,16 @@
+.bm-details__cover {
+    flex: 0 0 auto;
+    margin-right: 16px;
+}
+
+.bm-details__cover ::deep .bm-details__cover-img {
+    display: block;
+    width: 84px;
+    height: auto;
+    border-radius: 2px 4px 4px 2px;
+    box-shadow: 0 3px 10px rgb(0 0 0 / 0.3);
+}
+
 .bm-details__row {
     display: flex;
     align-items: center;

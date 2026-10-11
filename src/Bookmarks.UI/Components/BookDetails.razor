@@ -11,6 +11,12 @@
 
     <div class="pa-4 bm-details">
         <div class="d-flex align-start">
+            @if (entry.Book.CoverUrl is { } cover)
+            {
+                <div class="bm-details__cover">
+                    <CoverImage Url="@cover" Size="CoverSize.Medium" Alt="@CoverAlt(entry)" Class="bm-details__cover-img" Eager="true" />
+                </div>
+            }
             <div class="flex-grow-1">
                 <MudText Typo="Typo.h5">@entry.Title</MudText>
                 @if (!string.IsNullOrEmpty(entry.Book.Subtitle))
@@ -26,11 +32,19 @@
             <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" OnClick="OnClose" aria-label="Close details" />
         </div>
 
-        <MudStack Row="true" Spacing="1" Class="my-3">
+        <MudStack Row="true" Spacing="1" Class="my-3" AlignItems="AlignItems.Center">
             <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary"
                        StartIcon="@Icons.Material.Filled.Edit" OnClick="() => OnEdit.InvokeAsync(entry)">Edit</MudButton>
             <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Error"
                        StartIcon="@Icons.Material.Outlined.Delete" OnClick="() => OnDelete.InvokeAsync(entry)">Delete</MudButton>
+            <MudSpacer />
+            <MudTooltip Text="How it stands on the shelf">
+                <MudToggleGroup T="bool" Value="entry.Item.Appearance.FaceOut" ValueChanged="SetFaceOutAsync"
+                                Color="Color.Primary" Size="Size.Small" Outlined="true" aria-label="Show on the shelf by">
+                    <MudToggleItem Value="false" Text="Spine" />
+                    <MudToggleItem Value="true" Text="Cover" />
+                </MudToggleGroup>
+            </MudTooltip>
         </MudStack>
 
         <MudStack Row="true" Spacing="1" Class="mb-2" Wrap="Wrap.Wrap">
@@ -167,6 +181,8 @@
 }
 
 @code {
+    private static string CoverAlt(LibraryEntry e) => "Cover of " + e.Title;
+
     [Parameter] public LibraryEntry? Entry { get; set; }
 
     [Parameter] public EventCallback<LibraryEntry> OnEdit { get; set; }
@@ -193,6 +209,9 @@
 
     private Task SetRatingAsync(int stars)
         => Entry is null ? Task.CompletedTask : LibraryData.SetRatingAsync(Entry.Id, stars == 0 ? null : stars);
+
+    private Task SetFaceOutAsync(bool faceOut)
+        => Entry is null ? Task.CompletedTask : LibraryData.SetFaceOutAsync(Entry.Id, faceOut);
 
     private Task SetRereadAsync(bool value)
         => Entry is null ? Task.CompletedTask : LibraryData.SetWantToRereadAsync(Entry.Id, value);

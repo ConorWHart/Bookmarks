@@ -171,6 +171,10 @@ public sealed class LibraryService(ILocalStore store, IAccountService account)
     public Task SetWantToRereadAsync(Guid itemId, bool value, CancellationToken ct = default)
         => UpdateAsync<LibraryItem>(itemId, i => i.WantToReread = value, ct);
 
+    /// <summary>Shows the book on the shelf by its cover (face out) or its spine.</summary>
+    public Task SetFaceOutAsync(Guid itemId, bool faceOut, CancellationToken ct = default)
+        => UpdateAsync<LibraryItem>(itemId, i => i.Appearance.FaceOut = faceOut, ct);
+
     // ---------- Reading sessions ----------
 
     public async Task StartReadingAsync(Guid itemId, CancellationToken ct = default)
