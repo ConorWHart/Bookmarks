@@ -21,6 +21,9 @@ public sealed record LibraryEntry(
 
     public bool IsRead => ReadCount > 0;
 
+    /// <summary>The bookcase of the item's shelf; null when it isn't on a (known) shelf. Set by the library loader.</summary>
+    public Guid? BookcaseId { get; init; }
+
     /// <summary>Copy override first, then catalog color, then a neutral fallback.</summary>
     public string SpineColor => Item.Appearance.SpineColor ?? Book.DominantColor ?? "#6B5B4B";
 

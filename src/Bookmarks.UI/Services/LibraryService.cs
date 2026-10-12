@@ -24,6 +24,10 @@ public sealed class LibraryService(ILocalStore store, IAccountService account)
     private IReadOnlyList<Shelf> _shelves = [];
     private ILookup<Guid, ReadingSession> _sessions = Array.Empty<ReadingSession>().ToLookup(s => s.LibraryItemId);
     private ILookup<Guid, Note> _notes = Array.Empty<Note>().ToLookup(n => n.LibraryItemId);
+    private IReadOnlyList<Tag> _tags = [];
+    private IReadOnlyList<string> _authors = [];
+    private IReadOnlyList<string> _genres = [];
+    private IReadOnlyList<string> _seriesNames = [];
     private bool _loaded;
 
     public event Action? Changed;
@@ -40,6 +44,16 @@ public sealed class LibraryService(ILocalStore store, IAccountService account)
     public bool IsEmpty => _entries.Count == 0 && _bookcases.Count == 0;
 
     public LibraryEntry? Find(Guid itemId) => _entries.FirstOrDefault(e => e.Id == itemId);
+
+    /// <summary>By name.</summary>
+    public IReadOnlyList<Tag> Tags => _tags;
+
+    /// <summary>Distinct authors, genres and series in the library (for filter pickers), alphabetical.</summary>
+    public IReadOnlyList<string> Authors => _authors;
+
+    public IReadOnlyList<string> Genres => _genres;
+
+    public IReadOnlyList<string> SeriesNames => _seriesNames;
 
     /// <summary>Newest first (by finish date, then start date).</summary>
     public IReadOnlyList<ReadingSession> SessionsFor(Guid itemId)
@@ -70,17 +84,34 @@ public sealed class LibraryService(ILocalStore store, IAccountService account)
         _sessions = sessions.ToLookup(s => s.LibraryItemId);
         _notes = (await store.GetAllAsync<Note>(ct: ct)).ToLookup(n => n.LibraryItemId);
 
-        _entries = items
-            .Where(i => books.ContainsKey(i.BookId))
-            .Select(i => LibraryEntry.Create(i, books[i.BookId], _sessions[i.Id]))
-            .ToList();
-
         _bookcases = (await store.GetAllAsync<Bookcase>(ct: ct))
             .OrderBy(b => b.SortRank, StringComparer.Ordinal)
             .ToList();
         _shelves = (await store.GetAllAsync<Shelf>(ct: ct))
             .OrderBy(s => s.SortRank, StringComparer.Ordinal)
             .ToList();
+
+        // A shelf whose bookcase was deleted counts as no shelf (its books show as Unshelved).
+        var liveBookcases = _bookcases.Select(b => b.Id).ToHashSet();
+        var bookcaseOfShelf = _shelves
+            .Where(s => liveBookcases.Contains(s.BookcaseId))
+            .ToDictionary(s => s.Id, s => s.BookcaseId);
+
+        _entries = items
+            .Where(i => books.ContainsKey(i.BookId))
+            .Select(i => LibraryEntry.Create(i, books[i.BookId], _sessions[i.Id]) with
+            {
+                BookcaseId = i.ShelfId is { } shelfId && bookcaseOfShelf.TryGetValue(shelfId, out var caseId) ? caseId : null,
+            })
+            .ToList();
+
+        _tags = (await store.GetAllAsync<Tag>(ct: ct))
+            .OrderBy(t => t.Name, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
+
+        _authors = Distinct(_entries.SelectMany(e => e.Book.Authors));
+        _genres = Distinct(_entries.SelectMany(e => e.Book.Genres));
+        _seriesNames = Distinct(_entries.Select(e => e.Book.Series));
 
         _loaded = true;
         Changed?.Invoke();
@@ -98,6 +129,16 @@ public sealed class LibraryService(ILocalStore store, IAccountService account)
         await SampleData.SeedAsync(store, CurrentUserId, ct);
         await ReloadAsync(ct);
     }
+
+    // ---------- Helpers for filter pickers ----------
+
+    private static IReadOnlyList<string> Distinct(IEnumerable<string?> values)
+        => values
+            .Where(v => !string.IsNullOrWhiteSpace(v))
+            .Select(v => v!.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Order(StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
 
     // ---------- Books ----------
 

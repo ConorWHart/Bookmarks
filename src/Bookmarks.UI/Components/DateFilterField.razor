@@ -1,0 +1,42 @@
+@* A date filter: a relative window (stays current in saved views) or a custom range. *@
+
+<MudSelect T="DateWindow" Value="Window" Label="@Label" ValueChanged="OnWindowChanged"
+           Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true">
+    <MudSelectItem Value="DateWindow.Any">Any time</MudSelectItem>
+    <MudSelectItem Value="DateWindow.Last30Days">Last 30 days</MudSelectItem>
+    <MudSelectItem Value="DateWindow.Last90Days">Last 90 days</MudSelectItem>
+    <MudSelectItem Value="DateWindow.ThisYear">This year</MudSelectItem>
+    <MudSelectItem Value="DateWindow.LastYear">Last year</MudSelectItem>
+    <MudSelectItem Value="DateWindow.Custom">Choose dates…</MudSelectItem>
+</MudSelect>
+
+@if (Window == DateWindow.Custom)
+{
+    <MudDateRangePicker DateRange="Range" DateRangeChanged="OnRangeChanged" Clearable="true"
+                        PlaceholderStart="From" PlaceholderEnd="To"
+                        Variant="Variant.Outlined" Margin="Margin.Dense" Class="mt-2" />
+}
+
+@code {
+    [Parameter] public string? Label { get; set; }
+
+    /// <summary>Null = any time.</summary>
+    [Parameter] public DateFilter? Value { get; set; }
+
+    [Parameter] public EventCallback<DateFilter?> ValueChanged { get; set; }
+
+    private DateWindow Window => Value?.Window ?? DateWindow.Any;
+
+    private DateRange Range => new(ToDateTime(Value?.From), ToDateTime(Value?.To));
+
+    // Choosing "Choose dates…" keeps an (inactive) custom filter so the picker shows.
+    private Task OnWindowChanged(DateWindow window)
+        => ValueChanged.InvokeAsync(window == DateWindow.Any ? null : new DateFilter(window));
+
+    private Task OnRangeChanged(DateRange? range)
+        => ValueChanged.InvokeAsync(new DateFilter(DateWindow.Custom, ToDateOnly(range?.Start), ToDateOnly(range?.End)));
+
+    private static DateTime? ToDateTime(DateOnly? date) => date?.ToDateTime(TimeOnly.MinValue);
+
+    private static DateOnly? ToDateOnly(DateTime? date) => date is { } d ? DateOnly.FromDateTime(d) : null;
+}

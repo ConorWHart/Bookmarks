@@ -42,76 +42,82 @@
     }
     else
     {
-        @* ---------- Toolbar ---------- *@
-        <MudPaper Elevation="0" Class="pa-3 mb-5 bm-panel">
+        @* ---------- Toolbar: full on wider screens ---------- *@
+        <MudPaper Elevation="0" Class="pa-3 mb-5 bm-panel d-none d-md-block">
             <MudGrid Spacing="2" Class="align-center">
-                <MudItem xs="12" md="4">
-                    <MudTextField T="string" @bind-Value="_search" @bind-Value:after="Recompute"
+                <MudItem md="4">
+                    <MudTextField T="string" @bind-Value="_search" @bind-Value:after="OnSearchChanged"
                                   Placeholder="Search title, author, series, ISBN"
                                   Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
                                   Immediate="true" DebounceInterval="200" Clearable="true"
                                   Variant="Variant.Outlined" Margin="Margin.Dense" />
                 </MudItem>
 
-                <MudItem xs="6" sm="3" md="2">
-                    <MudSelect T="LibraryMode" @bind-Value="_mode" @bind-Value:after="Recompute" Label="Arrange"
-                               Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true">
-                        <MudSelectItem Value="LibraryMode.Physical">As shelved</MudSelectItem>
-                        <MudSelectItem Value="LibraryMode.Generated">By sort</MudSelectItem>
+                <MudItem md="2">
+                    <MudSelect T="LibraryArrangement" Value="_view.Arrangement" ValueChanged="v => SetView(_view with { Arrangement = v })"
+                               Label="Arrange" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true">
+                        <MudSelectItem Value="LibraryArrangement.AsShelved">As shelved</MudSelectItem>
+                        <MudSelectItem Value="LibraryArrangement.BySort">By sort</MudSelectItem>
                     </MudSelect>
                 </MudItem>
 
-                <MudItem xs="6" sm="3" md="2">
-                    <MudSelect T="LibrarySortField" @bind-Value="_sortField" @bind-Value:after="Recompute" Label="Sort"
-                               Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true">
-                        @foreach (var (field, label) in SortOptions)
+                <MudItem md="2">
+                    <MudSelect T="LibrarySortField" Value="_view.Query.Sort.Field" ValueChanged="v => SetView(_view.WithSort(_view.Query.Sort with { Field = v }))"
+                               Label="Sort" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true">
+                        @foreach (var (field, label) in LibraryLabels.SortOptions)
                         {
                             <MudSelectItem Value="field">@label</MudSelectItem>
                         }
                     </MudSelect>
                 </MudItem>
 
-                <MudItem xs="6" sm="3" md="2">
-                    <MudSelect T="StatusOption" @bind-Value="_status" @bind-Value:after="Recompute" Label="Status"
-                               Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true">
-                        <MudSelectItem Value="StatusOption.All">All</MudSelectItem>
-                        <MudSelectItem Value="StatusOption.Owned">Owned</MudSelectItem>
-                        <MudSelectItem Value="StatusOption.Wishlist">Wishlist</MudSelectItem>
-                        <MudSelectItem Value="StatusOption.LentOut">Lent out</MudSelectItem>
+                <MudItem md="2">
+                    <MudSelect T="OwnershipStatus" MultiSelection="true" Label="Status"
+                               SelectedValues="_view.Filter.Statuses" SelectedValuesChanged="SetStatuses"
+                               MultiSelectionTextFunc="StatusText" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true">
+                        @foreach (var (status, label) in LibraryLabels.Statuses)
+                        {
+                            <MudSelectItem Value="status">@label</MudSelectItem>
+                        }
                     </MudSelect>
                 </MudItem>
 
-                <MudItem xs="6" sm="3" md="2">
-                    <MudSelect T="ReadState" @bind-Value="_readState" @bind-Value:after="Recompute" Label="Read"
-                               Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true">
+                <MudItem md="2">
+                    <MudSelect T="ReadState" Value="_view.Filter.ReadState" ValueChanged="v => SetView(_view.WithFilter(_view.Filter with { ReadState = v }))"
+                               Label="Read" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true">
                         <MudSelectItem Value="ReadState.Any">Any</MudSelectItem>
                         <MudSelectItem Value="ReadState.Read">Read</MudSelectItem>
-                        <MudSelectItem Value="ReadState.Unread">Unread</MudSelectItem>
+                        <MudSelectItem Value="ReadState.ToRead">To read</MudSelectItem>
                         <MudSelectItem Value="ReadState.Reading">Reading now</MudSelectItem>
+                        <MudSelectItem Value="ReadState.Unread">Unread</MudSelectItem>
                     </MudSelect>
                 </MudItem>
 
                 <MudItem xs="12" Class="d-flex flex-wrap align-center gap-3">
-                    <MudToggleGroup T="DisplayStyle" @bind-Value="_display" Color="Color.Primary" Size="Size.Small" Outlined="true">
-                        <MudToggleItem Value="DisplayStyle.Shelf" Text="Shelves" />
-                        <MudToggleItem Value="DisplayStyle.Grid" Text="Covers" />
+                    <MudToggleGroup T="LibraryDisplay" Value="_view.Display" ValueChanged="v => SetView(_view with { Display = v })"
+                                    Color="Color.Primary" Size="Size.Small" Outlined="true">
+                        <MudToggleItem Value="LibraryDisplay.Shelves" Text="Shelves" />
+                        <MudToggleItem Value="LibraryDisplay.Covers" Text="Covers" />
                     </MudToggleGroup>
 
-                    <MudIconButton Icon="@(_descending ? Icons.Material.Filled.ArrowDownward : Icons.Material.Filled.ArrowUpward)"
+                    <MudIconButton Icon="@(_view.Query.Sort.Descending ? Icons.Material.Filled.ArrowDownward : Icons.Material.Filled.ArrowUpward)"
                                    Size="Size.Small" OnClick="ToggleDirection" aria-label="Toggle sort direction" />
 
-                    @if (_mode == LibraryMode.Generated)
+                    @if (_view.Arrangement == LibraryArrangement.BySort)
                     {
-                        <MudSelect T="LibraryGroupBy" @bind-Value="_groupBy" @bind-Value:after="Recompute" Label="Group"
+                        <MudSelect T="LibraryGroupBy" Value="_view.Query.GroupBy" ValueChanged="v => SetView(_view.WithGroupBy(v))" Label="Group"
                                    Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true" Style="max-width:160px">
-                            <MudSelectItem Value="LibraryGroupBy.None">None</MudSelectItem>
-                            <MudSelectItem Value="LibraryGroupBy.Author">Author</MudSelectItem>
-                            <MudSelectItem Value="LibraryGroupBy.Genre">Genre</MudSelectItem>
-                            <MudSelectItem Value="LibraryGroupBy.Series">Series</MudSelectItem>
-                            <MudSelectItem Value="LibraryGroupBy.Status">Status</MudSelectItem>
-                            <MudSelectItem Value="LibraryGroupBy.Format">Format</MudSelectItem>
+                            @foreach (var (group, label) in LibraryLabels.GroupOptions)
+                            {
+                                <MudSelectItem Value="group">@label</MudSelectItem>
+                            }
                         </MudSelect>
                     }
+
+                    <MudBadge Content="_view.Filter.ActiveCount" Visible="@(_view.Filter.ActiveCount > 0)" Color="Color.Primary" Overlap="true">
+                        <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
+                                   StartIcon="@Icons.Material.Filled.Tune" OnClick="OpenFiltersAsync">Filters</MudButton>
+                    </MudBadge>
 
                     <MudButton Href="bookcases" Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
                                StartIcon="@Icons.Material.Filled.ViewWeek">Bookcases</MudButton>
@@ -120,7 +126,7 @@
                                StartIcon="@Icons.Material.Filled.ImageSearch" OnClick="OpenFindCoversAsync">Find covers</MudButton>
 
                     <div style="width:160px">
-                        <MudSlider T="double" @bind-Value="_scale" @bind-Value:after="SaveScale" Min="MinScale" Max="MaxScale" Step="0.05" Size="Size.Small">Size</MudSlider>
+                        <MudSlider T="double" @bind-Value="_scale" @bind-Value:after="SaveScale" Min="FilterPanel.MinScale" Max="FilterPanel.MaxScale" Step="0.05" Size="Size.Small">Size</MudSlider>
                     </div>
 
                     <MudSpacer />
@@ -129,12 +135,27 @@
             </MudGrid>
         </MudPaper>
 
+        @* ---------- Toolbar: phones get search + a Filters sheet ---------- *@
+        <div class="d-flex d-md-none align-center gap-2 mb-1">
+            <div class="flex-grow-1">
+                <MudTextField T="string" @bind-Value="_search" @bind-Value:after="OnSearchChanged"
+                              Placeholder="Search" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                              Immediate="true" DebounceInterval="200" Clearable="true"
+                              Variant="Variant.Outlined" Margin="Margin.Dense" />
+            </div>
+            <MudBadge Content="_view.Filter.ActiveCount" Visible="@(_view.Filter.ActiveCount > 0)" Color="Color.Primary" Overlap="true">
+                <MudIconButton Icon="@Icons.Material.Filled.Tune" Variant="Variant.Outlined" Color="Color.Primary"
+                               OnClick="OpenFiltersAsync" aria-label="Filters and view options" />
+            </MudBadge>
+        </div>
+        <MudText Typo="Typo.caption" Class="d-block d-md-none mb-3">@_matchCount of @LibraryData.Entries.Count books</MudText>
+
         @* ---------- Library ---------- *@
-        if (_display == DisplayStyle.Grid)
+        if (_view.Display == LibraryDisplay.Covers)
         {
             <CoverGrid Entries="_filtered" OnSelected="Select" />
         }
-        else if (_mode == LibraryMode.Physical)
+        else if (_view.Arrangement == LibraryArrangement.AsShelved)
         {
             <div class="bm-room">
             @foreach (var bookcase in LibraryData.Bookcases)
@@ -178,6 +199,34 @@
     <BookDetails Entry="_selected" OnEdit="OpenEditorAsync" OnDelete="DeleteAsync" OnClose="() => _detailsOpen = false" />
 </MudDrawer>
 
+<MudDrawer @bind-Open="_filtersOpen" Anchor="_filtersAnchor" Variant="DrawerVariant.Temporary" Elevation="2"
+           Width="@FiltersWidth" Height="@FiltersHeight" Class="@FiltersClass">
+    <div class="bm-filter-drawer__head">
+        <MudText Typo="Typo.h6">@(IsSheet ? "View" : "Filters")</MudText>
+        <MudSpacer />
+        <MudButton Variant="Variant.Text" Size="Size.Small" Disabled="@(_view.Filter.ActiveCount == 0)"
+                   OnClick="() => SetView(_view.ClearFilters())">Clear filters</MudButton>
+        <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" OnClick="() => _filtersOpen = false" aria-label="Close" />
+    </div>
+    <div class="bm-filter-drawer__body">
+        <FilterPanel View="_view" ViewChanged="SetView" ShowLayout="IsSheet" Scale="_scale" ScaleChanged="OnScaleChanged" />
+        @if (IsSheet)
+        {
+            <MudStack Row="true" Spacing="1" Class="mt-2" Wrap="Wrap.Wrap">
+                <MudButton Href="bookcases" Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
+                           StartIcon="@Icons.Material.Filled.ViewWeek">Bookcases</MudButton>
+                <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small" StartIcon="@Icons.Material.Filled.ImageSearch"
+                           OnClick="OpenFindCoversFromSheetAsync">Find covers</MudButton>
+            </MudStack>
+        }
+    </div>
+    <div class="bm-filter-drawer__foot">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" OnClick="() => _filtersOpen = false">
+            @ShowBooksText
+        </MudButton>
+    </div>
+</MudDrawer>
+
 @if (_loaded && _loadError is null && !LibraryData.IsEmpty)
 {
     <MudFab Class="bm-fab" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" Label="Add book"
@@ -185,45 +234,23 @@
 }
 
 @code {
-    public enum LibraryMode { Physical, Generated }
-
-    public enum DisplayStyle { Shelf, Grid }
-
-    public enum StatusOption { All, Owned, Wishlist, LentOut }
-
-    private static readonly (LibrarySortField Field, string Label)[] SortOptions =
-    [
-        (LibrarySortField.Author, "Author"),
-        (LibrarySortField.Title, "Title"),
-        (LibrarySortField.Series, "Series"),
-        (LibrarySortField.Color, "Color (rainbow)"),
-        (LibrarySortField.Height, "Height"),
-        (LibrarySortField.DateAdded, "Date added"),
-        (LibrarySortField.Rating, "Rating"),
-        (LibrarySortField.ReadCount, "Times read"),
-    ];
-
     // TODO: measure the container (ResizeObserver) so generated shelves fill the screen width.
     private const int GeneratedShelfWidthMm = 900;
 
     // Books with no shelf yet are shown on a virtual shelf of a typical width.
     private const int UnshelvedWidthMm = 800;
 
-    private const double MinScale = 0.35;
-    private const double MaxScale = 0.9;
-
     private bool _loaded;
     private string? _loadError;
     private bool _busy;
     private string? _search;
-    private LibraryMode _mode = LibraryMode.Physical;
-    private DisplayStyle _display = DisplayStyle.Shelf;
-    private LibrarySortField _sortField = LibrarySortField.Author;
-    private bool _descending;
-    private StatusOption _status = StatusOption.All;
-    private ReadState _readState = ReadState.Any;
-    private LibraryGroupBy _groupBy = LibraryGroupBy.None;
     private double _scale = 0.55;
+
+    // The current view: filter, sort, grouping, arrangement and display.
+    private LibraryView _view = LibraryView.Default;
+
+    private bool _filtersOpen;
+    private Anchor _filtersAnchor = Anchor.End;
 
     private LibraryFilter _filter = LibraryFilter.None;
     private IReadOnlyList<LibraryEntry> _filtered = [];
@@ -243,7 +270,8 @@
         {
             await LibraryData.EnsureLoadedAsync();
             var saved = await Prefs.GetDoubleAsync(UserPreferences.LibraryScale);
-            _scale = Math.Clamp(saved ?? await DefaultScaleAsync(), MinScale, MaxScale);
+            _scale = Math.Clamp(saved ?? await DefaultScaleAsync(), FilterPanel.MinScale, FilterPanel.MaxScale);
+            await RestoreViewAsync();
         }
         catch (JSException ex)
         {
@@ -365,38 +393,92 @@
         }
     }
 
+    /// <summary>The view this device used last (else the default: all books, as shelved).</summary>
+    private async Task RestoreViewAsync()
+    {
+        var lastJson = await Prefs.GetStringAsync(UserPreferences.LibraryView);
+        if (LibraryViewJson.FromJson(lastJson) is { } last)
+        {
+            _view = last;
+        }
+    }
+
+    private void SetView(LibraryView view)
+    {
+        _view = view;
+        Recompute();
+        _ = PersistViewAsync();
+    }
+
+    private void OnSearchChanged() => SetView(_view.WithFilter(_view.Filter with { Search = _search }));
+
+    private void SetStatuses(IReadOnlyCollection<OwnershipStatus>? statuses)
+        => SetView(_view.WithFilter(_view.Filter with { Statuses = statuses is { Count: > 0 } ? statuses.ToHashSet() : null }));
+
+    private static string StatusText(IReadOnlyList<string?>? values)
+        => values is { Count: > 0 } ? string.Join(", ", values) : "All";
+
+    /// <summary>Remembered per device (not synced), so the library reopens as it was left.</summary>
+    private async Task PersistViewAsync()
+    {
+        try
+        {
+            await Prefs.SetStringAsync(UserPreferences.LibraryView, LibraryViewJson.ToJson(_view));
+        }
+        catch (JSException)
+        {
+            // A preference that didn't save just means the view resets on the next visit.
+        }
+    }
+
+    // Phones (below the md breakpoint) get a bottom sheet with every option; wider screens a side panel of filters.
+    private bool IsSheet => _filtersAnchor == Anchor.Bottom;
+
+    private string? FiltersWidth => IsSheet ? null : "380px";
+
+    private string? FiltersHeight => IsSheet ? "auto" : null;
+
+    private string FiltersClass => IsSheet ? "bm-filter-drawer bm-filter-drawer--sheet" : "bm-filter-drawer";
+
+    private string ShowBooksText => _matchCount == 1 ? "Show 1 book" : $"Show {_matchCount} books";
+
+    private async Task OpenFiltersAsync()
+    {
+        var phone = false;
+        try
+        {
+            phone = (await Viewport.GetCurrentBrowserWindowSizeAsync()).Width < 960;
+        }
+        catch (JSException)
+        {
+            // Keep the side panel.
+        }
+
+        _filtersAnchor = phone ? Anchor.Bottom : Anchor.End;
+        _filtersOpen = true;
+    }
+
+    private async Task OpenFindCoversFromSheetAsync()
+    {
+        _filtersOpen = false;
+        await OpenFindCoversAsync();
+    }
+
+    private async Task OnScaleChanged(double scale)
+    {
+        _scale = scale;
+        await SaveScale();
+    }
+
     private void Recompute()
     {
-        _filter = new LibraryFilter
-        {
-            Search = _search,
-            ReadState = _readState,
-            Statuses = _status switch
-            {
-                StatusOption.Owned => new HashSet<OwnershipStatus> { OwnershipStatus.Owned },
-                StatusOption.Wishlist => new HashSet<OwnershipStatus> { OwnershipStatus.Wishlist },
-                StatusOption.LentOut => new HashSet<OwnershipStatus> { OwnershipStatus.LentOut },
-                _ => null,
-            },
-        };
-
-        var query = new LibraryQuery
-        {
-            Filter = _filter,
-            Sort = new LibrarySort(_sortField, _descending),
-            GroupBy = _groupBy,
-        };
-
-        _filtered = LibraryQueryEngine.Apply(LibraryData.Entries, _filter, query.Sort);
-        _groups = LibraryQueryEngine.Execute(LibraryData.Entries, query);
+        _filter = _view.Filter;
+        _filtered = LibraryQueryEngine.Apply(LibraryData.Entries, _filter, _view.Query.Sort);
+        _groups = LibraryQueryEngine.Execute(LibraryData.Entries, _view.Query);
         _matchCount = _filtered.Count;
     }
 
-    private void ToggleDirection()
-    {
-        _descending = !_descending;
-        Recompute();
-    }
+    private void ToggleDirection() => SetView(_view.WithSort(_view.Query.Sort with { Descending = !_view.Query.Sort.Descending }));
 
     private bool IsDimmed(LibraryEntry entry) => !LibraryQueryEngine.Matches(entry, _filter);
 

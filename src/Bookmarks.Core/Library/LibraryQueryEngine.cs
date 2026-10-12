@@ -19,7 +19,8 @@ public static class LibraryQueryEngine
         ArgumentNullException.ThrowIfNull(filter);
         ArgumentNullException.ThrowIfNull(sort);
 
-        return Sort(entries.Where(e => Matches(e, filter)), sort).ToList();
+        var today = DateOnly.FromDateTime(DateTime.Now);
+        return Sort(entries.Where(e => Matches(e, filter, today)), sort).ToList();
     }
 
     public static IReadOnlyList<LibraryGroup> Execute(IEnumerable<LibraryEntry> entries, LibraryQuery query)
@@ -43,6 +44,10 @@ public static class LibraryQueryEngine
     }
 
     public static bool Matches(LibraryEntry e, LibraryFilter f)
+        => Matches(e, f, DateOnly.FromDateTime(DateTime.Now));
+
+    /// <param name="today">Reference date for relative date filters ("last 30 days").</param>
+    public static bool Matches(LibraryEntry e, LibraryFilter f, DateOnly today)
     {
         ArgumentNullException.ThrowIfNull(e);
         ArgumentNullException.ThrowIfNull(f);
@@ -57,9 +62,13 @@ public static class LibraryQueryEngine
             return false;
         }
 
-        if (f.TagIds is { Count: > 0 } && !e.Item.TagIds.Any(f.TagIds.Contains))
+        if (f.TagIds is { Count: > 0 } tags)
         {
-            return false;
+            var tagged = f.TagMatchAll ? tags.All(e.Item.TagIds.Contains) : e.Item.TagIds.Any(tags.Contains);
+            if (!tagged)
+            {
+                return false;
+            }
         }
 
         if (f.WantToReread is { } reread && e.Item.WantToReread != reread)
@@ -77,11 +86,52 @@ public static class LibraryQueryEngine
             return false;
         }
 
+        if (f.BookcaseId is { } bookcase)
+        {
+            Guid? wanted = bookcase == LibraryFilter.Unshelved ? null : bookcase;
+            if (e.BookcaseId != wanted)
+            {
+                return false;
+            }
+        }
+
+        if (f.MinReadCount is { } minReads && e.ReadCount < minReads)
+        {
+            return false;
+        }
+
+        if (f.Authors is { Count: > 0 } authors && !e.Book.Authors.Any(a => authors.Contains(a, StringComparer.OrdinalIgnoreCase)))
+        {
+            return false;
+        }
+
+        if (f.Genres is { Count: > 0 } genres && !e.Book.Genres.Any(g => genres.Contains(g, StringComparer.OrdinalIgnoreCase)))
+        {
+            return false;
+        }
+
+        if (f.Series is { Count: > 0 } series && (e.Book.Series is not { } s || !series.Contains(s, StringComparer.OrdinalIgnoreCase)))
+        {
+            return false;
+        }
+
+        if (f.Acquired is { } acquired
+            && !acquired.Matches(e.Item.AcquiredOn ?? DateOnly.FromDateTime(e.Item.AddedAt.LocalDateTime), today))
+        {
+            return false;
+        }
+
+        if (f.LastFinished is { } finished && !finished.Matches(e.LastFinishedOn, today))
+        {
+            return false;
+        }
+
         var readOk = f.ReadState switch
         {
             ReadState.Read => e.IsRead,
             ReadState.Unread => !e.IsRead,
             ReadState.Reading => e.IsReading,
+            ReadState.ToRead => !e.IsRead && !e.IsReading && e.Item.Status != OwnershipStatus.Wishlist,
             _ => true,
         };
         if (!readOk)

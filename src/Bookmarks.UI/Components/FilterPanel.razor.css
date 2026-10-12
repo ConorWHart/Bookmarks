@@ -1,0 +1,36 @@
+.bm-filters {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.bm-filters__label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--mud-palette-text-secondary);
+    margin-bottom: 4px;
+}
+
+.bm-filters__row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+}
+
+.bm-filters__row > ::deep .mud-input-control {
+    flex: 1 1 auto;
+}
+
+/* Chip sets wrap instead of overflowing the panel. */
+.bm-filters ::deep .mud-chipset {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.bm-filters ::deep .mud-chip {
+    margin: 0;
+}

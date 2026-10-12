@@ -14,6 +14,12 @@ public sealed class UserPreferences(ILocalStore store)
     /// <summary>Ids of bookcases collapsed on the Bookcases page.</summary>
     public const string CollapsedBookcases = "bookcases.collapsed";
 
+    /// <summary>The library's current view (<c>LibraryViewJson</c>), restored on the next visit.</summary>
+    public const string LibraryView = "library.view";
+
+    /// <summary>"true" / "false"; missing = follow the system setting.</summary>
+    public const string DarkMode = "ui.dark";
+
     private const string Prefix = "pref:";
 
     public async Task<double?> GetDoubleAsync(string key, CancellationToken ct = default)
@@ -24,6 +30,19 @@ public sealed class UserPreferences(ILocalStore store)
 
     public Task SetDoubleAsync(string key, double value, CancellationToken ct = default)
         => store.SetMetaAsync(Prefix + key, value.ToString("R", CultureInfo.InvariantCulture), ct);
+
+    public Task<string?> GetStringAsync(string key, CancellationToken ct = default)
+        => store.GetMetaAsync(Prefix + key, ct);
+
+    /// <summary>Null removes the key.</summary>
+    public Task SetStringAsync(string key, string? value, CancellationToken ct = default)
+        => store.SetMetaAsync(Prefix + key, value, ct);
+
+    public async Task<bool?> GetBoolAsync(string key, CancellationToken ct = default)
+        => bool.TryParse(await store.GetMetaAsync(Prefix + key, ct), out var value) ? value : null;
+
+    public Task SetBoolAsync(string key, bool value, CancellationToken ct = default)
+        => store.SetMetaAsync(Prefix + key, value ? "true" : "false", ct);
 
     public async Task<HashSet<Guid>> GetGuidSetAsync(string key, CancellationToken ct = default)
     {

@@ -1,0 +1,252 @@
+@* Every setting of a library view in one panel. The phone's Filters sheet shows the layout section
+   (arrange, show, sort, group, size) too; wider screens keep those in the toolbar. *@
+@inject LibraryService LibraryData
+
+<div class="bm-filters">
+    @if (ShowLayout)
+    {
+        <section>
+            <div class="bm-filters__label">Arrange</div>
+            <MudChipSet T="LibraryArrangement" SelectionMode="SelectionMode.SingleSelection" CheckMark="true"
+                        SelectedValue="View.Arrangement" SelectedValueChanged="v => Set(View with { Arrangement = v })"
+                        Color="Color.Primary" Variant="Variant.Outlined" Size="Size.Small">
+                <MudChip Value="LibraryArrangement.AsShelved" Text="As shelved" />
+                <MudChip Value="LibraryArrangement.BySort" Text="By sort" />
+            </MudChipSet>
+        </section>
+
+        <section>
+            <div class="bm-filters__label">Show</div>
+            <MudChipSet T="LibraryDisplay" SelectionMode="SelectionMode.SingleSelection" CheckMark="true"
+                        SelectedValue="View.Display" SelectedValueChanged="v => Set(View with { Display = v })"
+                        Color="Color.Primary" Variant="Variant.Outlined" Size="Size.Small">
+                <MudChip Value="LibraryDisplay.Shelves" Text="Shelves" />
+                <MudChip Value="LibraryDisplay.Covers" Text="Covers" />
+            </MudChipSet>
+        </section>
+
+        <section class="bm-filters__row">
+            <MudSelect T="LibrarySortField" Value="View.Query.Sort.Field" Label="Sort"
+                       ValueChanged="v => Set(View.WithSort(View.Query.Sort with { Field = v }))"
+                       Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true">
+                @foreach (var (field, label) in LibraryLabels.SortOptions)
+                {
+                    <MudSelectItem Value="field">@label</MudSelectItem>
+                }
+            </MudSelect>
+            <MudIconButton Icon="@(View.Query.Sort.Descending ? Icons.Material.Filled.ArrowDownward : Icons.Material.Filled.ArrowUpward)"
+                           OnClick="() => Set(View.WithSort(View.Query.Sort with { Descending = !View.Query.Sort.Descending }))"
+                           aria-label="Toggle sort direction" />
+        </section>
+
+        @if (View.Arrangement == LibraryArrangement.BySort)
+        {
+            <section>
+                <MudSelect T="LibraryGroupBy" Value="View.Query.GroupBy" Label="Group" ValueChanged="v => Set(View.WithGroupBy(v))"
+                           Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true">
+                    @foreach (var (group, label) in LibraryLabels.GroupOptions)
+                    {
+                        <MudSelectItem Value="group">@label</MudSelectItem>
+                    }
+                </MudSelect>
+            </section>
+        }
+
+        <section>
+            <div class="bm-filters__label">Size</div>
+            <MudSlider T="double" Value="Scale" ValueChanged="ScaleChanged" Min="MinScale" Max="MaxScale" Step="0.05" Size="Size.Small" />
+        </section>
+
+        <MudDivider Class="my-1" />
+    }
+
+    <section>
+        <div class="bm-filters__label">Status</div>
+        <MudChipSet T="OwnershipStatus" SelectionMode="SelectionMode.MultiSelection" CheckMark="true"
+                    SelectedValues="Filter.Statuses" SelectedValuesChanged="v => SetFilter(Filter with { Statuses = SetOrNull(v) })"
+                    Color="Color.Primary" Variant="Variant.Outlined" Size="Size.Small">
+            <MudChip Value="OwnershipStatus.Owned" Text="Owned" />
+            <MudChip Value="OwnershipStatus.Wishlist" Text="Wishlist" />
+            <MudChip Value="OwnershipStatus.LentOut" Text="Lent out" />
+        </MudChipSet>
+    </section>
+
+    <section>
+        <div class="bm-filters__label">Read</div>
+        <MudChipSet T="ReadState" SelectionMode="SelectionMode.SingleSelection" CheckMark="true"
+                    SelectedValue="Filter.ReadState" SelectedValueChanged="v => SetFilter(Filter with { ReadState = v })"
+                    Color="Color.Primary" Variant="Variant.Outlined" Size="Size.Small">
+            <MudChip Value="ReadState.Any" Text="Any" />
+            <MudChip Value="ReadState.Read" Text="Read" />
+            <MudChip Value="ReadState.ToRead" Text="To read" />
+            <MudChip Value="ReadState.Reading" Text="Reading now" />
+            <MudChip Value="ReadState.Unread" Text="Unread" />
+        </MudChipSet>
+        <div class="bm-filters__row">
+            <MudSelect T="int?" Value="Filter.MinReadCount" Label="Times read" ValueChanged="v => SetFilter(Filter with { MinReadCount = v })"
+                       Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true">
+                <MudSelectItem T="int?" Value="null">Any</MudSelectItem>
+                <MudSelectItem T="int?" Value="1">At least once</MudSelectItem>
+                <MudSelectItem T="int?" Value="2">2+ times</MudSelectItem>
+                <MudSelectItem T="int?" Value="3">3+ times</MudSelectItem>
+            </MudSelect>
+            <MudCheckBox T="bool" Value="Filter.WantToReread == true" ValueChanged="v => SetFilter(Filter with { WantToReread = v ? true : null })"
+                         Label="Want to re-read" Color="Color.Primary" Dense="true" />
+        </div>
+    </section>
+
+    <section>
+        <MudSelect T="decimal?" Value="Filter.MinRating" Label="Rating" ValueChanged="v => SetFilter(Filter with { MinRating = v })"
+                   Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true">
+            <MudSelectItem T="decimal?" Value="null">Any</MudSelectItem>
+            @foreach (var stars in RatingSteps)
+            {
+                <MudSelectItem T="decimal?" Value="stars">@(stars == 5m ? "5 stars" : $"{stars:0.#}+ stars")</MudSelectItem>
+            }
+        </MudSelect>
+    </section>
+
+    <section>
+        <div class="bm-filters__label">Format</div>
+        <MudChipSet T="BookFormat" SelectionMode="SelectionMode.MultiSelection" CheckMark="true"
+                    SelectedValues="Filter.Formats" SelectedValuesChanged="v => SetFilter(Filter with { Formats = SetOrNull(v) })"
+                    Color="Color.Primary" Variant="Variant.Outlined" Size="Size.Small">
+            @foreach (var (format, label) in LibraryLabels.Formats)
+            {
+                <MudChip Value="format" Text="@label" />
+            }
+        </MudChipSet>
+    </section>
+
+    @if (LibraryData.Tags.Count > 0)
+    {
+        <section>
+            <div class="bm-filters__label">Tags</div>
+            <MudChipSet T="Guid" SelectionMode="SelectionMode.MultiSelection" CheckMark="true"
+                        SelectedValues="Filter.TagIds" SelectedValuesChanged="v => SetFilter(Filter with { TagIds = SetOrNull(v) })"
+                        Color="Color.Primary" Variant="Variant.Outlined" Size="Size.Small">
+                @foreach (var tag in LibraryData.Tags)
+                {
+                    <MudChip Value="tag.Id" Text="@tag.Name" />
+                }
+            </MudChipSet>
+            @if (Filter.TagIds is { Count: > 1 })
+            {
+                <MudSwitch T="bool" Value="Filter.TagMatchAll" ValueChanged="v => SetFilter(Filter with { TagMatchAll = v })"
+                           Label="Must have every selected tag" Color="Color.Primary" />
+            }
+        </section>
+    }
+
+    <section>
+        <MudSelect T="Guid?" Value="Filter.BookcaseId" Label="Bookcase" ValueChanged="v => SetFilter(Filter with { BookcaseId = v })"
+                   ToStringFunc="BookcaseName" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true">
+            <MudSelectItem T="Guid?" Value="null">Any</MudSelectItem>
+            @foreach (var bookcase in LibraryData.Bookcases)
+            {
+                <MudSelectItem T="Guid?" Value="bookcase.Id">@bookcase.Name</MudSelectItem>
+            }
+            <MudSelectItem T="Guid?" Value="LibraryFilter.Unshelved">Unshelved</MudSelectItem>
+        </MudSelect>
+    </section>
+
+    @if (LibraryData.Authors.Count > 0)
+    {
+        <section>
+            <MudSelect T="string" MultiSelection="true" Label="Authors" SelectedValues="Filter.Authors"
+                       SelectedValuesChanged="v => SetFilter(Filter with { Authors = TextSetOrNull(v) })"
+                       MultiSelectionTextFunc="Summary" MaxHeight="320" Clearable="true"
+                       Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true">
+                @foreach (var author in LibraryData.Authors)
+                {
+                    <MudSelectItem T="string" Value="author">@author</MudSelectItem>
+                }
+            </MudSelect>
+        </section>
+    }
+
+    @if (LibraryData.Genres.Count > 0)
+    {
+        <section>
+            <MudSelect T="string" MultiSelection="true" Label="Genres" SelectedValues="Filter.Genres"
+                       SelectedValuesChanged="v => SetFilter(Filter with { Genres = TextSetOrNull(v) })"
+                       MultiSelectionTextFunc="Summary" MaxHeight="320" Clearable="true"
+                       Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true">
+                @foreach (var genre in LibraryData.Genres)
+                {
+                    <MudSelectItem T="string" Value="genre">@genre</MudSelectItem>
+                }
+            </MudSelect>
+        </section>
+    }
+
+    @if (LibraryData.SeriesNames.Count > 0)
+    {
+        <section>
+            <MudSelect T="string" MultiSelection="true" Label="Series" SelectedValues="Filter.Series"
+                       SelectedValuesChanged="v => SetFilter(Filter with { Series = TextSetOrNull(v) })"
+                       MultiSelectionTextFunc="Summary" MaxHeight="320" Clearable="true"
+                       Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true">
+                @foreach (var series in LibraryData.SeriesNames)
+                {
+                    <MudSelectItem T="string" Value="series">@series</MudSelectItem>
+                }
+            </MudSelect>
+        </section>
+    }
+
+    <section>
+        <DateFilterField Label="Acquired" Value="Filter.Acquired" ValueChanged="v => SetFilter(Filter with { Acquired = v })" />
+    </section>
+
+    <section>
+        <DateFilterField Label="Last finished" Value="Filter.LastFinished" ValueChanged="v => SetFilter(Filter with { LastFinished = v })" />
+    </section>
+</div>
+
+@code {
+    public const double MinScale = 0.35;
+    public const double MaxScale = 0.9;
+
+    private static readonly decimal[] RatingSteps = [1m, 2m, 3m, 3.5m, 4m, 4.5m, 5m];
+
+    [Parameter, EditorRequired] public LibraryView View { get; set; } = LibraryView.Default;
+
+    [Parameter] public EventCallback<LibraryView> ViewChanged { get; set; }
+
+    /// <summary>Also show arrangement, display, sort, grouping and size (the phone sheet).</summary>
+    [Parameter] public bool ShowLayout { get; set; }
+
+    [Parameter] public double Scale { get; set; }
+
+    [Parameter] public EventCallback<double> ScaleChanged { get; set; }
+
+    private LibraryFilter Filter => View.Filter;
+
+    private Task Set(LibraryView view) => ViewChanged.InvokeAsync(view);
+
+    private Task SetFilter(LibraryFilter filter) => Set(View.WithFilter(filter));
+
+    private static HashSet<T>? SetOrNull<T>(IReadOnlyCollection<T>? values)
+        => values is { Count: > 0 } ? values.ToHashSet() : null;
+
+    private static HashSet<string>? TextSetOrNull(IEnumerable<string?>? values)
+    {
+        var set = (values ?? Enumerable.Empty<string?>()).Where(v => !string.IsNullOrEmpty(v)).Select(v => v!).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return set.Count > 0 ? set : null;
+    }
+
+    private static string Summary(IReadOnlyList<string?>? values) => values switch
+    {
+        null or { Count: 0 } => "",
+        { Count: 1 } => values[0] ?? "",
+        _ => $"{values[0]} +{values.Count - 1}",
+    };
+
+    private string BookcaseName(Guid? id) => id switch
+    {
+        null => "Any",
+        { } value when value == LibraryFilter.Unshelved => "Unshelved",
+        { } value => LibraryData.Bookcases.FirstOrDefault(b => b.Id == value)?.Name ?? "Removed bookcase",
+    };
+}

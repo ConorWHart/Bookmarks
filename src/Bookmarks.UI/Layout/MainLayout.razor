@@ -4,8 +4,9 @@
 @inject IAppStatusService AppStatus
 @inject ISyncService Sync
 @inject ISnackbar Snackbar
+@inject UserPreferences Prefs
 
-<MudThemeProvider Theme="BookmarksTheme.Default" @bind-IsDarkMode="_isDarkMode" />
+<MudThemeProvider @ref="_themeProvider" Theme="BookmarksTheme.Default" @bind-IsDarkMode="_isDarkMode" />
 <MudPopoverProvider />
 <MudDialogProvider />
 <MudSnackbarProvider />
@@ -28,7 +29,7 @@
         <SyncIndicator />
         <AccountMenu />
         <MudIconButton Icon="@(_isDarkMode ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)"
-                       Color="Color.Inherit" OnClick="() => _isDarkMode = !_isDarkMode" aria-label="Toggle dark mode" />
+                       Color="Color.Inherit" OnClick="ToggleDarkModeAsync" aria-label="Toggle dark mode" />
     </MudAppBar>
 
     <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Variant="DrawerVariant.Responsive" Elevation="1">
@@ -43,6 +44,7 @@
 @code {
     private bool _drawerOpen;
     private bool _isDarkMode;
+    private MudThemeProvider? _themeProvider;
     private bool _updateAnnounced;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -51,6 +53,8 @@
         {
             return;
         }
+
+        await RestoreDarkModeAsync();
 
         AppStatus.Changed += OnAppStatusChanged;
         try
@@ -74,6 +78,38 @@
     }
 
     public void Dispose() => AppStatus.Changed -= OnAppStatusChanged;
+
+    /// <summary>The user's last choice on this device; until they pick one, follow the system setting.</summary>
+    private async Task RestoreDarkModeAsync()
+    {
+        try
+        {
+            var saved = await Prefs.GetBoolAsync(UserPreferences.DarkMode);
+            var dark = saved ?? (_themeProvider is not null && await _themeProvider.GetSystemDarkModeAsync());
+            if (dark != _isDarkMode)
+            {
+                _isDarkMode = dark;
+                StateHasChanged();
+            }
+        }
+        catch (JSException)
+        {
+            // Light mode it is.
+        }
+    }
+
+    private async Task ToggleDarkModeAsync()
+    {
+        _isDarkMode = !_isDarkMode;
+        try
+        {
+            await Prefs.SetBoolAsync(UserPreferences.DarkMode, _isDarkMode);
+        }
+        catch (JSException)
+        {
+            // Not remembered; the toggle still works for this visit.
+        }
+    }
 
     private void OnAppStatusChanged() => _ = InvokeAsync(() =>
     {
