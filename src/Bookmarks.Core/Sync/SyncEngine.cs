@@ -84,17 +84,19 @@ public sealed class SyncEngine(ILocalStore store, ISyncTransport transport, Time
         {
             checkpoint = 0;
             await store.EnqueueUnsyncedAsync(ct);
+            await store.SetMetaAsync(KnownTypesKey, KnownTypes, ct);
         }
-
         else if (await store.GetMetaAsync(KnownTypesKey, ct) != KnownTypes)
         {
-            checkpoint = 0; // pull everything once; see KnownTypesKey
+            // Pull everything once; see KnownTypesKey. Recorded now, not after the pull: a pull from 0 by this
+            // version receives every type, so if it's interrupted the next pass resumes from the saved checkpoint.
+            checkpoint = 0;
+            await store.SetMetaAsync(KnownTypesKey, KnownTypes, ct);
         }
 
         var deviceId = await GetDeviceIdAsync(ct);
         var (pushed, rejected) = await PushAsync(deviceId, ct);
         var (pulled, changed, newCheckpoint) = await PullAsync(checkpoint, ct);
-        await store.SetMetaAsync(KnownTypesKey, KnownTypes, ct);
 
         await store.SetMetaAsync(LastSyncedAtKey, time.GetUtcNow().ToString("O", CultureInfo.InvariantCulture), ct);
         return new SyncResult(pushed, rejected, pulled, changed, newCheckpoint);
