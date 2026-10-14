@@ -1,0 +1,27 @@
+/* "Waking up…" beside the sync button while a slow first sync waits for the server (cold API, paused database). */
+.bm-sync {
+    display: inline-flex;
+    align-items: center;
+}
+
+.bm-sync__waking {
+    display: inline-flex;
+    align-items: center;
+    height: 28px;
+    padding: 0 12px;
+    border: 1px solid rgb(243 230 211 / 0.55);
+    border-radius: 14px;
+    background-color: rgb(243 230 211 / 0.1);
+    color: #f3e6d3;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+}
+
+@media (max-width: 599px) {
+    .bm-sync__waking {
+        padding: 0 8px;
+        font-size: 0.75rem;
+    }
+}

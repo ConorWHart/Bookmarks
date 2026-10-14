@@ -33,6 +33,9 @@ public interface ISyncService
 
     SyncStatus Status { get; }
 
+    /// <summary>A pass has been running for a few seconds: most likely the server is waking up after a quiet spell.</summary>
+    bool IsSlow { get; }
+
     /// <summary>When this device last completed a sync, or null if it never has.</summary>
     DateTimeOffset? LastSyncedAt { get; }
 
@@ -56,6 +59,8 @@ public sealed class NullSyncService : ISyncService
     public bool IsEnabled => false;
 
     public SyncStatus Status => SyncStatus.Off;
+
+    public bool IsSlow => false;
 
     public DateTimeOffset? LastSyncedAt => null;
 
@@ -94,7 +99,9 @@ public static class SyncText
         ArgumentNullException.ThrowIfNull(sync);
         return sync.Status switch
         {
-            SyncStatus.Syncing => "Syncing…",
+            SyncStatus.Syncing => sync.IsSlow
+                ? "Waking up the Bookmarks service. After a quiet spell this can take up to a minute; your changes are safe on this device."
+                : "Syncing…",
             SyncStatus.Offline => sync.PendingChanges > 0
                 ? $"Offline. {Changes(sync.PendingChanges)} will sync when you're back online."
                 : "Offline. Changes are saved on this device and sync when you're back online.",

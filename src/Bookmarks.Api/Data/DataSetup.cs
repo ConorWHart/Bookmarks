@@ -19,10 +19,11 @@ public static class DataSetup
             var connectionString = sp.GetRequiredService<IConfiguration>().GetConnectionString(ConnectionStringName)
                 ?? throw new InvalidOperationException($"Connection string '{ConnectionStringName}' is not configured.");
 
-            // Azure SQL serverless auto-pauses: the first connection after a pause can take up to a minute
-            // and may fail transiently while the database resumes.
+            // Azure SQL serverless auto-pauses: the first connection after a pause can take a minute or more
+            // and fails transiently while the database resumes. 10 retries (capped at 10 s apart) wait about
+            // 90 s in total, inside the client's 150 s request timeout (Bookmarks.Client Program.cs).
             options.UseSqlServer(connectionString, sql => sql.EnableRetryOnFailure(
-                maxRetryCount: 6,
+                maxRetryCount: 10,
                 maxRetryDelay: TimeSpan.FromSeconds(10),
                 errorNumbersToAdd: null));
         });

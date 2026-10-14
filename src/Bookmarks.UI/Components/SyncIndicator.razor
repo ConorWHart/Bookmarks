@@ -7,6 +7,10 @@
 {
     <MudTooltip Text="@SyncText.Describe(Sync, DateTimeOffset.Now)">
         <div class="@CssClass">
+            @if (Sync.IsSlow)
+            {
+                <span class="bm-sync__waking" role="status">Waking up…</span>
+            }
             <MudIconButton Icon="@Icon" Size="Size.Medium" Color="Color.Inherit"
                            Disabled="@(Sync.Status == SyncStatus.Syncing)"
                            OnClick="SyncNowAsync" aria-label="@AriaLabel" />

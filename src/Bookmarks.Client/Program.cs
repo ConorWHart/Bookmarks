@@ -53,7 +53,9 @@ builder.Services.AddScoped<IBarcodeScanner, BrowserBarcodeScanner>();
 // The API lives on another origin (localhost:7201 in development, App Service once deployed).
 var apiBaseAddress = new Uri(builder.Configuration["Api:BaseAddress"] ?? baseAddress.ToString());
 builder.Services.AddScoped(sp => new BookmarksApiClient(
-    new HttpClient { BaseAddress = apiBaseAddress },
+    // Longer than the default 100 s: after a quiet spell the API starts cold and the database resumes from
+    // auto-pause, and the first sync can take over a minute (the API retries for ~90 s, DataSetup.cs).
+    new HttpClient { BaseAddress = apiBaseAddress, Timeout = TimeSpan.FromSeconds(150) },
     sp.GetRequiredService<IAccountService>()));
 
 // Sync (Phase 4): the engine pushes the outbox and pulls server changes through the API client;

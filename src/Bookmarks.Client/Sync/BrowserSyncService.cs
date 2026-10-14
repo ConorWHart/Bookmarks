@@ -38,10 +38,14 @@ public sealed class BrowserSyncService(
     private static readonly TimeSpan AfterEditDelay = TimeSpan.FromSeconds(3);
     private static readonly TimeSpan OtherTabBusyDelay = TimeSpan.FromSeconds(10);
     private static readonly TimeSpan Interval = TimeSpan.FromMinutes(5);
-    private static readonly TimeSpan FirstRetryDelay = TimeSpan.FromSeconds(15);
+    // Short: a failed first pass is usually the server still waking up (cold API, paused database).
+    private static readonly TimeSpan FirstRetryDelay = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan MaxRetryDelay = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan PassTimeout = TimeSpan.FromMinutes(3);
     private static readonly TimeSpan StaleAfter = TimeSpan.FromMinutes(1);
+
+    /// <summary>A pass running longer than this is shown as "waking up the server".</summary>
+    private static readonly TimeSpan SlowAfter = TimeSpan.FromSeconds(5);
 
     /// <summary>Consecutive failures before a network-type problem is shown.</summary>
     private const int FailuresBeforeAttention = 2;
@@ -59,8 +63,12 @@ public sealed class BrowserSyncService(
     private string? _lastError;
     private Exception? _passError;
     private TimeSpan _retryDelay = FirstRetryDelay;
+    private int _passNumber;
+    private bool _slow;
 
     public bool IsEnabled => accounts.IsSignInSupported && !accounts.Current.IsGuest;
+
+    public bool IsSlow => _running && _slow;
 
     public SyncStatus Status
     {
@@ -291,6 +299,8 @@ public sealed class BrowserSyncService(
 
         _running = true;
         _passError = null;
+        _slow = false;
+        _ = MarkSlowAsync(++_passNumber);
         Changed?.Invoke();
 
         var completed = false;
@@ -346,6 +356,17 @@ public sealed class BrowserSyncService(
                 Schedule(completed ? AfterEditDelay : _retryDelay);
             }
 
+            Changed?.Invoke();
+        }
+    }
+
+    /// <summary>Flags the pass as slow (most likely the server waking up) if it's still running after <see cref="SlowAfter"/>.</summary>
+    private async Task MarkSlowAsync(int pass)
+    {
+        await Task.Delay(SlowAfter);
+        if (_running && pass == _passNumber && !_disposed)
+        {
+            _slow = true;
             Changed?.Invoke();
         }
     }
