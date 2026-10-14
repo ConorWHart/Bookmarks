@@ -37,14 +37,6 @@
                        StartIcon="@Icons.Material.Filled.Edit" OnClick="() => OnEdit.InvokeAsync(entry)">Edit</MudButton>
             <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Error"
                        StartIcon="@Icons.Material.Outlined.Delete" OnClick="() => OnDelete.InvokeAsync(entry)">Delete</MudButton>
-            <MudSpacer />
-            <MudTooltip Text="How it stands on the shelf">
-                <MudToggleGroup T="bool" Value="entry.Item.Appearance.FaceOut" ValueChanged="SetFaceOutAsync"
-                                Color="Color.Primary" Size="Size.Small" Outlined="true" aria-label="Show on the shelf by">
-                    <MudToggleItem Value="false" Text="Spine" />
-                    <MudToggleItem Value="true" Text="Cover" />
-                </MudToggleGroup>
-            </MudTooltip>
         </MudStack>
 
         <MudStack Row="true" Spacing="1" Class="mb-2" Wrap="Wrap.Wrap">
@@ -76,21 +68,51 @@
         }
         @foreach (var place in places)
         {
-            <div class="bm-details__row" @key="place.Placement.Id">
-                <MudIcon Icon="@Icons.Material.Outlined.ViewWeek" Size="Size.Small" />
-                <div class="flex-grow-1">
-                    <MudText Typo="Typo.body2">@place.Bookcase.Name › @LibraryData.ShelfLabel(place.Shelf)</MudText>
+            @* One card per bookcase: name and "take off" on top; below, which shelf, where along it, and spine or cover. *@
+            <div class="bm-place" @key="place.Placement.Id">
+                <div class="bm-place__head">
+                    <span class="bm-place__case">@place.Bookcase.Name</span>
                     @if (place.Bookcase.IsHidden)
                     {
-                        <MudText Typo="Typo.caption">Hidden bookcase</MudText>
+                        <span class="bm-place__tag">Hidden</span>
                     }
+                    <span class="bm-place__remove">
+                        <MudTooltip Text="Take off this shelf">
+                            <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
+                                           OnClick="() => LibraryData.RemovePlacementAsync(place.Placement.Id)"
+                                           aria-label="@($"Take off {place.Bookcase.Name}")" />
+                        </MudTooltip>
+                    </span>
                 </div>
-                <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft" Size="Size.Small" Disabled="!CanMove(entry, place, -1)"
-                               OnClick="() => LibraryData.MovePlacementAsync(place.Placement.Id, -1)" aria-label="Move left on the shelf" />
-                <MudIconButton Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Small" Disabled="!CanMove(entry, place, 1)"
-                               OnClick="() => LibraryData.MovePlacementAsync(place.Placement.Id, 1)" aria-label="Move right on the shelf" />
-                <MudIconButton Icon="@Icons.Material.Outlined.RemoveCircleOutline" Size="Size.Small"
-                               OnClick="() => LibraryData.RemovePlacementAsync(place.Placement.Id)" aria-label="Take off this shelf" />
+
+                <div class="bm-place__controls">
+                    <div class="bm-place__shelf">
+                        <MudSelect T="Guid" Value="place.Shelf.Id" ValueChanged="(Guid shelfId) => ChangeShelfAsync(entry, place, shelfId)"
+                                   Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true">
+                            @foreach (var shelf in LibraryData.ShelvesIn(place.Bookcase.Id))
+                            {
+                                <MudSelectItem Value="shelf.Id">@LibraryData.ShelfLabel(shelf)</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </div>
+
+                    <div class="bm-place__pos" role="group" aria-label="Position on the shelf">
+                        <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft" Size="Size.Small" Disabled="!CanMove(entry, place, -1)"
+                                       OnClick="() => LibraryData.MovePlacementAsync(place.Placement.Id, -1)" aria-label="Move left on this shelf" />
+                        <span class="bm-place__pos-text" title="Position from the left">@PositionText(entry, place)</span>
+                        <MudIconButton Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Small" Disabled="!CanMove(entry, place, 1)"
+                                       OnClick="() => LibraryData.MovePlacementAsync(place.Placement.Id, 1)" aria-label="Move right on this shelf" />
+                    </div>
+
+                    <div class="bm-place__face">
+                        <MudToggleGroup T="bool" Value="LibraryData.IsFaceOut(place.Placement)"
+                                        ValueChanged="(bool v) => LibraryData.SetPlacementFaceOutAsync(place.Placement.Id, v)"
+                                        Color="Color.Primary" Size="Size.Small" Outlined="true" aria-label="Show on this shelf by">
+                            <MudToggleItem Value="false" Text="Spine" />
+                            <MudToggleItem Value="true" Text="Cover" />
+                        </MudToggleGroup>
+                    </div>
+                </div>
             </div>
         }
 
@@ -224,8 +246,6 @@
     private Task SetRatingAsync(int stars)
         => Entry is null ? Task.CompletedTask : LibraryData.SetRatingAsync(Entry.Id, stars == 0 ? null : stars);
 
-    private Task SetFaceOutAsync(bool faceOut)
-        => Entry is null ? Task.CompletedTask : LibraryData.SetFaceOutAsync(Entry.Id, faceOut);
 
     /// <summary>Opens the shelf picker with this book chosen.</summary>
     private Task PutOnShelfAsync(LibraryEntry entry) => ShelfPickerDialog.OpenAsync(Dialogs, Viewport, [entry.Id]);
@@ -353,6 +373,23 @@
 
     private static string PublishedText(Book b)
         => string.Join(", ", new[] { b.Publisher, b.PublishedYear?.ToString() }.Where(s => !string.IsNullOrEmpty(s)));
+
+    /// <summary>Moves the book to another shelf of the same bookcase (to the end of it).</summary>
+    private async Task ChangeShelfAsync(LibraryEntry entry, BookPlace place, Guid shelfId)
+    {
+        if (shelfId != place.Shelf.Id)
+        {
+            await LibraryData.PlaceBooksAsync([entry.Id], shelfId);
+        }
+    }
+
+    /// <summary>"3 of 6" (from the left), so the arrows visibly do something.</summary>
+    private string PositionText(LibraryEntry entry, BookPlace place)
+    {
+        var books = LibraryData.BooksOnShelf(place.Shelf.Id);
+        var index = books.ToList().FindIndex(b => b.Id == entry.Id);
+        return index < 0 ? "" : $"{index + 1} of {books.Count}";
+    }
 
     /// <summary>Whether the book has a neighbour on that side of the shelf.</summary>
     private bool CanMove(LibraryEntry entry, BookPlace place, int delta)

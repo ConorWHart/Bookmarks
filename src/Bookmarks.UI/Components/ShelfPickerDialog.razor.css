@@ -1,7 +1,9 @@
 .bm-picker {
     display: flex;
+    flex: 1 1 auto;
     flex-direction: column;
     gap: 12px;
+    min-height: 0;
 }
 
 .bm-picker__target {
@@ -27,6 +29,8 @@
 }
 
 .bm-picker__list {
+    flex: 1 1 auto;
+    min-height: 0;
     max-height: min(50vh, 460px);
     overflow-y: auto;
     border: 1px solid var(--mud-palette-lines-default);
@@ -127,6 +131,7 @@
         grid-template-columns: 1fr;
     }
 
+    /* Phones: the dialog is full screen; the list takes all the height left under the filters. */
     .bm-picker__list {
         max-height: none;
     }

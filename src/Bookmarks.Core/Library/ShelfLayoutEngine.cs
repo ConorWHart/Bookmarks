@@ -13,7 +13,10 @@ public static class ShelfLayoutEngine
     /// <param name="entries">Already filtered and sorted.</param>
     /// <param name="shelfWidthMm">Usable width of one shelf in real-world millimetres.</param>
     /// <param name="gapMm">Spacing between books.</param>
-    public static IReadOnlyList<ShelfRow> Flow(IEnumerable<LibraryEntry> entries, int shelfWidthMm, int gapMm = 1)
+    /// <param name="isFaceOut">Whether a book shows its cover here (a shelf placement can override the book's
+    /// default); null = the book's own <see cref="SpineAppearance.FaceOut"/>.</param>
+    public static IReadOnlyList<ShelfRow> Flow(
+        IEnumerable<LibraryEntry> entries, int shelfWidthMm, int gapMm = 1, Func<LibraryEntry, bool>? isFaceOut = null)
     {
         ArgumentNullException.ThrowIfNull(entries);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(shelfWidthMm);
@@ -24,7 +27,7 @@ public static class ShelfLayoutEngine
 
         foreach (var e in entries)
         {
-            var faceOut = e.Item.Appearance.FaceOut;
+            var faceOut = isFaceOut?.Invoke(e) ?? e.Item.Appearance.FaceOut;
             var height = SpineMetrics.HeightMm(e);
 
             // Face-out books show their cover, so they take the cover's width (≈ 2/3 of height).

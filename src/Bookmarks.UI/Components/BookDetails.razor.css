@@ -37,3 +37,90 @@
     font-size: 0.9rem;
     line-height: 1.45;
 }
+
+/* "On shelves": one card per bookcase the book is in */
+.bm-place {
+    margin-top: 8px;
+    padding: 6px 6px 8px 12px;
+    border: 1px solid var(--mud-palette-lines-default);
+    border-radius: 10px;
+    background-color: color-mix(in srgb, var(--mud-palette-surface) 92%, var(--mud-palette-text-primary));
+}
+
+.bm-place__head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 32px;
+}
+
+.bm-place__case {
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.bm-place__tag {
+    padding: 1px 7px;
+    border: 1px solid var(--mud-palette-lines-default);
+    border-radius: 8px;
+    font-size: 0.7rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--mud-palette-text-secondary);
+}
+
+.bm-place__remove {
+    margin-left: auto;
+}
+
+/* Shelf, position and spine/cover on one line: the shelf picker gives up width first. */
+.bm-place__controls {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 6px;
+    margin-top: 2px;
+}
+
+.bm-place__shelf {
+    flex: 1 1 auto;
+    min-width: 92px;
+    max-width: 124px;
+}
+
+.bm-place__shelf ::deep .mud-input-control {
+    margin: 0;
+}
+
+.bm-place__pos {
+    display: flex;
+    align-items: center;
+    color: var(--mud-palette-text-secondary);
+}
+
+.bm-place__pos {
+    flex: 0 0 auto;
+}
+
+.bm-place__pos ::deep .mud-icon-button {
+    padding: 4px;
+}
+
+.bm-place__pos-text {
+    min-width: 3.2em;
+    text-align: center;
+    font-size: 0.85rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.bm-place__face {
+    flex: 0 0 auto;
+    margin-left: auto;
+}
+
+.bm-place__face ::deep .mud-toggle-item {
+    padding: 0 8px;
+    min-width: 0;
+}

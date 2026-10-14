@@ -41,6 +41,19 @@ public class ShelfLayoutTests
     }
 
     [Fact]
+    public void Face_out_can_be_decided_per_shelf()
+    {
+        var book = Entry("Circe", pages: 393);
+
+        var spine = Assert.Single(Assert.Single(ShelfLayoutEngine.Flow([book], 900)).Books);
+        var cover = Assert.Single(Assert.Single(ShelfLayoutEngine.Flow([book], 900, isFaceOut: _ => true)).Books);
+
+        Assert.False(spine.FaceOut);
+        Assert.True(cover.FaceOut);
+        Assert.True(cover.WidthMm > spine.WidthMm);
+    }
+
+    [Fact]
     public void Flow_of_nothing_is_no_rows()
         => Assert.Empty(ShelfLayoutEngine.Flow([], 500));
 }

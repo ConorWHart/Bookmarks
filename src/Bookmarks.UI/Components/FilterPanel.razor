@@ -41,13 +41,6 @@
                 </MudSelect>
             </section>
         }
-        else
-        {
-            <section>
-                <div class="bm-filters__label">Size</div>
-                <MudSlider T="double" Value="Scale" ValueChanged="ScaleChanged" Min="MinScale" Max="MaxScale" Step="0.05" Size="Size.Small" />
-            </section>
-        }
 
         <MudDivider Class="my-1" />
     }
@@ -186,12 +179,8 @@
 
     [Parameter] public EventCallback<LibraryView> ViewChanged { get; set; }
 
-    /// <summary>Also show arrangement, display, sort, grouping and size (the phone sheet).</summary>
+    /// <summary>Also show display, sort and grouping (the phone sheet). Shelf size is on the page itself.</summary>
     [Parameter] public bool ShowLayout { get; set; }
-
-    [Parameter] public double Scale { get; set; }
-
-    [Parameter] public EventCallback<double> ScaleChanged { get; set; }
 
     private LibraryFilter Filter => View.Filter;
 

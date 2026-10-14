@@ -118,6 +118,12 @@ public sealed class ShelfPlacement : SyncEntity
 
     /// <summary>Fractional rank key for order on the shelf (see <c>RankKey</c>).</summary>
     public string? Rank { get; set; }
+
+    /// <summary>
+    /// Shown by its cover (true) or spine (false) on this shelf, so the same book can stand differently in
+    /// each bookcase. Null = the book's default (<see cref="SpineAppearance.FaceOut"/>).
+    /// </summary>
+    public bool? FaceOut { get; set; }
 }
 
 public sealed class Shelf : SyncEntity

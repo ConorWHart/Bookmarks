@@ -4,7 +4,9 @@
 @inject LibraryService LibraryData
 @inject ISnackbar Snackbar
 
-<MudDialog>
+@* The dialog content is a flex column that doesn't scroll itself: the shelf choice, search and status filters stay
+   put and only the book list scrolls (on phones it fills the rest of the full-screen dialog). *@
+<MudDialog ContentStyle="display:flex;flex-direction:column;overflow:hidden">
     <TitleContent>
         <MudText Typo="Typo.h6">Add books to a shelf</MudText>
     </TitleContent>

@@ -51,6 +51,13 @@ public sealed class LibraryService(ILocalStore store, IAccountService account)
 
     public Shelf? FindShelf(Guid shelfId) => _shelves.FirstOrDefault(s => s.Id == shelfId);
 
+    /// <summary>How many books stand in a bookcase (each counted once, on whichever shelf).</summary>
+    public int BookCountIn(Guid bookcaseId)
+    {
+        var shelves = ShelvesIn(bookcaseId).Select(s => s.Id).ToHashSet();
+        return _placements.Count(p => shelves.Contains(p.ShelfId) && _byId.ContainsKey(p.LibraryItemId));
+    }
+
     /// <summary>Bookcases not drawn in the Bookcases view.</summary>
     public int HiddenBookcaseCount => _bookcases.Count(b => b.IsHidden);
 
@@ -192,6 +199,8 @@ public sealed class LibraryService(ILocalStore store, IAccountService account)
                 continue; // already there
             }
 
+            // Moving within the bookcase keeps how it stands (spine or cover).
+            var faceOut = inBookcase.Select(p => p.FaceOut).FirstOrDefault(f => f is not null);
             foreach (var old in inBookcase)
             {
                 old.IsDeleted = true;
@@ -201,7 +210,7 @@ public sealed class LibraryService(ILocalStore store, IAccountService account)
 
             last = RankKey.Between(last, null);
             await store.UpsertAsync(
-                new ShelfPlacement { UserId = CurrentUserId, ShelfId = shelfId, LibraryItemId = itemId, Rank = last },
+                new ShelfPlacement { UserId = CurrentUserId, ShelfId = shelfId, LibraryItemId = itemId, Rank = last, FaceOut = faceOut },
                 ct);
             placed++;
         }
@@ -478,8 +487,35 @@ public sealed class LibraryService(ILocalStore store, IAccountService account)
     public (int Count, int UsedMm) ShelfUsage(Guid shelfId)
     {
         var books = BooksOnShelf(shelfId);
-        var row = ShelfLayoutEngine.Flow(books, int.MaxValue).FirstOrDefault();
+        var row = LayOutShelf(shelfId, books);
         return (books.Count, row?.UsedWidthMm ?? 0);
+    }
+
+    /// <summary>Books on a shelf in order, sized for drawing, each spine or cover as set for this shelf.</summary>
+    public IReadOnlyList<PlacedBook> PlacedOnShelf(Guid shelfId)
+        => LayOutShelf(shelfId, BooksOnShelf(shelfId))?.Books ?? [];
+
+    /// <summary>Whether a book shows its cover on this shelf (its placement's choice, else the book's default).</summary>
+    public bool IsFaceOut(ShelfPlacement placement)
+    {
+        ArgumentNullException.ThrowIfNull(placement);
+        return placement.FaceOut ?? Find(placement.LibraryItemId)?.Item.Appearance.FaceOut ?? false;
+    }
+
+    /// <summary>Spine or cover for one book on one shelf only.</summary>
+    public Task SetPlacementFaceOutAsync(Guid placementId, bool faceOut, CancellationToken ct = default)
+        => UpdateAsync<ShelfPlacement>(placementId, p => p.FaceOut = faceOut, ct);
+
+    private ShelfRow? LayOutShelf(Guid shelfId, IReadOnlyList<LibraryEntry> books)
+    {
+        var faceOut = _placements
+            .Where(p => p.ShelfId == shelfId && p.FaceOut is not null)
+            .ToDictionary(p => p.LibraryItemId, p => p.FaceOut!.Value);
+        return ShelfLayoutEngine.Flow(
+                books,
+                int.MaxValue,
+                isFaceOut: e => faceOut.TryGetValue(e.Id, out var value) ? value : e.Item.Appearance.FaceOut)
+            .FirstOrDefault();
     }
 
     /// <summary>Adds a bookcase at the end with <see cref="DefaultShelfCount"/> shelves. Returns its id.</summary>

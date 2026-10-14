@@ -3,7 +3,15 @@
 <section class="bm-case bm-case--@Theme">
     @if (!string.IsNullOrEmpty(Title))
     {
-        <header class="bm-case__title"><span class="bm-case__plate">@Title</span></header>
+        <header class="bm-case__title">
+            <span class="bm-case__plate">
+                <span class="bm-case__name">@Title</span>
+                @if (!string.IsNullOrEmpty(Subtitle))
+                {
+                    <span class="bm-case__count">@Subtitle</span>
+                }
+            </span>
+        </header>
     }
     <div class="bm-case__body">
         @ChildContent
@@ -12,6 +20,9 @@
 
 @code {
     [Parameter] public string? Title { get; set; }
+
+    /// <summary>A second, smaller line on the name plate (the book count).</summary>
+    [Parameter] public string? Subtitle { get; set; }
 
     /// <summary>oak | walnut | white | dark</summary>
     [Parameter] public string Theme { get; set; } = "oak";
