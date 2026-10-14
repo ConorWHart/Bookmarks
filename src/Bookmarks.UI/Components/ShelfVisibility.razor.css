@@ -1,0 +1,14 @@
+.bm-visibility {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.bm-visibility__label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--mud-palette-text-secondary);
+    margin-bottom: 4px;
+}

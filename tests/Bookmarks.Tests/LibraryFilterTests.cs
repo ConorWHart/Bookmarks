@@ -9,29 +9,8 @@ public class LibraryFilterTests
 {
     private static readonly DateOnly Today = new(2026, 10, 11);
 
-    private static LibraryEntry Tagged(string title, params Guid[] tags)
-    {
-        var entry = Entry(title);
-        entry.Item.TagIds = tags.ToList();
-        return entry;
-    }
-
     private static bool Matches(LibraryEntry entry, LibraryFilter filter)
         => LibraryQueryEngine.Matches(entry, filter, Today);
-
-    [Fact]
-    public void Tags_match_any_or_all()
-    {
-        var a = Guid.NewGuid();
-        var b = Guid.NewGuid();
-        var onlyA = Tagged("A", a);
-        var both = Tagged("AB", a, b);
-        var tags = new HashSet<Guid> { a, b };
-
-        Assert.True(Matches(onlyA, new LibraryFilter { TagIds = tags }));
-        Assert.False(Matches(onlyA, new LibraryFilter { TagIds = tags, TagMatchAll = true }));
-        Assert.True(Matches(both, new LibraryFilter { TagIds = tags, TagMatchAll = true }));
-    }
 
     [Fact]
     public void Authors_genres_and_series_match_case_insensitively()
@@ -46,16 +25,20 @@ public class LibraryFilterTests
     }
 
     [Fact]
-    public void Bookcase_filter_and_unshelved()
+    public void Bookcase_and_shelf_filters_and_unshelved()
     {
-        var bookcase = Guid.NewGuid();
-        var shelved = Entry("Shelved") with { BookcaseId = bookcase };
+        var hall = Guid.NewGuid();
+        var favorites = Guid.NewGuid();
+        var hallShelf = Guid.NewGuid();
+        var twice = Entry("Twice") with { ShelfIds = [hallShelf, Guid.NewGuid()], BookcaseIds = [hall, favorites] };
         var loose = Entry("Loose");
 
-        Assert.True(Matches(shelved, new LibraryFilter { BookcaseId = bookcase }));
-        Assert.False(Matches(loose, new LibraryFilter { BookcaseId = bookcase }));
+        Assert.True(Matches(twice, new LibraryFilter { BookcaseId = hall }));
+        Assert.True(Matches(twice, new LibraryFilter { BookcaseId = favorites }));
+        Assert.True(Matches(twice, new LibraryFilter { ShelfId = hallShelf }));
+        Assert.False(Matches(loose, new LibraryFilter { BookcaseId = hall }));
         Assert.True(Matches(loose, new LibraryFilter { BookcaseId = LibraryFilter.Unshelved }));
-        Assert.False(Matches(shelved, new LibraryFilter { BookcaseId = LibraryFilter.Unshelved }));
+        Assert.False(Matches(twice, new LibraryFilter { BookcaseId = LibraryFilter.Unshelved }));
     }
 
     [Fact]

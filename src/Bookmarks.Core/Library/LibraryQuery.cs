@@ -36,18 +36,14 @@ public enum LibraryGroupBy
     Format = 5,
 }
 
-/// <summary>How books are placed: on the user's real shelves, or flowed onto virtual shelves by the sort.</summary>
-public enum LibraryArrangement
-{
-    AsShelved = 0,
-    BySort = 1,
-}
-
-/// <summary>How books are drawn. Phase 6d adds List and Stack.</summary>
+/// <summary>The two ways to see the library (Phase 6b).</summary>
 public enum LibraryDisplay
 {
-    Shelves = 0,
-    Covers = 1,
+    /// <summary>The user's bookcases, books in their shelf order; filters dim, sort and grouping don't apply.</summary>
+    Bookcases = 0,
+
+    /// <summary>Every book as a cover grid, filtered, sorted and grouped.</summary>
+    Books = 1,
 }
 
 /// <summary>Date ranges for filters. Relative windows stay current when a preset is reopened later.</summary>
@@ -101,8 +97,8 @@ public sealed record DateFilter(DateWindow Window, DateOnly? From = null, DateOn
 }
 
 /// <summary>
-/// Filter criteria. Null / empty means "don't filter on this". Serialized into filter presets
-/// (through <c>LibraryViewJson</c>' DTO), so add properties rather than renaming them.
+/// Filter criteria. Null / empty means "don't filter on this". Serialized (through <c>LibraryViewJson</c>'s
+/// DTO), so add properties rather than renaming them.
 /// </summary>
 public sealed record LibraryFilter
 {
@@ -115,11 +111,6 @@ public sealed record LibraryFilter
 
     public IReadOnlySet<BookFormat>? Formats { get; init; }
 
-    public IReadOnlySet<Guid>? TagIds { get; init; }
-
-    /// <summary>True: a book needs every selected tag. False: any of them.</summary>
-    public bool TagMatchAll { get; init; }
-
     public ReadState ReadState { get; init; }
 
     public bool? WantToReread { get; init; }
@@ -129,9 +120,10 @@ public sealed record LibraryFilter
     /// <summary>Finished at least this many times.</summary>
     public int? MinReadCount { get; init; }
 
+    /// <summary>Books on this shelf.</summary>
     public Guid? ShelfId { get; init; }
 
-    /// <summary>Books on any shelf of this bookcase; <see cref="Unshelved"/> = books without a shelf.</summary>
+    /// <summary>Books on a shelf of this bookcase; <see cref="Unshelved"/> = books on no shelf at all.</summary>
     public Guid? BookcaseId { get; init; }
 
     /// <summary>Any of the book's authors (case-insensitive).</summary>
@@ -154,7 +146,6 @@ public sealed record LibraryFilter
     public int ActiveCount =>
         (Statuses is { Count: > 0 } ? 1 : 0)
         + (Formats is { Count: > 0 } ? 1 : 0)
-        + (TagIds is { Count: > 0 } ? 1 : 0)
         + (ReadState != ReadState.Any ? 1 : 0)
         + (WantToReread is not null ? 1 : 0)
         + (MinRating is not null ? 1 : 0)
@@ -184,14 +175,12 @@ public sealed record LibraryQuery
 }
 
 /// <summary>
-/// Everything a filter preset (a "view") stores: the query plus how books are arranged and drawn.
+/// The library's current view: the query plus how books are drawn. Remembered per device (<c>LibraryViewJson</c>).
 /// The search text is deliberately not saved (see <c>LibraryViewJson</c>).
 /// </summary>
 public sealed record LibraryView
 {
     public LibraryQuery Query { get; init; } = new();
-
-    public LibraryArrangement Arrangement { get; init; }
 
     public LibraryDisplay Display { get; init; }
 
@@ -205,6 +194,6 @@ public sealed record LibraryView
 
     public LibraryView WithGroupBy(LibraryGroupBy groupBy) => this with { Query = Query with { GroupBy = groupBy } };
 
-    /// <summary>Same arrangement, display, sort and grouping, with no filters (keeps the search text).</summary>
+    /// <summary>Same display, sort and grouping, with no filters (keeps the search text).</summary>
     public LibraryView ClearFilters() => WithFilter(new LibraryFilter { Search = Filter.Search });
 }

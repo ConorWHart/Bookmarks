@@ -7,8 +7,7 @@ public class LibraryViewJsonTests
 {
     private static LibraryView FullView() => new()
     {
-        Arrangement = LibraryArrangement.BySort,
-        Display = LibraryDisplay.Covers,
+        Display = LibraryDisplay.Books,
         Query = new LibraryQuery
         {
             Sort = new LibrarySort(LibrarySortField.Color, Descending: true),
@@ -17,13 +16,12 @@ public class LibraryViewJsonTests
             {
                 Statuses = new HashSet<OwnershipStatus> { OwnershipStatus.Wishlist, OwnershipStatus.Owned },
                 Formats = new HashSet<BookFormat> { BookFormat.Hardcover },
-                TagIds = new HashSet<Guid> { Guid.Parse("0192aaaa-0000-7000-8000-000000000001") },
-                TagMatchAll = true,
                 ReadState = ReadState.Unread,
                 WantToReread = true,
                 MinRating = 3.5m,
                 MinReadCount = 2,
                 BookcaseId = LibraryFilter.Unshelved,
+                ShelfId = Guid.Parse("0192aaaa-0000-7000-8000-000000000001"),
                 Authors = new HashSet<string> { "Ursula K. Le Guin", "Frank Herbert" },
                 Genres = new HashSet<string> { "Fantasy" },
                 Series = new HashSet<string> { "Dune" },
@@ -43,7 +41,7 @@ public class LibraryViewJsonTests
 
         Assert.NotNull(back);
         Assert.True(LibraryViewJson.SameView(view, back));
-        Assert.Equal(LibraryDisplay.Covers, back.Display);
+        Assert.Equal(LibraryDisplay.Books, back.Display);
         Assert.Equal(new LibrarySort(LibrarySortField.Color, true), back.Query.Sort);
         Assert.Equal(new DateFilter(DateWindow.Custom, new DateOnly(2024, 1, 1), new DateOnly(2024, 6, 30)), back.Filter.Acquired);
         Assert.True(back.Filter.Authors!.Contains("frank herbert")); // case-insensitive set
@@ -54,14 +52,14 @@ public class LibraryViewJsonTests
     {
         var json = LibraryViewJson.ToJson(new LibraryView
         {
-            Arrangement = LibraryArrangement.BySort,
+            Display = LibraryDisplay.Books,
             Query = new LibraryQuery
             {
                 Filter = new LibraryFilter { Search = "dune", Statuses = new HashSet<OwnershipStatus> { OwnershipStatus.Wishlist } },
             },
         });
 
-        Assert.Contains("\"arrangement\":\"BySort\"", json);
+        Assert.Contains("\"display\":\"Books\"", json);
         Assert.Contains("\"statuses\":[\"Wishlist\"]", json);
         Assert.DoesNotContain("formats", json);
         Assert.DoesNotContain("search", json, StringComparison.OrdinalIgnoreCase);
@@ -80,7 +78,7 @@ public class LibraryViewJsonTests
     [Fact]
     public void Ignores_unknown_properties_from_newer_versions()
     {
-        const string json = """{"arrangement":"BySort","display":"Covers","sort":"Title","futureThing":{"x":1},"readState":"Read"}""";
+        const string json = """{"arrangement":"BySort","display":"Books","sort":"Title","futureThing":{"x":1},"readState":"Read"}""";
 
         var view = LibraryViewJson.FromJson(json, schemaVersion: 2);
 
@@ -91,6 +89,7 @@ public class LibraryViewJsonTests
 
     [Theory]
     [InlineData("""{"display":"Hologram"}""")]
+    [InlineData("""{"display":"Covers"}""")] // a Phase 6a value: falls back to the default view
     [InlineData("not json")]
     [InlineData("")]
     public void Unreadable_json_returns_null(string json)
@@ -104,7 +103,7 @@ public class LibraryViewJsonTests
         Assert.NotNull(view);
         Assert.Equal(0, view.Filter.ActiveCount);
         Assert.Equal(LibrarySortField.Author, view.Query.Sort.Field);
-        Assert.Equal(LibraryArrangement.AsShelved, view.Arrangement);
+        Assert.Equal(LibraryDisplay.Bookcases, view.Display);
     }
 
     [Fact]

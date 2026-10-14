@@ -86,9 +86,6 @@ public sealed class BookEditModel
 
     public string? LentTo { get; set; }
 
-    /// <summary>Null = Unshelved.</summary>
-    public Guid? ShelfId { get; set; }
-
     public bool WantToReread { get; set; }
 
     /// <summary>0 = not rated. Whole stars in the editor; half-star ratings are kept unless changed.</summary>
@@ -123,10 +120,10 @@ public sealed class BookEditModel
 
     public bool IsValid => !string.IsNullOrWhiteSpace(Title);
 
-    public static BookEditModel ForNew(Guid? shelfId = null, Random? random = null)
+    /// <remarks>Shelf placement isn't part of the editor (Phase 6b): books are put on shelves separately.</remarks>
+    public static BookEditModel ForNew(Random? random = null)
         => new()
         {
-            ShelfId = shelfId,
             SpineColor = SpinePalette[(random ?? Random.Shared).Next(SpinePalette.Count)],
             SpineColorFollowsCover = true,
         };
@@ -158,7 +155,6 @@ public sealed class BookEditModel
             Status = item.Status,
             Format = item.Format,
             LentTo = item.LentTo,
-            ShelfId = item.ShelfId,
             WantToReread = item.WantToReread,
             RatingStars = stars,
             SpineColor = entry.SpineColor,
@@ -199,7 +195,6 @@ public sealed class BookEditModel
         item.Status = Status;
         item.Format = Format;
         item.LentTo = Status == OwnershipStatus.LentOut ? Clean(LentTo) : null;
-        item.ShelfId = ShelfId;
         item.WantToReread = WantToReread;
         item.Rating = RatingStars == _originalStars ? _originalRating
             : RatingStars == 0 ? null

@@ -30,6 +30,8 @@ namespace Bookmarks.Shared.Serialization;
 [JsonSerializable(typeof(List<Bookcase>), TypeInfoPropertyName = "BookcaseList")]
 [JsonSerializable(typeof(Shelf))]
 [JsonSerializable(typeof(List<Shelf>), TypeInfoPropertyName = "ShelfList")]
+[JsonSerializable(typeof(ShelfPlacement))]
+[JsonSerializable(typeof(List<ShelfPlacement>), TypeInfoPropertyName = "ShelfPlacementList")]
 [JsonSerializable(typeof(Preset))]
 [JsonSerializable(typeof(List<Preset>), TypeInfoPropertyName = "PresetList")]
 [JsonSerializable(typeof(MeResponse))]

@@ -9,7 +9,8 @@ namespace Bookmarks.UI.Services;
 /// <summary>
 /// Loads the local store into an in-memory list of <see cref="LibraryEntry"/> that the library views
 /// query, and is the single place the UI writes through. Every write updates the store, then reloads
-/// and raises <see cref="Changed"/> (later also after each sync pull).
+/// and raises <see cref="Changed"/> (also after each sync pull that changed something).
+/// Since Phase 6b a book's places are <see cref="ShelfPlacement"/> rows: any number of bookcases, once each.
 /// </summary>
 public sealed class LibraryService(ILocalStore store, IAccountService account)
 {
@@ -20,11 +21,12 @@ public sealed class LibraryService(ILocalStore store, IAccountService account)
     public Guid CurrentUserId => account.Current.UserId;
 
     private IReadOnlyList<LibraryEntry> _entries = [];
+    private Dictionary<Guid, LibraryEntry> _byId = [];
     private IReadOnlyList<Bookcase> _bookcases = [];
     private IReadOnlyList<Shelf> _shelves = [];
     private ILookup<Guid, ReadingSession> _sessions = Array.Empty<ReadingSession>().ToLookup(s => s.LibraryItemId);
     private ILookup<Guid, Note> _notes = Array.Empty<Note>().ToLookup(n => n.LibraryItemId);
-    private IReadOnlyList<Tag> _tags = [];
+    private IReadOnlyList<ShelfPlacement> _placements = [];
     private IReadOnlyList<string> _authors = [];
     private IReadOnlyList<string> _genres = [];
     private IReadOnlyList<string> _seriesNames = [];
@@ -43,10 +45,26 @@ public sealed class LibraryService(ILocalStore store, IAccountService account)
     /// <summary>True when there are no books and no bookcases (first run).</summary>
     public bool IsEmpty => _entries.Count == 0 && _bookcases.Count == 0;
 
-    public LibraryEntry? Find(Guid itemId) => _entries.FirstOrDefault(e => e.Id == itemId);
+    public LibraryEntry? Find(Guid itemId) => _byId.GetValueOrDefault(itemId);
 
-    /// <summary>By name.</summary>
-    public IReadOnlyList<Tag> Tags => _tags;
+    public Bookcase? FindBookcase(Guid bookcaseId) => _bookcases.FirstOrDefault(b => b.Id == bookcaseId);
+
+    public Shelf? FindShelf(Guid shelfId) => _shelves.FirstOrDefault(s => s.Id == shelfId);
+
+    /// <summary>Bookcases not drawn in the Bookcases view.</summary>
+    public int HiddenBookcaseCount => _bookcases.Count(b => b.IsHidden);
+
+    /// <summary>Where a book is, ordered like the room: bookcase order, then shelf order.</summary>
+    public IReadOnlyList<BookPlace> PlacesOf(Guid itemId)
+        => _placements
+            .Where(p => p.LibraryItemId == itemId)
+            .Select(p => FindShelf(p.ShelfId) is { } shelf && FindBookcase(shelf.BookcaseId) is { } bookcase
+                ? new BookPlace(p, bookcase, shelf)
+                : null)
+            .OfType<BookPlace>()
+            .OrderBy(x => x.Bookcase.SortRank, StringComparer.Ordinal)
+            .ThenBy(x => x.Shelf.SortRank, StringComparer.Ordinal)
+            .ToList();
 
     /// <summary>Distinct authors, genres and series in the library (for filter pickers), alphabetical.</summary>
     public IReadOnlyList<string> Authors => _authors;
@@ -74,6 +92,12 @@ public sealed class LibraryService(ILocalStore store, IAccountService account)
         }
 
         await ReloadAsync(ct);
+
+        // Guests never sync, so the one-time move to placements can run now (signed-in: after a sync pass).
+        if (CurrentUserId == Guid.Empty)
+        {
+            await MigratePlacementsAsync(ct);
+        }
     }
 
     public async Task ReloadAsync(CancellationToken ct = default)
@@ -91,23 +115,33 @@ public sealed class LibraryService(ILocalStore store, IAccountService account)
             .OrderBy(s => s.SortRank, StringComparer.Ordinal)
             .ToList();
 
-        // A shelf whose bookcase was deleted counts as no shelf (its books show as Unshelved).
+        // Only shelves of live bookcases count; a placement on anything else is ignored.
         var liveBookcases = _bookcases.Select(b => b.Id).ToHashSet();
-        var bookcaseOfShelf = _shelves
-            .Where(s => liveBookcases.Contains(s.BookcaseId))
-            .ToDictionary(s => s.Id, s => s.BookcaseId);
+        _shelves = _shelves.Where(s => liveBookcases.Contains(s.BookcaseId)).ToList();
+        var bookcaseOfShelf = _shelves.ToDictionary(s => s.Id, s => s.BookcaseId);
+
+        // One placement per (book, bookcase): duplicates made on two offline devices collapse to the lowest id
+        // (the same choice on every device); the next placement edit of that book deletes the extras.
+        _placements = (await store.GetAllAsync<ShelfPlacement>(ct: ct))
+            .Where(p => bookcaseOfShelf.ContainsKey(p.ShelfId))
+            .GroupBy(p => (p.LibraryItemId, BookcaseId: bookcaseOfShelf[p.ShelfId]))
+            .Select(g => g.OrderBy(p => p.Id).First())
+            .ToList();
+        var placementsOf = _placements.ToLookup(p => p.LibraryItemId);
 
         _entries = items
             .Where(i => books.ContainsKey(i.BookId))
-            .Select(i => LibraryEntry.Create(i, books[i.BookId], _sessions[i.Id]) with
+            .Select(i =>
             {
-                BookcaseId = i.ShelfId is { } shelfId && bookcaseOfShelf.TryGetValue(shelfId, out var caseId) ? caseId : null,
+                var shelfIds = placementsOf[i.Id].Select(p => p.ShelfId).ToList();
+                return LibraryEntry.Create(i, books[i.BookId], _sessions[i.Id]) with
+                {
+                    ShelfIds = shelfIds,
+                    BookcaseIds = shelfIds.Select(id => bookcaseOfShelf[id]).ToList(),
+                };
             })
             .ToList();
-
-        _tags = (await store.GetAllAsync<Tag>(ct: ct))
-            .OrderBy(t => t.Name, StringComparer.CurrentCultureIgnoreCase)
-            .ToList();
+        _byId = _entries.ToDictionary(e => e.Id);
 
         _authors = Distinct(_entries.SelectMany(e => e.Book.Authors));
         _genres = Distinct(_entries.SelectMany(e => e.Book.Genres));
@@ -117,7 +151,7 @@ public sealed class LibraryService(ILocalStore store, IAccountService account)
         Changed?.Invoke();
     }
 
-    /// <summary>Opt-in sample library (one bookcase, 20 books). Only runs on an empty library.</summary>
+    /// <summary>Opt-in sample library (two bookcases, 20 books). Only runs on an empty library.</summary>
     public async Task LoadDemoLibraryAsync(CancellationToken ct = default)
     {
         await ReloadAsync(ct);
@@ -128,6 +162,138 @@ public sealed class LibraryService(ILocalStore store, IAccountService account)
 
         await SampleData.SeedAsync(store, CurrentUserId, ct);
         await ReloadAsync(ct);
+    }
+
+    // ---------- Placements ----------
+
+    /// <summary>
+    /// Puts books at the end of <paramref name="shelfId"/>, in the given order. A book already in that bookcase
+    /// moves to this shelf (a book is in a bookcase at most once); its places in other bookcases stay.
+    /// Returns how many books were placed or moved.
+    /// </summary>
+    public async Task<int> PlaceBooksAsync(IEnumerable<Guid> itemIds, Guid shelfId, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(itemIds);
+        if (FindShelf(shelfId) is not { } shelf)
+        {
+            return 0;
+        }
+
+        var all = await store.GetAllAsync<ShelfPlacement>(ct: ct);
+        var shelvesOfBookcase = ShelvesIn(shelf.BookcaseId).Select(s => s.Id).ToHashSet();
+        var last = LastRank(_placements.Where(p => p.ShelfId == shelfId).Select(p => p.Rank));
+        var placed = 0;
+
+        foreach (var itemId in itemIds.Distinct())
+        {
+            var inBookcase = all.Where(p => p.LibraryItemId == itemId && shelvesOfBookcase.Contains(p.ShelfId)).ToList();
+            if (inBookcase.Count == 1 && inBookcase[0].ShelfId == shelfId)
+            {
+                continue; // already there
+            }
+
+            foreach (var old in inBookcase)
+            {
+                old.IsDeleted = true;
+                old.Touch();
+                await store.UpsertAsync(old, ct);
+            }
+
+            last = RankKey.Between(last, null);
+            await store.UpsertAsync(
+                new ShelfPlacement { UserId = CurrentUserId, ShelfId = shelfId, LibraryItemId = itemId, Rank = last },
+                ct);
+            placed++;
+        }
+
+        if (placed > 0)
+        {
+            await ReloadAsync(ct);
+        }
+
+        return placed;
+    }
+
+    /// <summary>Takes a book off a shelf (that bookcase only; it stays in the library and other bookcases).</summary>
+    public async Task RemovePlacementAsync(Guid placementId, CancellationToken ct = default)
+    {
+        var placement = _placements.FirstOrDefault(p => p.Id == placementId);
+        if (placement is null || FindShelf(placement.ShelfId) is not { } shelf)
+        {
+            return;
+        }
+
+        // Offline duplicates of the same book in the same bookcase go too.
+        var shelvesOfBookcase = ShelvesIn(shelf.BookcaseId).Select(s => s.Id).ToHashSet();
+        foreach (var row in (await store.GetAllAsync<ShelfPlacement>(ct: ct))
+                     .Where(p => p.LibraryItemId == placement.LibraryItemId && shelvesOfBookcase.Contains(p.ShelfId)))
+        {
+            row.IsDeleted = true;
+            row.Touch();
+            await store.UpsertAsync(row, ct);
+        }
+
+        await ReloadAsync(ct);
+    }
+
+    /// <summary>Moves a placed book left (-1) or right (+1) on its shelf.</summary>
+    public Task MovePlacementAsync(Guid placementId, int delta, CancellationToken ct = default)
+    {
+        var placement = _placements.FirstOrDefault(p => p.Id == placementId);
+        return placement is null
+            ? Task.CompletedTask
+            : MoveAsync(PlacementsOn(placement.ShelfId), placementId, delta, p => p.Rank, (p, key) => p.Rank = key, ct);
+    }
+
+    /// <summary>
+    /// Runs the one-time move from the legacy <see cref="LibraryItem.ShelfId"/> to placements on this database
+    /// (see <see cref="PlacementMigration"/>). Guests run it when the library loads; signed-in devices after a
+    /// completed sync pass, so they've pulled what other devices already did. Returns true if it added placements.
+    /// </summary>
+    public async Task<bool> MigratePlacementsAsync(CancellationToken ct = default)
+    {
+        if (await store.GetMetaAsync(PlacementMigration.DoneKey, ct) is not null)
+        {
+            return false;
+        }
+
+        var items = await store.GetAllAsync<LibraryItem>(includeDeleted: true, ct: ct);
+        var bookcases = (await store.GetAllAsync<Bookcase>(ct: ct)).Select(b => b.Id).ToHashSet();
+        var shelves = (await store.GetAllAsync<Shelf>(ct: ct)).Where(s => bookcases.Contains(s.BookcaseId));
+        var existing = await store.GetAllAsync<ShelfPlacement>(includeDeleted: true, ct: ct);
+
+        var plan = PlacementMigration.Plan(items, shelves, existing);
+        foreach (var placement in plan)
+        {
+            await store.UpsertAsync(placement, ct);
+        }
+
+        await store.SetMetaAsync(PlacementMigration.DoneKey, DateTimeOffset.UtcNow.ToString("O", System.Globalization.CultureInfo.InvariantCulture), ct);
+        if (plan.Count > 0)
+        {
+            await ReloadAsync(ct);
+        }
+
+        return plan.Count > 0;
+    }
+
+    /// <summary>Placements on a shelf, in shelf order.</summary>
+    private List<ShelfPlacement> PlacementsOn(Guid shelfId)
+        => _placements
+            .Where(p => p.ShelfId == shelfId)
+            .OrderBy(p => p.Rank ?? "\uffff", StringComparer.Ordinal)
+            .ThenBy(p => p.Id)
+            .ToList();
+
+    /// <summary>Soft-deletes every placement on a shelf (its books stay in the library). Doesn't reload.</summary>
+    private async Task RemovePlacementsOnShelfAsync(Guid shelfId, CancellationToken ct)
+    {
+        foreach (var row in (await store.GetAllAsync<ShelfPlacement>(ct: ct)).Where(p => p.ShelfId == shelfId))
+        {
+            row.IsDeleted = true;
+            row.Touch();
+            await store.UpsertAsync(row, ct);
+        }
     }
 
     // ---------- Helpers for filter pickers ----------
@@ -142,7 +308,7 @@ public sealed class LibraryService(ILocalStore store, IAccountService account)
 
     // ---------- Books ----------
 
-    /// <summary>Adds a manually entered book at the end of its shelf. Returns the new item's id.</summary>
+    /// <summary>Adds a book to the library (not to a shelf: see <see cref="PlaceBooksAsync"/>). Returns the new item's id.</summary>
     public async Task<Guid> AddBookAsync(BookEditModel model, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(model);
@@ -150,7 +316,6 @@ public sealed class LibraryService(ILocalStore store, IAccountService account)
         var book = new Book { UserId = CurrentUserId, Source = BookSource.Manual };
         var item = new LibraryItem { UserId = CurrentUserId, BookId = book.Id };
         model.ApplyTo(book, item);
-        item.ShelfRank = NextRankOn(item.ShelfId);
 
         await store.UpsertBookAsync(book, ct);
         await store.UpsertAsync(item, ct);
@@ -170,7 +335,7 @@ public sealed class LibraryService(ILocalStore store, IAccountService account)
         return item.Id;
     }
 
-    /// <summary>Saves edits to an existing book. Moving to another shelf places it at the end of that shelf.</summary>
+    /// <summary>Saves edits to an existing book. Its places on shelves aren't touched.</summary>
     public async Task UpdateBookAsync(Guid itemId, BookEditModel model, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(model);
@@ -180,12 +345,7 @@ public sealed class LibraryService(ILocalStore store, IAccountService account)
         var book = await store.GetAsync<Book>(item.BookId, ct)
             ?? throw new InvalidOperationException("Book record not found.");
 
-        var previousShelf = item.ShelfId;
         model.ApplyTo(book, item);
-        if (item.ShelfId != previousShelf)
-        {
-            item.ShelfRank = NextRankOn(item.ShelfId);
-        }
 
         // Books are per user (Phase 4), so editing one never affects anyone else's copy.
         book.Touch();
@@ -288,18 +448,31 @@ public sealed class LibraryService(ILocalStore store, IAccountService account)
         ("dark", "Dark"),
     ];
 
+    /// <summary>
+    /// "Shelf 2": shelves are always numbered by position in their bookcase, top to bottom (stored names aren't
+    /// shown). Moving a shelf moves its books; the numbers stay in order.
+    /// </summary>
+    public string ShelfLabel(Shelf shelf)
+    {
+        ArgumentNullException.ThrowIfNull(shelf);
+        var index = ShelvesIn(shelf.BookcaseId).ToList().FindIndex(s => s.Id == shelf.Id);
+        return $"Shelf {index + 1}";
+    }
+
     public bool IsKnownShelf(Guid? shelfId) => shelfId is { } id && _shelves.Any(s => s.Id == id);
 
-    /// <summary>
-    /// Books on a shelf in shelf order. Null (or a shelf that no longer exists) = the Unshelved group.
-    /// </summary>
-    public IReadOnlyList<LibraryEntry> BooksOnShelf(Guid? shelfId)
+    /// <summary>Books on a shelf, in shelf order.</summary>
+    public IReadOnlyList<LibraryEntry> BooksOnShelf(Guid shelfId)
     {
-        var entries = IsKnownShelf(shelfId)
-            ? _entries.Where(e => e.Item.ShelfId == shelfId)
-            : _entries.Where(e => !IsKnownShelf(e.Item.ShelfId));
-        return LibraryQueryEngine.Apply(entries, LibraryFilter.None, new LibrarySort(LibrarySortField.ShelfOrder));
+        return PlacementsOn(shelfId)
+            .Select(p => _byId.GetValueOrDefault(p.LibraryItemId))
+            .OfType<LibraryEntry>()
+            .ToList();
     }
+
+    /// <summary>The placement of a book on a shelf, if it's there.</summary>
+    public ShelfPlacement? PlacementOf(Guid itemId, Guid shelfId)
+        => _placements.FirstOrDefault(p => p.LibraryItemId == itemId && p.ShelfId == shelfId);
 
     /// <summary>How many books are on a shelf and how much width (mm) they take up.</summary>
     public (int Count, int UsedMm) ShelfUsage(Guid shelfId)
@@ -338,6 +511,10 @@ public sealed class LibraryService(ILocalStore store, IAccountService account)
             ? Task.CompletedTask
             : UpdateAsync<Bookcase>(bookcaseId, b => b.Name = name!.Trim(), ct);
 
+    /// <summary>Hidden bookcases aren't drawn in the Bookcases view. Synced.</summary>
+    public Task SetBookcaseHiddenAsync(Guid bookcaseId, bool hidden, CancellationToken ct = default)
+        => UpdateAsync<Bookcase>(bookcaseId, b => b.IsHidden = hidden, ct);
+
     public Task SetBookcaseThemeAsync(Guid bookcaseId, string theme, CancellationToken ct = default)
         => Themes.Any(t => t.Key == theme)
             ? UpdateAsync<Bookcase>(bookcaseId, b => b.Theme = theme, ct)
@@ -347,12 +524,12 @@ public sealed class LibraryService(ILocalStore store, IAccountService account)
     public Task MoveBookcaseAsync(Guid bookcaseId, int delta, CancellationToken ct = default)
         => MoveAsync(_bookcases, bookcaseId, delta, b => b.SortRank, (b, key) => b.SortRank = key, ct);
 
-    /// <summary>Soft-deletes a bookcase and its shelves; their books move to Unshelved (keeping their order).</summary>
+    /// <summary>Soft-deletes a bookcase, its shelves and its placements; the books stay in the library.</summary>
     public async Task DeleteBookcaseAsync(Guid bookcaseId, CancellationToken ct = default)
     {
         foreach (var shelf in ShelvesIn(bookcaseId))
         {
-            await UnshelveBooksAsync(shelf.Id, ct);
+            await RemovePlacementsOnShelfAsync(shelf.Id, ct);
             shelf.IsDeleted = true;
             shelf.Touch();
             await store.UpsertAsync(shelf, ct);
@@ -378,10 +555,6 @@ public sealed class LibraryService(ILocalStore store, IAccountService account)
         await ReloadAsync(ct);
     }
 
-    /// <summary>Blank clears the name.</summary>
-    public Task RenameShelfAsync(Guid shelfId, string? name, CancellationToken ct = default)
-        => UpdateAsync<Shelf>(shelfId, s => s.Name = string.IsNullOrWhiteSpace(name) ? null : name.Trim(), ct);
-
     /// <summary>Null = unknown width (no capacity shown).</summary>
     public Task SetShelfWidthAsync(Guid shelfId, int? widthMm, CancellationToken ct = default)
         => UpdateAsync<Shelf>(shelfId, s => s.WidthMm = widthMm is { } w ? Math.Clamp(w, MinShelfWidthMm, MaxShelfWidthMm) : null, ct);
@@ -395,49 +568,11 @@ public sealed class LibraryService(ILocalStore store, IAccountService account)
             : MoveAsync(ShelvesIn(shelf.BookcaseId), shelfId, delta, s => s.SortRank, (s, key) => s.SortRank = key, ct);
     }
 
-    /// <summary>Soft-deletes a shelf; its books move to Unshelved.</summary>
+    /// <summary>Soft-deletes a shelf and its placements; the books stay in the library (and other bookcases).</summary>
     public async Task DeleteShelfAsync(Guid shelfId, CancellationToken ct = default)
     {
-        await UnshelveBooksAsync(shelfId, ct);
+        await RemovePlacementsOnShelfAsync(shelfId, ct);
         await UpdateAsync<Shelf>(shelfId, s => s.IsDeleted = true, ct);
-    }
-
-    /// <summary>Puts a book at the end of another shelf (null = Unshelved).</summary>
-    public async Task MoveBookToShelfAsync(Guid itemId, Guid? shelfId, CancellationToken ct = default)
-    {
-        var target = IsKnownShelf(shelfId) ? shelfId : null;
-        var rank = NextRankOn(target);
-        await UpdateAsync<LibraryItem>(
-            itemId,
-            i =>
-            {
-                i.ShelfId = target;
-                i.ShelfRank = rank;
-            },
-            ct);
-    }
-
-    /// <summary>Moves a book left (-1) or right (+1) on its shelf.</summary>
-    public Task MoveBookWithinShelfAsync(Guid itemId, int delta, CancellationToken ct = default)
-    {
-        var entry = Find(itemId);
-        return entry is null
-            ? Task.CompletedTask
-            : MoveAsync(BooksOnShelf(entry.Item.ShelfId).Select(e => e.Item).ToList(), itemId, delta, i => i.ShelfRank, (i, key) => i.ShelfRank = key, ct);
-    }
-
-    /// <summary>Moves every book on a shelf to the end of Unshelved, keeping their order. Doesn't reload.</summary>
-    private async Task UnshelveBooksAsync(Guid shelfId, CancellationToken ct)
-    {
-        string? last = null;
-        foreach (var entry in BooksOnShelf(shelfId).ToList())
-        {
-            last = last is null ? NextRankOn(null) : RankKey.Between(last, null);
-            entry.Item.ShelfId = null;
-            entry.Item.ShelfRank = last;
-            entry.Item.Touch();
-            await store.UpsertAsync(entry.Item, ct);
-        }
     }
 
     /// <summary>Reorders one entity in a rank-ordered list, writing only the keys that change.</summary>
@@ -475,16 +610,6 @@ public sealed class LibraryService(ILocalStore store, IAccountService account)
     private ReadingSession NewSession(Guid itemId, ReadingOutcome outcome, DateOnly? startedOn = null)
         => new() { UserId = CurrentUserId, LibraryItemId = itemId, Outcome = outcome, StartedOn = startedOn };
 
-    /// <summary>A rank after every book currently on <paramref name="shelfId"/> (null = Unshelved).</summary>
-    private string NextRankOn(Guid? shelfId)
-    {
-        var last = _entries
-            .Where(e => e.Item.ShelfId == shelfId && e.Item.ShelfRank is not null)
-            .Select(e => e.Item.ShelfRank)
-            .Max(StringComparer.Ordinal);
-        return RankKey.Between(last, null);
-    }
-
     /// <summary>Read-modify-write of one record, then <see cref="SyncEntity.Touch"/>, save and reload.</summary>
     private async Task UpdateAsync<T>(Guid id, Action<T> change, CancellationToken ct)
         where T : SyncEntity
@@ -501,3 +626,6 @@ public sealed class LibraryService(ILocalStore store, IAccountService account)
         await ReloadAsync(ct);
     }
 }
+
+/// <summary>One place a book is in: the placement with its bookcase and shelf.</summary>
+public sealed record BookPlace(ShelfPlacement Placement, Bookcase Bookcase, Shelf Shelf);

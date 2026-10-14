@@ -48,6 +48,8 @@ public sealed class BookmarksDbContext(DbContextOptions<BookmarksDbContext> opti
 
     public DbSet<Preset> Presets => Set<Preset>();
 
+    public DbSet<ShelfPlacement> ShelfPlacements => Set<ShelfPlacement>();
+
     // Short, ASCII-only columns (hex colors, rank keys, ISBNs).
     private const int ColorLength = 9;      // #RRGGBBAA
     private const int RankLength = 64;
@@ -148,6 +150,13 @@ public sealed class BookmarksDbContext(DbContextOptions<BookmarksDbContext> opti
         {
             e.Property(x => x.Name).HasMaxLength(200).IsRequired();
             e.Property(x => x.Json).IsRequired(); // opaque to the server, nvarchar(max)
+        });
+
+        ConfigureSyncEntity<ShelfPlacement>(modelBuilder, "ShelfPlacements", e =>
+        {
+            e.Property(x => x.Rank).HasMaxLength(RankLength).IsUnicode(false);
+            e.HasIndex(x => x.ShelfId);
+            e.HasIndex(x => x.LibraryItemId);
         });
     }
 

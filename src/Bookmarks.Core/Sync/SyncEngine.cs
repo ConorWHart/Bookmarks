@@ -36,6 +36,15 @@ public sealed class SyncEngine(ILocalStore store, ISyncTransport transport, Time
     /// <summary>Meta key: when the last pass completed (ISO 8601, UTC).</summary>
     public const string LastSyncedAtKey = "sync:lastSyncedAt";
 
+    /// <summary>
+    /// Meta key: the entity type names this database last completed a pull with. Older app versions skip
+    /// types they don't know while their checkpoint moves on, so when the list changes (a new type was added)
+    /// the next pass pulls from the start once. Re-applying known rows is a no-op (versions are compared).
+    /// </summary>
+    public const string KnownTypesKey = "sync:types";
+
+    private static readonly string KnownTypes = string.Join(",", SyncEntityTypes.All.Select(t => t.Name));
+
     private readonly SemaphoreSlim _gate = new(1, 1);
 
     /// <summary>Records per pull request.</summary>
@@ -77,9 +86,15 @@ public sealed class SyncEngine(ILocalStore store, ISyncTransport transport, Time
             await store.EnqueueUnsyncedAsync(ct);
         }
 
+        else if (await store.GetMetaAsync(KnownTypesKey, ct) != KnownTypes)
+        {
+            checkpoint = 0; // pull everything once; see KnownTypesKey
+        }
+
         var deviceId = await GetDeviceIdAsync(ct);
         var (pushed, rejected) = await PushAsync(deviceId, ct);
         var (pulled, changed, newCheckpoint) = await PullAsync(checkpoint, ct);
+        await store.SetMetaAsync(KnownTypesKey, KnownTypes, ct);
 
         await store.SetMetaAsync(LastSyncedAtKey, time.GetUtcNow().ToString("O", CultureInfo.InvariantCulture), ct);
         return new SyncResult(pushed, rejected, pulled, changed, newCheckpoint);

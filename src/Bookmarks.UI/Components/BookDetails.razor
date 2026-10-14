@@ -61,24 +61,38 @@
             <MudSwitch T="bool" Value="entry.Item.WantToReread" ValueChanged="SetRereadAsync" Label="Want to re-read" Color="Color.Secondary" />
         </div>
 
-        @* ---------- Placement ---------- *@
-        <div class="d-flex align-center gap-1 mt-3">
-            <MudSelect T="Guid" Value="ShelfChoice(entry)" ValueChanged="@((Guid v) => MoveToShelfAsync(entry, v))" Label="Shelf"
-                       Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true" Class="flex-grow-1">
-                <MudSelectItem Value="Guid.Empty">Unshelved</MudSelectItem>
-                @foreach (var bookcase in LibraryData.Bookcases)
-                {
-                    foreach (var shelf in LibraryData.ShelvesIn(bookcase.Id))
-                    {
-                        <MudSelectItem Value="shelf.Id">@bookcase.Name › @(shelf.Name ?? "Shelf")</MudSelectItem>
-                    }
-                }
-            </MudSelect>
-            <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft" Size="Size.Small" Disabled="!CanMove(entry, -1)"
-                           OnClick="() => LibraryData.MoveBookWithinShelfAsync(entry.Id, -1)" aria-label="Move left on the shelf" />
-            <MudIconButton Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Small" Disabled="!CanMove(entry, 1)"
-                           OnClick="() => LibraryData.MoveBookWithinShelfAsync(entry.Id, 1)" aria-label="Move right on the shelf" />
+        @* ---------- On shelves (Phase 6b: any number of bookcases, once each) ---------- *@
+        @{ var places = LibraryData.PlacesOf(entry.Id); }
+        <div class="d-flex align-center mt-3">
+            <MudText Typo="Typo.subtitle1" Class="flex-grow-1">On shelves</MudText>
+            <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                       Disabled="@(LibraryData.Bookcases.Count == 0)" OnClick="() => PutOnShelfAsync(entry)">Put on a shelf…</MudButton>
         </div>
+        @if (places.Count == 0)
+        {
+            <MudText Typo="Typo.caption" Class="d-block">
+                @(LibraryData.Bookcases.Count == 0 ? "Set up a bookcase to put books on shelves." : "Not on a shelf yet.")
+            </MudText>
+        }
+        @foreach (var place in places)
+        {
+            <div class="bm-details__row" @key="place.Placement.Id">
+                <MudIcon Icon="@Icons.Material.Outlined.ViewWeek" Size="Size.Small" />
+                <div class="flex-grow-1">
+                    <MudText Typo="Typo.body2">@place.Bookcase.Name › @LibraryData.ShelfLabel(place.Shelf)</MudText>
+                    @if (place.Bookcase.IsHidden)
+                    {
+                        <MudText Typo="Typo.caption">Hidden bookcase</MudText>
+                    }
+                </div>
+                <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft" Size="Size.Small" Disabled="!CanMove(entry, place, -1)"
+                               OnClick="() => LibraryData.MovePlacementAsync(place.Placement.Id, -1)" aria-label="Move left on the shelf" />
+                <MudIconButton Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Small" Disabled="!CanMove(entry, place, 1)"
+                               OnClick="() => LibraryData.MovePlacementAsync(place.Placement.Id, 1)" aria-label="Move right on the shelf" />
+                <MudIconButton Icon="@Icons.Material.Outlined.RemoveCircleOutline" Size="Size.Small"
+                               OnClick="() => LibraryData.RemovePlacementAsync(place.Placement.Id)" aria-label="Take off this shelf" />
+            </div>
+        }
 
         @* ---------- Reading log ---------- *@
         <MudDivider Class="my-4" />
@@ -213,6 +227,9 @@
     private Task SetFaceOutAsync(bool faceOut)
         => Entry is null ? Task.CompletedTask : LibraryData.SetFaceOutAsync(Entry.Id, faceOut);
 
+    /// <summary>Opens the shelf picker with this book chosen.</summary>
+    private Task PutOnShelfAsync(LibraryEntry entry) => ShelfPickerDialog.OpenAsync(Dialogs, Viewport, [entry.Id]);
+
     private Task SetRereadAsync(bool value)
         => Entry is null ? Task.CompletedTask : LibraryData.SetWantToRereadAsync(Entry.Id, value);
 
@@ -337,19 +354,11 @@
     private static string PublishedText(Book b)
         => string.Join(", ", new[] { b.Publisher, b.PublishedYear?.ToString() }.Where(s => !string.IsNullOrEmpty(s)));
 
-    private Guid ShelfChoice(LibraryEntry e)
-        => LibraryData.IsKnownShelf(e.Item.ShelfId) ? e.Item.ShelfId!.Value : Guid.Empty;
-
-    private Task MoveToShelfAsync(LibraryEntry e, Guid shelfId)
-        => shelfId == ShelfChoice(e)
-            ? Task.CompletedTask
-            : LibraryData.MoveBookToShelfAsync(e.Id, shelfId == Guid.Empty ? null : shelfId);
-
-    /// <summary>Whether the book has a neighbour on that side of its shelf.</summary>
-    private bool CanMove(LibraryEntry e, int delta)
+    /// <summary>Whether the book has a neighbour on that side of the shelf.</summary>
+    private bool CanMove(LibraryEntry entry, BookPlace place, int delta)
     {
-        var books = LibraryData.BooksOnShelf(e.Item.ShelfId);
-        var index = books.ToList().FindIndex(b => b.Id == e.Id);
+        var books = LibraryData.BooksOnShelf(place.Shelf.Id);
+        var index = books.ToList().FindIndex(b => b.Id == entry.Id);
         var target = index + delta;
         return index >= 0 && target >= 0 && target < books.Count;
     }

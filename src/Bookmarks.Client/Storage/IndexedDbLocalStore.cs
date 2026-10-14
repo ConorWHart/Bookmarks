@@ -52,6 +52,7 @@ public sealed class IndexedDbLocalStore(IJSRuntime js, ILogger<IndexedDbLocalSto
         [typeof(Bookcase)] = new("bookcases", Json.Bookcase, Json.BookcaseList),
         [typeof(Shelf)] = new("shelves", Json.Shelf, Json.ShelfList),
         [typeof(Preset)] = new("presets", Json.Preset, Json.PresetList),
+        [typeof(ShelfPlacement)] = new("shelfPlacements", Json.ShelfPlacement, Json.ShelfPlacementList),
     };
 
     private readonly SemaphoreSlim _openGate = new(1, 1);

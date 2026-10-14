@@ -34,7 +34,6 @@ internal static class SampleData
     /// <summary>Seeds the demo library for <paramref name="userId"/> (<see cref="Guid.Empty"/> in guest mode).</summary>
     public static async Task SeedAsync(ILocalStore store, Guid userId, CancellationToken ct)
     {
-
         var bookcase = new Bookcase { UserId = userId, Name = "Living room", Theme = "oak", SortRank = RankKey.Between(null, null) };
         await store.UpsertAsync(bookcase, ct);
 
@@ -47,7 +46,14 @@ internal static class SampleData
             await store.UpsertAsync(shelf, ct);
         }
 
+        // A second, made-up bookcase: the same book can stand in both.
+        var favorites = new Bookcase { UserId = userId, Name = "Favorites", Theme = "walnut", SortRank = RankKey.Between(bookcase.SortRank, null) };
+        await store.UpsertAsync(favorites, ct);
+        var favoritesShelf = new Shelf { UserId = userId, BookcaseId = favorites.Id, Name = "Top picks", SortRank = RankKey.Between(null, null), WidthMm = 600 };
+        await store.UpsertAsync(favoritesShelf, ct);
+
         var itemRanks = RankKey.Sequence(Books.Length);
+        string? favoriteRank = null;
         for (var i = 0; i < Books.Length; i++)
         {
             var s = Books[i];
@@ -71,14 +77,28 @@ internal static class SampleData
                 BookId = book.Id,
                 Format = s.Format,
                 Status = i % 9 == 8 ? OwnershipStatus.Wishlist : OwnershipStatus.Owned,
-                ShelfId = shelves[i % shelves.Count].Id,
-                ShelfRank = itemRanks[i],
                 WantToReread = s.Reads > 1,
                 Rating = s.Reads > 0 ? 3.5m + (i % 4 * 0.5m) : null,
                 AddedAt = DateTimeOffset.UtcNow.AddDays(-i * 11),
                 Appearance = new SpineAppearance { FaceOut = s.Title is "Piranesi" or "Circe" },
             };
             await store.UpsertAsync(item, ct);
+
+            // Owned books stand in the living room; wishlist books aren't on a shelf.
+            if (item.Status == OwnershipStatus.Owned)
+            {
+                await store.UpsertAsync(
+                    new ShelfPlacement { UserId = userId, ShelfId = shelves[i % shelves.Count].Id, LibraryItemId = item.Id, Rank = itemRanks[i] },
+                    ct);
+            }
+
+            if (s.Reads > 1)
+            {
+                favoriteRank = RankKey.Between(favoriteRank, null);
+                await store.UpsertAsync(
+                    new ShelfPlacement { UserId = userId, ShelfId = favoritesShelf.Id, LibraryItemId = item.Id, Rank = favoriteRank },
+                    ct);
+            }
 
             for (var r = 0; r < s.Reads; r++)
             {

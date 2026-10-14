@@ -10,7 +10,7 @@ public class SyncEntityTypesTests
     [Fact]
     public void Every_type_has_a_unique_name_and_is_found_by_name_and_clr_type()
     {
-        Assert.Equal(8, SyncEntityTypes.All.Count);
+        Assert.Equal(9, SyncEntityTypes.All.Count);
         Assert.Equal(SyncEntityTypes.All.Count, SyncEntityTypes.All.Select(t => t.Name).Distinct().Count());
 
         foreach (var type in SyncEntityTypes.All)

@@ -1,46 +1,36 @@
 @* Every setting of a library view in one panel. The phone's Filters sheet shows the layout section
-   (arrange, show, sort, group, size) too; wider screens keep those in the toolbar. *@
+   (show, sort and group for Books, size for Bookcases) too; wider screens keep those in the toolbar. *@
 @inject LibraryService LibraryData
 
 <div class="bm-filters">
     @if (ShowLayout)
     {
         <section>
-            <div class="bm-filters__label">Arrange</div>
-            <MudChipSet T="LibraryArrangement" SelectionMode="SelectionMode.SingleSelection" CheckMark="true"
-                        SelectedValue="View.Arrangement" SelectedValueChanged="v => Set(View with { Arrangement = v })"
-                        Color="Color.Primary" Variant="Variant.Outlined" Size="Size.Small">
-                <MudChip Value="LibraryArrangement.AsShelved" Text="As shelved" />
-                <MudChip Value="LibraryArrangement.BySort" Text="By sort" />
-            </MudChipSet>
-        </section>
-
-        <section>
             <div class="bm-filters__label">Show</div>
             <MudChipSet T="LibraryDisplay" SelectionMode="SelectionMode.SingleSelection" CheckMark="true"
                         SelectedValue="View.Display" SelectedValueChanged="v => Set(View with { Display = v })"
                         Color="Color.Primary" Variant="Variant.Outlined" Size="Size.Small">
-                <MudChip Value="LibraryDisplay.Shelves" Text="Shelves" />
-                <MudChip Value="LibraryDisplay.Covers" Text="Covers" />
+                <MudChip Value="LibraryDisplay.Bookcases" Text="Bookcases" />
+                <MudChip Value="LibraryDisplay.Books" Text="Books" />
             </MudChipSet>
         </section>
 
-        <section class="bm-filters__row">
-            <MudSelect T="LibrarySortField" Value="View.Query.Sort.Field" Label="Sort"
-                       ValueChanged="v => Set(View.WithSort(View.Query.Sort with { Field = v }))"
-                       Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true">
-                @foreach (var (field, label) in LibraryLabels.SortOptions)
-                {
-                    <MudSelectItem Value="field">@label</MudSelectItem>
-                }
-            </MudSelect>
-            <MudIconButton Icon="@(View.Query.Sort.Descending ? Icons.Material.Filled.ArrowDownward : Icons.Material.Filled.ArrowUpward)"
-                           OnClick="() => Set(View.WithSort(View.Query.Sort with { Descending = !View.Query.Sort.Descending }))"
-                           aria-label="Toggle sort direction" />
-        </section>
-
-        @if (View.Arrangement == LibraryArrangement.BySort)
+        @if (View.Display == LibraryDisplay.Books)
         {
+            <section class="bm-filters__row">
+                <MudSelect T="LibrarySortField" Value="View.Query.Sort.Field" Label="Sort"
+                           ValueChanged="v => Set(View.WithSort(View.Query.Sort with { Field = v }))"
+                           Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true">
+                    @foreach (var (field, label) in LibraryLabels.SortOptions)
+                    {
+                        <MudSelectItem Value="field">@label</MudSelectItem>
+                    }
+                </MudSelect>
+                <MudIconButton Icon="@(View.Query.Sort.Descending ? Icons.Material.Filled.ArrowDownward : Icons.Material.Filled.ArrowUpward)"
+                               OnClick="() => Set(View.WithSort(View.Query.Sort with { Descending = !View.Query.Sort.Descending }))"
+                               aria-label="Toggle sort direction" />
+            </section>
+
             <section>
                 <MudSelect T="LibraryGroupBy" Value="View.Query.GroupBy" Label="Group" ValueChanged="v => Set(View.WithGroupBy(v))"
                            Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true">
@@ -51,11 +41,13 @@
                 </MudSelect>
             </section>
         }
-
-        <section>
-            <div class="bm-filters__label">Size</div>
-            <MudSlider T="double" Value="Scale" ValueChanged="ScaleChanged" Min="MinScale" Max="MaxScale" Step="0.05" Size="Size.Small" />
-        </section>
+        else
+        {
+            <section>
+                <div class="bm-filters__label">Size</div>
+                <MudSlider T="double" Value="Scale" ValueChanged="ScaleChanged" Min="MinScale" Max="MaxScale" Step="0.05" Size="Size.Small" />
+            </section>
+        }
 
         <MudDivider Class="my-1" />
     }
@@ -118,26 +110,6 @@
         </MudChipSet>
     </section>
 
-    @if (LibraryData.Tags.Count > 0)
-    {
-        <section>
-            <div class="bm-filters__label">Tags</div>
-            <MudChipSet T="Guid" SelectionMode="SelectionMode.MultiSelection" CheckMark="true"
-                        SelectedValues="Filter.TagIds" SelectedValuesChanged="v => SetFilter(Filter with { TagIds = SetOrNull(v) })"
-                        Color="Color.Primary" Variant="Variant.Outlined" Size="Size.Small">
-                @foreach (var tag in LibraryData.Tags)
-                {
-                    <MudChip Value="tag.Id" Text="@tag.Name" />
-                }
-            </MudChipSet>
-            @if (Filter.TagIds is { Count: > 1 })
-            {
-                <MudSwitch T="bool" Value="Filter.TagMatchAll" ValueChanged="v => SetFilter(Filter with { TagMatchAll = v })"
-                           Label="Must have every selected tag" Color="Color.Primary" />
-            }
-        </section>
-    }
-
     <section>
         <MudSelect T="Guid?" Value="Filter.BookcaseId" Label="Bookcase" ValueChanged="v => SetFilter(Filter with { BookcaseId = v })"
                    ToStringFunc="BookcaseName" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true">
@@ -146,7 +118,7 @@
             {
                 <MudSelectItem T="Guid?" Value="bookcase.Id">@bookcase.Name</MudSelectItem>
             }
-            <MudSelectItem T="Guid?" Value="LibraryFilter.Unshelved">Unshelved</MudSelectItem>
+            <MudSelectItem T="Guid?" Value="LibraryFilter.Unshelved">Not on any shelf</MudSelectItem>
         </MudSelect>
     </section>
 
@@ -246,7 +218,7 @@
     private string BookcaseName(Guid? id) => id switch
     {
         null => "Any",
-        { } value when value == LibraryFilter.Unshelved => "Unshelved",
+        { } value when value == LibraryFilter.Unshelved => "Not on any shelf",
         { } value => LibraryData.Bookcases.FirstOrDefault(b => b.Id == value)?.Name ?? "Removed bookcase",
     };
 }

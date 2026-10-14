@@ -58,15 +58,12 @@ public static class LibraryViewJson
         var f = view.Filter;
         return new LibraryViewDto
         {
-            Arrangement = view.Arrangement,
             Display = view.Display,
             Sort = view.Query.Sort.Field,
             Descending = view.Query.Sort.Descending,
             GroupBy = view.Query.GroupBy,
             Statuses = Sorted(f.Statuses),
             Formats = Sorted(f.Formats),
-            TagIds = Sorted(f.TagIds),
-            TagMatchAll = f.TagMatchAll,
             ReadState = f.ReadState,
             WantToReread = f.WantToReread,
             MinRating = f.MinRating,
@@ -83,7 +80,6 @@ public static class LibraryViewJson
 
     private static LibraryView FromDto(LibraryViewDto d) => new()
     {
-        Arrangement = d.Arrangement,
         Display = d.Display,
         Query = new LibraryQuery
         {
@@ -93,8 +89,6 @@ public static class LibraryViewJson
             {
                 Statuses = SetOf(d.Statuses),
                 Formats = SetOf(d.Formats),
-                TagIds = SetOf(d.TagIds),
-                TagMatchAll = d.TagMatchAll,
                 ReadState = d.ReadState,
                 WantToReread = d.WantToReread,
                 MinRating = d.MinRating,
@@ -133,8 +127,6 @@ public static class LibraryViewJson
 /// <summary>Schema 1 of the library view JSON. Add properties only; see <see cref="LibraryViewJson"/>.</summary>
 internal sealed class LibraryViewDto
 {
-    public LibraryArrangement Arrangement { get; set; }
-
     public LibraryDisplay Display { get; set; }
 
     public LibrarySortField Sort { get; set; } = LibrarySortField.Author;
@@ -146,10 +138,6 @@ internal sealed class LibraryViewDto
     public List<OwnershipStatus>? Statuses { get; set; }
 
     public List<BookFormat>? Formats { get; set; }
-
-    public List<Guid>? TagIds { get; set; }
-
-    public bool TagMatchAll { get; set; }
 
     public ReadState ReadState { get; set; }
 

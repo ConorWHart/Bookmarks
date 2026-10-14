@@ -1,0 +1,54 @@
+@* Show or hide bookcases in the Bookcases view. Synced, so it applies on every device.
+   Hidden bookcases aren't drawn there, but their books still show in Books and search.
+   A menu in the desktop toolbar; a list of switches in the phone sheet (AsList). *@
+@implements IDisposable
+@inject LibraryService LibraryData
+
+@if (LibraryData.Bookcases.Count == 0)
+{
+    @* Nothing to show or hide yet. *@
+}
+else if (AsList)
+{
+    <div class="bm-visibility">
+        <div class="bm-visibility__label">Bookcases shown</div>
+        @foreach (var bookcase in LibraryData.Bookcases)
+        {
+            <MudSwitch T="bool" Value="!bookcase.IsHidden" ValueChanged="v => LibraryData.SetBookcaseHiddenAsync(bookcase.Id, !v)"
+                       Label="@bookcase.Name" Color="Color.Primary" />
+        }
+    </div>
+}
+else
+{
+    <MudMenu Label="@ButtonText" StartIcon="@ButtonIcon" Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
+             Dense="true" AnchorOrigin="Origin.BottomLeft" TransformOrigin="Origin.TopLeft" AriaLabel="Show or hide bookcases">
+        @foreach (var bookcase in LibraryData.Bookcases)
+        {
+            <MudMenuItem AutoClose="false" Icon="@VisibilityIcon(bookcase.IsHidden)"
+                         OnClick="() => LibraryData.SetBookcaseHiddenAsync(bookcase.Id, !bookcase.IsHidden)">@bookcase.Name</MudMenuItem>
+        }
+    </MudMenu>
+}
+
+@code {
+    /// <summary>Switches (phone sheet) instead of a menu.</summary>
+    [Parameter] public bool AsList { get; set; }
+
+    // Only a bool parameter, so the parent re-rendering doesn't refresh this: listen for library changes.
+    protected override void OnInitialized() => LibraryData.Changed += OnLibraryChanged;
+
+    public void Dispose() => LibraryData.Changed -= OnLibraryChanged;
+
+    private void OnLibraryChanged() => _ = InvokeAsync(StateHasChanged);
+
+    private string ButtonText => LibraryData.HiddenBookcaseCount switch
+    {
+        0 => "Bookcases",
+        var n => $"Bookcases ({n} hidden)",
+    };
+
+    private string ButtonIcon => LibraryData.HiddenBookcaseCount > 0 ? Icons.Material.Outlined.VisibilityOff : Icons.Material.Outlined.Visibility;
+
+    private static string VisibilityIcon(bool hidden) => hidden ? Icons.Material.Outlined.VisibilityOff : Icons.Material.Filled.Visibility;
+}

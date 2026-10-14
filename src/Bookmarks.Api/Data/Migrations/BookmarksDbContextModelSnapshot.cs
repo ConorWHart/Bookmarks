@@ -143,6 +143,9 @@ namespace Bookmarks.Api.Data.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("IsHidden")
+                        .HasColumnType("bit");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -466,6 +469,48 @@ namespace Bookmarks.Api.Data.Migrations
                     b.HasIndex("UserId", "Version");
 
                     b.ToTable("Shelves", (string)null);
+                });
+
+            modelBuilder.Entity("Bookmarks.Shared.Domain.ShelfPlacement", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid>("LibraryItemId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Rank")
+                        .HasMaxLength(64)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<Guid>("ShelfId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("Version")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LibraryItemId");
+
+                    b.HasIndex("ShelfId");
+
+                    b.HasIndex("UserId", "Version");
+
+                    b.ToTable("ShelfPlacements", (string)null);
                 });
 
             modelBuilder.Entity("Bookmarks.Shared.Domain.Tag", b =>

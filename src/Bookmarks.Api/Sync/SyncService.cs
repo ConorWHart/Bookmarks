@@ -33,6 +33,7 @@ public sealed class SyncService(BookmarksDbContext db, ICurrentUser user, TimePr
         new SyncTable<Bookcase>(SyncEntityTypes.Bookcase),
         new SyncTable<Shelf>(SyncEntityTypes.Shelf),
         new SyncTable<Preset>(SyncEntityTypes.Preset),
+        new SyncTable<ShelfPlacement>(SyncEntityTypes.ShelfPlacement),
     }.ToDictionary(t => t.Type.Name, StringComparer.Ordinal);
 
     /// <summary>True when the server stores records of this <see cref="SyncChange.EntityType"/>.</summary>

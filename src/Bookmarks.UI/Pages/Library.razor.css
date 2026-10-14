@@ -1,0 +1,32 @@
+/* Bookcases / Books toggle: full width of its slot (Phase 6b) */
+.bm-display {
+    width: 100%;
+}
+
+.bm-display ::deep .bm-display-toggle {
+    width: 100%;
+}
+
+.bm-display ::deep .mud-toggle-item {
+    flex: 1 1 0;
+}
+
+/* Books view grouped into sections */
+.bm-group + .bm-group {
+    margin-top: 28px;
+}
+
+.bm-group ::deep .bm-group__title {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin: 0 4px 10px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--mud-palette-lines-default);
+}
+
+.bm-group__count {
+    font-size: 0.8rem;
+    font-weight: 400;
+    color: var(--mud-palette-text-secondary);
+}

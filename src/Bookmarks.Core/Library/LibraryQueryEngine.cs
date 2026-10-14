@@ -62,14 +62,6 @@ public static class LibraryQueryEngine
             return false;
         }
 
-        if (f.TagIds is { Count: > 0 } tags)
-        {
-            var tagged = f.TagMatchAll ? tags.All(e.Item.TagIds.Contains) : e.Item.TagIds.Any(tags.Contains);
-            if (!tagged)
-            {
-                return false;
-            }
-        }
 
         if (f.WantToReread is { } reread && e.Item.WantToReread != reread)
         {
@@ -81,15 +73,15 @@ public static class LibraryQueryEngine
             return false;
         }
 
-        if (f.ShelfId is { } shelf && e.Item.ShelfId != shelf)
+        if (f.ShelfId is { } shelf && !e.ShelfIds.Contains(shelf))
         {
             return false;
         }
 
         if (f.BookcaseId is { } bookcase)
         {
-            Guid? wanted = bookcase == LibraryFilter.Unshelved ? null : bookcase;
-            if (e.BookcaseId != wanted)
+            var placed = bookcase == LibraryFilter.Unshelved ? e.BookcaseIds.Count == 0 : e.BookcaseIds.Contains(bookcase);
+            if (!placed)
             {
                 return false;
             }

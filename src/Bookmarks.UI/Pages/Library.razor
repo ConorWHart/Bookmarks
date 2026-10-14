@@ -28,12 +28,12 @@
                 <MudIcon Icon="@Icons.Material.Outlined.LocalLibrary" Color="Color.Primary" Style="font-size:3.5rem" />
                 <MudText Typo="Typo.h5">Your library is empty</MudText>
                 <MudText Typo="Typo.body1" Align="Align.Center">
-                    Add your first book, or load a demo library to explore the shelves.
+                    Add your first book, or load a demo library to explore the bookcases.
                     Everything is stored on this device and works offline.
                 </MudText>
                 <MudStack Row="true" Spacing="2" Wrap="Wrap.Wrap" Justify="Justify.Center">
                     <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
-                               OnClick="() => OpenEditorAsync(null)" Disabled="_busy">Add a book</MudButton>
+                               OnClick="() => OpenEditorAsync(null)" Disabled="_busy">Add a new book</MudButton>
                     <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.AutoStories"
                                OnClick="LoadDemoAsync" Disabled="_busy">Load demo library</MudButton>
                 </MudStack>
@@ -46,29 +46,21 @@
         <MudPaper Elevation="0" Class="pa-3 mb-5 bm-panel d-none d-md-block">
             <MudGrid Spacing="2" Class="align-center">
                 <MudItem md="4">
+                    <div class="bm-display">
+                        <MudToggleGroup T="LibraryDisplay" Value="_view.Display" ValueChanged="v => SetView(_view with { Display = v })"
+                                        Color="Color.Primary" Outlined="true" Class="bm-display-toggle">
+                            <MudToggleItem Value="LibraryDisplay.Bookcases" Text="Bookcases" />
+                            <MudToggleItem Value="LibraryDisplay.Books" Text="Books" />
+                        </MudToggleGroup>
+                    </div>
+                </MudItem>
+
+                <MudItem md="4">
                     <MudTextField T="string" @bind-Value="_search" @bind-Value:after="OnSearchChanged"
                                   Placeholder="Search title, author, series, ISBN"
                                   Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
                                   Immediate="true" DebounceInterval="200" Clearable="true"
                                   Variant="Variant.Outlined" Margin="Margin.Dense" />
-                </MudItem>
-
-                <MudItem md="2">
-                    <MudSelect T="LibraryArrangement" Value="_view.Arrangement" ValueChanged="v => SetView(_view with { Arrangement = v })"
-                               Label="Arrange" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true">
-                        <MudSelectItem Value="LibraryArrangement.AsShelved">As shelved</MudSelectItem>
-                        <MudSelectItem Value="LibraryArrangement.BySort">By sort</MudSelectItem>
-                    </MudSelect>
-                </MudItem>
-
-                <MudItem md="2">
-                    <MudSelect T="LibrarySortField" Value="_view.Query.Sort.Field" ValueChanged="v => SetView(_view.WithSort(_view.Query.Sort with { Field = v }))"
-                               Label="Sort" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true">
-                        @foreach (var (field, label) in LibraryLabels.SortOptions)
-                        {
-                            <MudSelectItem Value="field">@label</MudSelectItem>
-                        }
-                    </MudSelect>
                 </MudItem>
 
                 <MudItem md="2">
@@ -94,17 +86,19 @@
                 </MudItem>
 
                 <MudItem xs="12" Class="d-flex flex-wrap align-center gap-3">
-                    <MudToggleGroup T="LibraryDisplay" Value="_view.Display" ValueChanged="v => SetView(_view with { Display = v })"
-                                    Color="Color.Primary" Size="Size.Small" Outlined="true">
-                        <MudToggleItem Value="LibraryDisplay.Shelves" Text="Shelves" />
-                        <MudToggleItem Value="LibraryDisplay.Covers" Text="Covers" />
-                    </MudToggleGroup>
-
-                    <MudIconButton Icon="@(_view.Query.Sort.Descending ? Icons.Material.Filled.ArrowDownward : Icons.Material.Filled.ArrowUpward)"
-                                   Size="Size.Small" OnClick="ToggleDirection" aria-label="Toggle sort direction" />
-
-                    @if (_view.Arrangement == LibraryArrangement.BySort)
+                    @if (IsBooks)
                     {
+                        <MudSelect T="LibrarySortField" Value="_view.Query.Sort.Field" ValueChanged="v => SetView(_view.WithSort(_view.Query.Sort with { Field = v }))"
+                                   Label="Sort" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true" Style="max-width:180px">
+                            @foreach (var (field, label) in LibraryLabels.SortOptions)
+                            {
+                                <MudSelectItem Value="field">@label</MudSelectItem>
+                            }
+                        </MudSelect>
+
+                        <MudIconButton Icon="@(_view.Query.Sort.Descending ? Icons.Material.Filled.ArrowDownward : Icons.Material.Filled.ArrowUpward)"
+                                       Size="Size.Small" OnClick="ToggleDirection" aria-label="Toggle sort direction" />
+
                         <MudSelect T="LibraryGroupBy" Value="_view.Query.GroupBy" ValueChanged="v => SetView(_view.WithGroupBy(v))" Label="Group"
                                    Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true" Style="max-width:160px">
                             @foreach (var (group, label) in LibraryLabels.GroupOptions)
@@ -119,15 +113,23 @@
                                    StartIcon="@Icons.Material.Filled.Tune" OnClick="OpenFiltersAsync">Filters</MudButton>
                     </MudBadge>
 
-                    <MudButton Href="bookcases" Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
-                               StartIcon="@Icons.Material.Filled.ViewWeek">Bookcases</MudButton>
+                    @if (!IsBooks)
+                    {
+                        <ShelfVisibility />
+
+                        <MudButton Href="bookcases" Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
+                                   StartIcon="@Icons.Material.Filled.Edit">Edit bookcases</MudButton>
+                    }
 
                     <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
                                StartIcon="@Icons.Material.Filled.ImageSearch" OnClick="OpenFindCoversAsync">Find covers</MudButton>
 
-                    <div style="width:160px">
-                        <MudSlider T="double" @bind-Value="_scale" @bind-Value:after="SaveScale" Min="FilterPanel.MinScale" Max="FilterPanel.MaxScale" Step="0.05" Size="Size.Small">Size</MudSlider>
-                    </div>
+                    @if (!IsBooks)
+                    {
+                        <div style="width:160px">
+                            <MudSlider T="double" @bind-Value="_scale" @bind-Value:after="SaveScale" Min="FilterPanel.MinScale" Max="FilterPanel.MaxScale" Step="0.05" Size="Size.Small">Size</MudSlider>
+                        </div>
+                    }
 
                     <MudSpacer />
                     <MudText Typo="Typo.caption">@_matchCount of @LibraryData.Entries.Count books</MudText>
@@ -135,7 +137,14 @@
             </MudGrid>
         </MudPaper>
 
-        @* ---------- Toolbar: phones get search + a Filters sheet ---------- *@
+        @* ---------- Toolbar: phones get the toggle, search and a Filters sheet ---------- *@
+        <div class="bm-display d-flex d-md-none mb-2">
+            <MudToggleGroup T="LibraryDisplay" Value="_view.Display" ValueChanged="v => SetView(_view with { Display = v })"
+                            Color="Color.Primary" Outlined="true" Class="bm-display-toggle">
+                <MudToggleItem Value="LibraryDisplay.Bookcases" Text="Bookcases" />
+                <MudToggleItem Value="LibraryDisplay.Books" Text="Books" />
+            </MudToggleGroup>
+        </div>
         <div class="d-flex d-md-none align-center gap-2 mb-1">
             <div class="flex-grow-1">
                 <MudTextField T="string" @bind-Value="_search" @bind-Value:after="OnSearchChanged"
@@ -151,46 +160,54 @@
         <MudText Typo="Typo.caption" Class="d-block d-md-none mb-3">@_matchCount of @LibraryData.Entries.Count books</MudText>
 
         @* ---------- Library ---------- *@
-        if (_view.Display == LibraryDisplay.Covers)
+        if (IsBooks)
         {
-            <CoverGrid Entries="_filtered" OnSelected="Select" />
+            if (_view.Query.GroupBy == LibraryGroupBy.None)
+            {
+                <CoverGrid Entries="_filtered" OnSelected="Select" />
+            }
+            else
+            {
+                foreach (var group in _groups)
+                {
+                    <section class="bm-group" @key="group.Key">
+                        <MudText Typo="Typo.h6" Class="bm-group__title">@group.Key <span class="bm-group__count">@group.Entries.Count</span></MudText>
+                        <CoverGrid Entries="group.Entries" OnSelected="Select" />
+                    </section>
+                }
+            }
         }
-        else if (_view.Arrangement == LibraryArrangement.AsShelved)
+        else if (LibraryData.Bookcases.Count == 0)
         {
-            <div class="bm-room">
-            @foreach (var bookcase in LibraryData.Bookcases)
-            {
-                <BookcaseFrame @key="bookcase.Id" Title="@bookcase.Name" Theme="@bookcase.Theme">
-                    @foreach (var shelf in LibraryData.ShelvesIn(bookcase.Id))
-                    {
-                        <ShelfRowView @key="shelf.Id" Books="PlaceOnShelf(shelf.Id)" Label="@shelf.Name"
-                                      WidthMm="shelf.WidthMm" Scale="_scale" IsDimmed="IsDimmed" OnSelected="Select" />
-                    }
-                </BookcaseFrame>
-            }
-
-            @{ var unshelved = PlaceOnShelf(null); }
-            @if (unshelved.Count > 0)
-            {
-                <BookcaseFrame Title="Unshelved" Theme="@DefaultTheme">
-                    <ShelfRowView Books="unshelved" WidthMm="UnshelvedWidthMm" Scale="_scale" IsDimmed="IsDimmed" OnSelected="Select" />
-                </BookcaseFrame>
-            }
-            </div>
+            <MudPaper Elevation="0" Class="pa-6 bm-panel">
+                <MudStack Spacing="2" AlignItems="AlignItems.Start">
+                    <MudText Typo="Typo.body1">
+                        No bookcases yet. Make one for each real bookcase, or for any set you like (Favorites, Want to buy):
+                        a book can stand in several.
+                    </MudText>
+                    <MudButton Href="bookcases" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.ViewWeek">Set up a bookcase</MudButton>
+                </MudStack>
+            </MudPaper>
         }
         else
         {
             <div class="bm-room">
-            @foreach (var group in _groups)
+            @foreach (var bookcase in LibraryData.Bookcases.Where(b => !b.IsHidden))
             {
-                <BookcaseFrame @key="group.Key" Title="@group.Key" Theme="@DefaultTheme">
-                    @foreach (var row in ShelfLayoutEngine.Flow(group.Entries, GeneratedShelfWidthMm))
+                <BookcaseFrame @key="bookcase.Id" Title="@bookcase.Name" Theme="@bookcase.Theme">
+                    @foreach (var shelf in LibraryData.ShelvesIn(bookcase.Id))
                     {
-                        <ShelfRowView Books="row.Books" WidthMm="GeneratedShelfWidthMm" Scale="_scale" OnSelected="Select" />
+                        <ShelfRowView @key="shelf.Id" Books="PlaceOnShelf(shelf.Id)" Label="@LibraryData.ShelfLabel(shelf)"
+                                      WidthMm="shelf.WidthMm" Scale="_scale" IsDimmed="IsDimmed" OnSelected="Select" />
                     }
                 </BookcaseFrame>
             }
             </div>
+
+            @if (LibraryData.HiddenBookcaseCount > 0)
+            {
+                <MudText Typo="Typo.caption" Class="d-block mt-2">@HiddenBookcasesText</MudText>
+            }
         }
     }
 </MudContainer>
@@ -212,9 +229,14 @@
         <FilterPanel View="_view" ViewChanged="SetView" ShowLayout="IsSheet" Scale="_scale" ScaleChanged="OnScaleChanged" />
         @if (IsSheet)
         {
+            @if (!IsBooks)
+            {
+                <MudDivider Class="my-3" />
+                <ShelfVisibility AsList="true" />
+            }
             <MudStack Row="true" Spacing="1" Class="mt-2" Wrap="Wrap.Wrap">
                 <MudButton Href="bookcases" Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
-                           StartIcon="@Icons.Material.Filled.ViewWeek">Bookcases</MudButton>
+                           StartIcon="@Icons.Material.Filled.Edit">Edit bookcases</MudButton>
                 <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small" StartIcon="@Icons.Material.Filled.ImageSearch"
                            OnClick="OpenFindCoversFromSheetAsync">Find covers</MudButton>
             </MudStack>
@@ -229,16 +251,24 @@
 
 @if (_loaded && _loadError is null && !LibraryData.IsEmpty)
 {
-    <MudFab Class="bm-fab" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" Label="Add book"
-            OnClick="() => OpenEditorAsync(null)" aria-label="Add a book" />
+    @if (IsBooks)
+    {
+        <MudFab Class="bm-fab" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" Label="Add new book"
+                OnClick="() => OpenEditorAsync(null)" aria-label="Add a new book to your library" />
+    }
+    else
+    {
+        <MudFab Class="bm-fab" Color="Color.Primary" StartIcon="@Icons.Material.Filled.LibraryAdd" Label="Add book to shelf"
+                OnClick="AddBooksToShelfAsync" aria-label="Add books to a shelf" />
+    }
 }
 
 @code {
-    // TODO: measure the container (ResizeObserver) so generated shelves fill the screen width.
-    private const int GeneratedShelfWidthMm = 900;
+    private bool IsBooks => _view.Display == LibraryDisplay.Books;
 
-    // Books with no shelf yet are shown on a virtual shelf of a typical width.
-    private const int UnshelvedWidthMm = 800;
+    private string HiddenBookcasesText => LibraryData.HiddenBookcaseCount == 1
+        ? "1 bookcase is hidden. Show it from the Bookcases menu (Filters on a phone)."
+        : $"{LibraryData.HiddenBookcaseCount} bookcases are hidden. Show them from the Bookcases menu (Filters on a phone).";
 
     private bool _loaded;
     private string? _loadError;
@@ -246,7 +276,7 @@
     private string? _search;
     private double _scale = 0.55;
 
-    // The current view: filter, sort, grouping, arrangement and display.
+    // The current view: display (Bookcases / Books), filter, sort and grouping.
     private LibraryView _view = LibraryView.Default;
 
     private bool _filtersOpen;
@@ -259,9 +289,6 @@
 
     private LibraryEntry? _selected;
     private bool _detailsOpen;
-
-    // New books default to the shelf the previous one went on (this session only).
-    private Guid? _lastShelfId;
 
     protected override async Task OnInitializedAsync()
     {
@@ -338,7 +365,6 @@
         var parameters = new DialogParameters
         {
             { nameof(BookEditorDialog.ItemId), entry?.Id },
-            { nameof(BookEditorDialog.DefaultShelfId), _lastShelfId },
         };
         var options = await DialogDefaults.EditorAsync(Viewport);
         var dialog = await Dialogs.ShowAsync<BookEditorDialog>(parameters, options);
@@ -348,21 +374,30 @@
             return;
         }
 
-        _lastShelfId = saved.Item.ShelfId;
         if (entry is null)
         {
+            // New books aren't on a shelf: offer that next (or just show the book when there are no bookcases yet).
+            var canShelve = LibraryData.Bookcases.Count > 0;
             Snackbar.Add($"Added “{saved.Title}”", Severity.Success, o =>
             {
-                o.Action = "View";
+                o.Action = canShelve ? "Put on a shelf" : "View";
                 o.ActionColor = Color.Inherit;
-                o.OnClick = _ =>
-                {
-                    Select(saved);
-                    return InvokeAsync(StateHasChanged);
-                };
+                o.OnClick = _ => canShelve ? PutNewBookOnShelfAsync(saved.Id) : ShowAsync(saved);
             });
         }
     }
+
+    private async Task AddBooksToShelfAsync() => await ShelfPickerDialog.OpenAsync(Dialogs, Viewport);
+
+    private Task PutNewBookOnShelfAsync(Guid itemId)
+        => InvokeAsync(async () => await ShelfPickerDialog.OpenAsync(Dialogs, Viewport, [itemId]));
+
+    private Task ShowAsync(LibraryEntry entry)
+        => InvokeAsync(() =>
+        {
+            Select(entry);
+            StateHasChanged();
+        });
 
     /// <summary>Soft delete with an Undo in the snackbar.</summary>
     private async Task DeleteAsync(LibraryEntry entry)
@@ -393,7 +428,7 @@
         }
     }
 
-    /// <summary>The view this device used last (else the default: all books, as shelved).</summary>
+    /// <summary>The view this device used last (else the default: Bookcases, no filters).</summary>
     private async Task RestoreViewAsync()
     {
         var lastJson = await Prefs.GetStringAsync(UserPreferences.LibraryView);
@@ -482,12 +517,9 @@
 
     private bool IsDimmed(LibraryEntry entry) => !LibraryQueryEngine.Matches(entry, _filter);
 
-    /// <summary>Books on a physical shelf in their saved order. Null = books with no (known) shelf.</summary>
-    private IReadOnlyList<PlacedBook> PlaceOnShelf(Guid? shelfId)
+    /// <summary>Books on a shelf in their saved order, sized for drawing.</summary>
+    private IReadOnlyList<PlacedBook> PlaceOnShelf(Guid shelfId)
         => ShelfLayoutEngine.Flow(LibraryData.BooksOnShelf(shelfId), int.MaxValue).FirstOrDefault()?.Books ?? [];
-
-    /// <summary>Unshelved books and generated-mode groups use the first bookcase's finish.</summary>
-    private string DefaultTheme => LibraryData.Bookcases.FirstOrDefault()?.Theme ?? "oak";
 
     private void Select(LibraryEntry entry)
     {

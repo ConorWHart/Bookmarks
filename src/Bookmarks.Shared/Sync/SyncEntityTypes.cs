@@ -63,9 +63,12 @@ public static class SyncEntityTypes
 
     public static SyncEntityType Preset { get; } = Create("preset", Json.Preset);
 
+    public static SyncEntityType ShelfPlacement { get; } = Create("placement", Json.ShelfPlacement);
+
     // Declared after the properties above: static initializers run in textual order.
+    // Adding a type: the client re-pulls once (SyncEngine.KnownTypesKey), so rows an older version skipped arrive.
     public static IReadOnlyList<SyncEntityType> All { get; } =
-        [Book, LibraryItem, ReadingSession, Note, Tag, Bookcase, Shelf, Preset];
+        [Book, LibraryItem, ReadingSession, Note, Tag, Bookcase, Shelf, Preset, ShelfPlacement];
 
     private static readonly Dictionary<string, SyncEntityType> ByName = All.ToDictionary(t => t.Name, StringComparer.Ordinal);
 

@@ -38,6 +38,27 @@ public class SyncEngineTests
         Assert.Equal(0, await b.Store.CountOutboxAsync()); // Pulled rows aren't local edits.
     }
 
+    // Phase 6b: a device that last pulled with an older list of entity types pulls everything once.
+    [Fact]
+    public async Task A_new_entity_type_triggers_one_full_pull()
+    {
+        var a = new Device(_server);
+        await a.AddAsync(new Bookcase { Name = "Hall" });
+        await a.AddAsync(new ShelfPlacement { ShelfId = Guid.CreateVersion7(), LibraryItemId = Guid.CreateVersion7(), Rank = "V" });
+        await a.SyncAsync();
+
+        var b = new Device(_server);
+        Assert.Equal(2, (await b.SyncAsync()).Pulled);
+        Assert.Equal(0, (await b.SyncAsync()).Pulled);
+
+        // As if an older app version (which didn't know placements) had done the pull.
+        await b.Store.SetMetaAsync(SyncEngine.KnownTypesKey, "book,libraryItem");
+
+        Assert.Equal(2, (await b.SyncAsync()).Pulled);
+        Assert.Equal(0, (await b.SyncAsync()).Pulled);
+        Assert.Single(await b.Store.GetAllAsync<ShelfPlacement>());
+    }
+
     // 2. Existing local library + empty account → uploads everything; a second device then sees it.
     [Fact]
     public async Task The_first_sync_uploads_a_library_created_before_sync_existed()

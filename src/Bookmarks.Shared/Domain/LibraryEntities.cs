@@ -13,10 +13,14 @@ public sealed class LibraryItem : SyncEntity
 
     public BookCondition? Condition { get; set; }
 
-    /// <summary>Physical placement. Null = "Unshelved".</summary>
+    /// <summary>
+    /// Legacy (Phases 2–6a): the one shelf the book stood on. Replaced by <see cref="ShelfPlacement"/> in
+    /// Phase 6b and moved into placements once per device; no longer read. Kept so older app versions can
+    /// still sync; drop in Phase 7.
+    /// </summary>
     public Guid? ShelfId { get; set; }
 
-    /// <summary>Fractional rank key for order on the shelf (see <c>RankKey</c>).</summary>
+    /// <summary>Legacy, see <see cref="ShelfId"/>.</summary>
     public string? ShelfRank { get; set; }
 
     public DateTimeOffset AddedAt { get; set; } = DateTimeOffset.UtcNow;
@@ -92,6 +96,28 @@ public sealed class Bookcase : SyncEntity
     public string Theme { get; set; } = "oak";
 
     public string? SortRank { get; set; }
+
+    /// <summary>Not drawn in the Bookcases view (its books still show in Books and search). Synced.</summary>
+    public bool IsHidden { get; set; }
+}
+
+/// <summary>
+/// A book on a shelf. A book can be in any number of bookcases, but at most once per bookcase.
+/// Removing it from the shelf soft-deletes this row; the book stays in the library.
+/// </summary>
+/// <remarks>
+/// Rows are created offline and can arrive in any order, so there are no foreign keys. Two offline devices
+/// can place the same book in the same bookcase; readers keep the lowest id and the next placement edit
+/// of that book deletes the extras.
+/// </remarks>
+public sealed class ShelfPlacement : SyncEntity
+{
+    public Guid ShelfId { get; set; }
+
+    public Guid LibraryItemId { get; set; }
+
+    /// <summary>Fractional rank key for order on the shelf (see <c>RankKey</c>).</summary>
+    public string? Rank { get; set; }
 }
 
 public sealed class Shelf : SyncEntity

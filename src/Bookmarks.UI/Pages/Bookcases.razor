@@ -11,7 +11,10 @@
     <div class="d-flex align-center flex-wrap gap-2 mb-4">
         <div class="flex-grow-1">
             <MudText Typo="Typo.h5">Bookcases</MudText>
-            <MudText Typo="Typo.body2">Set up your shelves the way they are at home. Widths let each shelf show how full it is.</MudText>
+            <MudText Typo="Typo.body2">
+                Set up your bookcases: the real ones at home, or any set you like (Favorites, Want to buy). A book can stand in
+                several bookcases. Widths let each shelf show how full it is; the eye hides a bookcase from the library.
+            </MudText>
         </div>
         <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
                    OnClick="AddBookcaseAsync" Disabled="!_loaded">Create New Bookcase</MudButton>
@@ -25,7 +28,7 @@
     {
         <MudPaper Elevation="0" Class="pa-6 bm-panel">
             <MudText Typo="Typo.body1">
-                No bookcases yet. Add one to arrange your books as they stand at home; until then everything sits on the Unshelved shelf.
+                No bookcases yet. Add one, then fill its shelves with "Add book to shelf" in the library.
             </MudText>
         </MudPaper>
     }
@@ -63,6 +66,11 @@
                     </div>
 
                     <div class="bm-bc__actions">
+                        <MudIconButton Icon="@(bookcase.IsHidden ? Icons.Material.Outlined.VisibilityOff : Icons.Material.Outlined.Visibility)"
+                                       Size="Size.Small" Color="@(bookcase.IsHidden ? Color.Default : Color.Primary)"
+                                       OnClick="() => LibraryData.SetBookcaseHiddenAsync(bookcase.Id, !bookcase.IsHidden)"
+                                       aria-pressed="@(bookcase.IsHidden ? "false" : "true")"
+                                       aria-label="@(bookcase.IsHidden ? "Hidden in the library: show it" : "Shown in the library: hide it")" />
                         <MudIconButton Icon="@Icons.Material.Filled.ArrowUpward" Size="Size.Small" Disabled="index == 0"
                                        OnClick="() => LibraryData.MoveBookcaseAsync(bookcase.Id, -1)" aria-label="Move bookcase earlier" />
                         <MudIconButton Icon="@Icons.Material.Filled.ArrowDownward" Size="Size.Small" Disabled="index == bookcases.Count - 1"
@@ -89,8 +97,7 @@
                             var percent = shelf.WidthMm is > 0 ? (int)Math.Round(100.0 * usedMm / shelf.WidthMm.Value) : (int?)null;
 
                             <div class="bm-bc__shelf" @key="shelf.Id">
-                                <MudTextField T="string" Value="shelf.Name" ValueChanged="(string v) => LibraryData.RenameShelfAsync(shelf.Id, v)"
-                                              Label="Shelf" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                                <MudText Typo="Typo.body1" Class="bm-bc__shelf-name">Shelf @(shelfIndex + 1)</MudText>
                                 <MudNumericField T="int?" Value="shelf.WidthMm" ValueChanged="(int? v) => LibraryData.SetShelfWidthAsync(shelf.Id, v)"
                                                  Label="Width" Adornment="Adornment.End" AdornmentText="mm" HideSpinButtons="true"
                                                  Min="LibraryService.MinShelfWidthMm" Max="LibraryService.MaxShelfWidthMm"
@@ -171,7 +178,7 @@
         var message = books == 0
             ? $"“{bookcase.Name}” and its {Plural(shelves.Count, "shelf", "shelves")} will be removed."
             : $"“{bookcase.Name}” and its {Plural(shelves.Count, "shelf", "shelves")} will be removed. "
-              + $"The {Plural(books, "book", "books")} on it will move to Unshelved.";
+              + $"The {Plural(books, "book", "books")} on it stay in your library (and in any other bookcase they're in).";
 
         if (await Dialogs.ShowMessageBoxAsync("Delete bookcase?", message, yesText: "Delete", cancelText: "Cancel") == true)
         {
@@ -183,7 +190,7 @@
     {
         if (bookCount > 0)
         {
-            var message = $"The {Plural(bookCount, "book", "books")} on “{shelf.Name ?? "this shelf"}” will move to Unshelved.";
+            var message = $"The {Plural(bookCount, "book", "books")} on {LibraryData.ShelfLabel(shelf)} will be taken off it. They stay in your library.";
             if (await Dialogs.ShowMessageBoxAsync("Delete shelf?", message, yesText: "Delete", cancelText: "Cancel") != true)
             {
                 return;

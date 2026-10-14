@@ -147,22 +147,9 @@
                     </MudItem>
                 </MudGrid>
 
-                @* ---------- On the shelf ---------- *@
-                <MudText Typo="Typo.subtitle2" Class="bm-editor__section">On the shelf</MudText>
+                @* ---------- How it looks on a shelf (placing it on shelves is separate since Phase 6b) ---------- *@
+                <MudText Typo="Typo.subtitle2" Class="bm-editor__section">Look on the shelf</MudText>
                 <MudGrid Spacing="2">
-                    <MudItem xs="12" sm="6">
-                        <MudSelect T="Guid" Value="ShelfChoice" ValueChanged="@((Guid v) => ShelfChoice = v)" Label="Shelf"
-                                   Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true">
-                            <MudSelectItem Value="Guid.Empty">Unshelved</MudSelectItem>
-                            @foreach (var bookcase in LibraryData.Bookcases)
-                            {
-                                foreach (var shelf in LibraryData.ShelvesIn(bookcase.Id))
-                                {
-                                    <MudSelectItem Value="shelf.Id">@bookcase.Name › @(shelf.Name ?? "Shelf")</MudSelectItem>
-                                }
-                            }
-                        </MudSelect>
-                    </MudItem>
                     <MudItem xs="12" sm="6">
                         <MudSelect T="SpineStyleChoice" @bind-Value="_model.Style" Label="Spine style" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true">
                             <MudSelectItem Value="SpineStyleChoice.Automatic">Automatic (by format)</MudSelectItem>
@@ -244,10 +231,8 @@
     /// <summary>The copy to edit; null adds a new book.</summary>
     [Parameter] public Guid? ItemId { get; set; }
 
-    /// <summary>Initial shelf for a new book (e.g. the last one used).</summary>
-    [Parameter] public Guid? DefaultShelfId { get; set; }
-
     private BookEditModel _model = BookEditModel.ForNew();
+
     private LibraryEntry? _entry;
     private bool _saving;
 
@@ -267,16 +252,10 @@
 
     private bool IsNew => _entry is null;
 
-    private Guid ShelfChoice
-    {
-        get => _model.ShelfId ?? Guid.Empty;
-        set => _model.ShelfId = value == Guid.Empty ? null : value;
-    }
-
     protected override void OnInitialized()
     {
         _entry = ItemId is { } id ? LibraryData.Find(id) : null;
-        _model = _entry is not null ? BookEditModel.FromEntry(_entry) : BookEditModel.ForNew(ValidShelf(DefaultShelfId));
+        _model = _entry is not null ? BookEditModel.FromEntry(_entry) : BookEditModel.ForNew();
 
         // Editing: offer a lookup of this book (by ISBN when it has a valid one).
         if (_entry is not null)
@@ -508,9 +487,6 @@
             return ShelfLayoutEngine.Flow(new[] { entry }, int.MaxValue)[0].Books[0];
         }
     }
-
-    private Guid? ValidShelf(Guid? shelfId)
-        => shelfId is { } id && LibraryData.Bookcases.Any(b => LibraryData.ShelvesIn(b.Id).Any(s => s.Id == id)) ? id : null;
 
     private void Cancel() => MudDialog.Cancel();
 

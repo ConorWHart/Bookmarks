@@ -21,8 +21,11 @@ public sealed record LibraryEntry(
 
     public bool IsRead => ReadCount > 0;
 
-    /// <summary>The bookcase of the item's shelf; null when it isn't on a (known) shelf. Set by the library loader.</summary>
-    public Guid? BookcaseId { get; init; }
+    /// <summary>Shelves this copy is placed on (live ones only, at most one per bookcase). Set by the library loader.</summary>
+    public IReadOnlyList<Guid> ShelfIds { get; init; } = [];
+
+    /// <summary>Bookcases of <see cref="ShelfIds"/>, in the same order. Empty = on no shelf.</summary>
+    public IReadOnlyList<Guid> BookcaseIds { get; init; } = [];
 
     /// <summary>Copy override first, then catalog color, then a neutral fallback.</summary>
     public string SpineColor => Item.Appearance.SpineColor ?? Book.DominantColor ?? "#6B5B4B";

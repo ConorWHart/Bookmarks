@@ -1,0 +1,255 @@
+@* "Add book to shelf" (Phase 6b): pick books from the library, choose a bookcase and shelf, and they go to
+   the end of that shelf. A book can be in many bookcases but only once in each, so a book already in the
+   chosen bookcase moves to the chosen shelf. Returns the number of books placed in Data. *@
+@inject LibraryService LibraryData
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">Add books to a shelf</MudText>
+    </TitleContent>
+
+    <DialogContent>
+        @if (LibraryData.Bookcases.Count == 0)
+        {
+            <MudStack Spacing="2" AlignItems="AlignItems.Start">
+                <MudText Typo="Typo.body1">You don't have any bookcases yet. Set one up, then come back to fill its shelves.</MudText>
+                <MudButton Href="bookcases" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.ViewWeek"
+                           OnClick="() => MudDialog.Cancel()">Set up a bookcase</MudButton>
+            </MudStack>
+        }
+        else
+        {
+            <div class="bm-picker">
+                <div class="bm-picker__target">
+                    <MudSelect T="Guid" Value="_bookcaseId" ValueChanged="OnBookcaseChanged" Label="Bookcase"
+                               Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true">
+                        @foreach (var bookcase in LibraryData.Bookcases)
+                        {
+                            <MudSelectItem Value="bookcase.Id">@bookcase.Name</MudSelectItem>
+                        }
+                    </MudSelect>
+                    <MudSelect T="Guid" @bind-Value="_shelfId" Label="Shelf" Disabled="@(Shelves.Count == 0)"
+                               Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true">
+                        @foreach (var shelf in Shelves)
+                        {
+                            <MudSelectItem Value="shelf.Id">@ShelfLabel(shelf)</MudSelectItem>
+                        }
+                    </MudSelect>
+                </div>
+                @if (Shelves.Count == 0)
+                {
+                    <MudText Typo="Typo.caption" Color="Color.Warning">This bookcase has no shelves. Add one on the Bookcases page.</MudText>
+                }
+
+                <div class="bm-picker__search">
+                    <MudTextField T="string" @bind-Value="_search" Placeholder="Search title, author, series, ISBN"
+                                  Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                                  Immediate="true" DebounceInterval="150" Clearable="true"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense" />
+                    <MudChipSet T="OwnershipStatus" SelectionMode="SelectionMode.MultiSelection" CheckMark="true"
+                                @bind-SelectedValues="_statuses" Color="Color.Primary" Variant="Variant.Outlined" Size="Size.Small">
+                        @foreach (var (status, label) in LibraryLabels.Statuses)
+                        {
+                            <MudChip Value="status" Text="@label" />
+                        }
+                    </MudChipSet>
+                </div>
+
+                <div class="bm-picker__list" role="listbox" aria-multiselectable="true" aria-label="Books">
+                    @{ var matches = Matches(); }
+                    @if (matches.Count == 0)
+                    {
+                        <MudText Typo="Typo.body2" Class="pa-3">No books match.</MudText>
+                    }
+                    @foreach (var entry in matches.Take(MaxShown))
+                    {
+                        var selected = _selected.Contains(entry.Id);
+                        var onThisShelf = IsOnChosenShelf(entry);
+                        <button type="button" @key="entry.Id" role="option" aria-selected="@(selected ? "true" : "false")"
+                                class="@RowClass(selected, onThisShelf)" disabled="@onThisShelf" @onclick="() => Toggle(entry.Id)">
+                            <span class="bm-picker__check">
+                                <MudIcon Icon="@(selected ? Icons.Material.Filled.CheckBox : Icons.Material.Filled.CheckBoxOutlineBlank)"
+                                         Size="Size.Small" Color="@(selected ? Color.Primary : Color.Default)" />
+                            </span>
+                            <span class="bm-picker__thumb" style="@ThumbStyle(entry)">
+                                @if (entry.Book.CoverUrl is { } cover)
+                                {
+                                    <CoverImage Url="@cover" Size="CoverSize.Medium" Class="bm-picker__cover" />
+                                }
+                            </span>
+                            <span class="bm-picker__text">
+                                <span class="bm-picker__title">@entry.Title</span>
+                                <span class="bm-picker__meta">@Meta(entry)</span>
+                                @if (Hint(entry) is { } hint)
+                                {
+                                    <span class="bm-picker__hint">@hint</span>
+                                }
+                            </span>
+                        </button>
+                    }
+                    @if (matches.Count > MaxShown)
+                    {
+                        <MudText Typo="Typo.caption" Class="d-block pa-3">
+                            Showing the first @MaxShown of @matches.Count. Search to narrow it down.
+                        </MudText>
+                    }
+                </div>
+            </div>
+        }
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton OnClick="() => MudDialog.Cancel()">Cancel</MudButton>
+        @if (LibraryData.Bookcases.Count > 0)
+        {
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(!CanAdd)" OnClick="AddAsync">@AddText</MudButton>
+        }
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private const int MaxShown = 200;
+
+    // Remembered while the app is open, so filling a shelf book by book doesn't mean re-picking it each time.
+    private static Guid? _lastShelfId;
+
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    /// <summary>Books to start with selected (e.g. from a book's details, or right after adding it).</summary>
+    [Parameter] public IReadOnlyCollection<Guid>? Preselected { get; set; }
+
+    private Guid _bookcaseId;
+    private Guid _shelfId;
+    private string? _search;
+    private IReadOnlyCollection<OwnershipStatus>? _statuses = new HashSet<OwnershipStatus> { OwnershipStatus.Owned };
+    private readonly List<Guid> _selected = [];
+    private bool _saving;
+
+    /// <summary>Opens the picker; returns how many books were placed (0 if cancelled).</summary>
+    public static async Task<int> OpenAsync(IDialogService dialogs, IBrowserViewportService viewport, IReadOnlyCollection<Guid>? preselected = null)
+    {
+        var parameters = new DialogParameters { { nameof(Preselected), preselected } };
+        var options = await DialogDefaults.EditorAsync(viewport, MaxWidth.Small);
+        var dialog = await dialogs.ShowAsync<ShelfPickerDialog>(null, parameters, options);
+        var result = await dialog.Result;
+        return result is { Canceled: false, Data: int placed } ? placed : 0;
+    }
+
+    protected override void OnInitialized()
+    {
+        if (Preselected is { Count: > 0 })
+        {
+            _selected.AddRange(Preselected);
+            _statuses = null; // show the chosen books whatever their status
+        }
+
+        // Start on the last shelf used (if it still exists), else the first shelf of the first bookcase.
+        var lastShelf = _lastShelfId is { } last ? LibraryData.FindShelf(last) : null;
+        _bookcaseId = lastShelf?.BookcaseId ?? LibraryData.Bookcases.FirstOrDefault()?.Id ?? Guid.Empty;
+        _shelfId = lastShelf?.Id ?? Shelves.FirstOrDefault()?.Id ?? Guid.Empty;
+    }
+
+    private IReadOnlyList<Shelf> Shelves => LibraryData.ShelvesIn(_bookcaseId);
+
+    private bool CanAdd => !_saving && _selected.Count > 0 && LibraryData.FindShelf(_shelfId) is not null;
+
+    private string AddText => _selected.Count switch
+    {
+        0 => "Add",
+        1 => "Add 1 book",
+        var n => $"Add {n} books",
+    };
+
+    private void OnBookcaseChanged(Guid bookcaseId)
+    {
+        _bookcaseId = bookcaseId;
+        _shelfId = Shelves.FirstOrDefault()?.Id ?? Guid.Empty;
+    }
+
+    /// <summary>Selected books first (in the order picked), then the rest by author and title.</summary>
+    private IReadOnlyList<LibraryEntry> Matches()
+    {
+        var filter = new LibraryFilter
+        {
+            Search = _search,
+            Statuses = _statuses is { Count: > 0 } ? _statuses.ToHashSet() : null,
+        };
+        var matching = LibraryQueryEngine.Apply(LibraryData.Entries, filter, LibrarySort.Default);
+        var chosen = _selected.Select(LibraryData.Find).OfType<LibraryEntry>().ToList();
+        return chosen.Concat(matching.Where(e => !_selected.Contains(e.Id))).ToList();
+    }
+
+    private void Toggle(Guid itemId)
+    {
+        if (!_selected.Remove(itemId))
+        {
+            _selected.Add(itemId);
+        }
+    }
+
+    private bool IsOnChosenShelf(LibraryEntry entry) => entry.ShelfIds.Contains(_shelfId);
+
+    /// <summary>Where else it is, and what adding it here will do.</summary>
+    private string? Hint(LibraryEntry entry)
+    {
+        if (IsOnChosenShelf(entry))
+        {
+            return "Already on this shelf";
+        }
+
+        var places = LibraryData.PlacesOf(entry.Id);
+        var here = places.FirstOrDefault(p => p.Bookcase.Id == _bookcaseId);
+        if (here is not null)
+        {
+            return $"On {LibraryData.ShelfLabel(here.Shelf)} in this bookcase: it will move here";
+        }
+
+        return places.Count == 0 ? null : "In " + string.Join(", ", places.Select(p => p.Bookcase.Name));
+    }
+
+    private async Task AddAsync()
+    {
+        if (!CanAdd || LibraryData.FindShelf(_shelfId) is not { } shelf)
+        {
+            return;
+        }
+
+        _saving = true;
+        try
+        {
+            var placed = await LibraryData.PlaceBooksAsync(_selected, _shelfId);
+            _lastShelfId = _shelfId;
+            var where = $"{LibraryData.FindBookcase(shelf.BookcaseId)?.Name} › {ShelfLabel(shelf)}";
+            Snackbar.Add(placed == 1 ? $"Put 1 book on {where}" : $"Put {placed} books on {where}", Severity.Success);
+            MudDialog.Close(DialogResult.Ok(placed));
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private string ShelfLabel(Shelf shelf)
+    {
+        var name = LibraryData.ShelfLabel(shelf);
+        var count = LibraryData.BooksOnShelf(shelf.Id).Count;
+        return count == 0 ? name : $"{name} ({count})";
+    }
+
+    private static string RowClass(bool selected, bool disabled)
+        => "bm-picker__row" + (selected ? " bm-picker__row--on" : "") + (disabled ? " bm-picker__row--off" : "");
+
+    private static string Meta(LibraryEntry e)
+    {
+        var status = e.Item.Status switch
+        {
+            OwnershipStatus.Wishlist => " · Wishlist",
+            OwnershipStatus.LentOut => " · Lent out",
+            _ => "",
+        };
+        return e.Author + status;
+    }
+
+    private static string ThumbStyle(LibraryEntry e) => $"background:{e.SpineColor};";
+}

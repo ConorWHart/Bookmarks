@@ -178,9 +178,13 @@ public sealed class BrowserSyncService(
                 await library.ReloadAsync();
             }
 
+            // Phase 6b: the one-time move to shelf placements runs after a completed pass, so this device has
+            // already pulled any placements other devices made. Its new rows are local edits and sync next pass.
+            var migrated = await library.MigratePlacementsAsync();
+
             logger.LogDebug(
                 "Sync pass: {Pushed} pushed, {Rejected} superseded, {Pulled} pulled.", result.Pushed, result.Rejected, result.Pulled);
-            return result.LocalDataChanged;
+            return result.LocalDataChanged || migrated;
         }
         catch (Exception ex)
         {

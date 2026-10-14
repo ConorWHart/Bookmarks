@@ -1,0 +1,133 @@
+.bm-picker {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.bm-picker__target {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.bm-picker__search {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.bm-picker__search ::deep .mud-chipset {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.bm-picker__search ::deep .mud-chip {
+    margin: 0;
+}
+
+.bm-picker__list {
+    max-height: min(50vh, 460px);
+    overflow-y: auto;
+    border: 1px solid var(--mud-palette-lines-default);
+    border-radius: 8px;
+    overscroll-behavior: contain;
+}
+
+.bm-picker__row {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start; /* buttons centre their content by default */
+    gap: 10px;
+    width: 100%;
+    padding: 6px 10px;
+    border: 0;
+    border-bottom: 1px solid var(--mud-palette-lines-default);
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.bm-picker__row:last-child {
+    border-bottom: 0;
+}
+
+.bm-picker__row:hover {
+    background-color: var(--mud-palette-action-default-hover);
+}
+
+.bm-picker__row:focus-visible {
+    outline: 2px solid var(--mud-palette-primary);
+    outline-offset: -2px;
+}
+
+.bm-picker__row--on {
+    background-color: color-mix(in srgb, var(--mud-palette-primary) 10%, transparent);
+}
+
+.bm-picker__row--off {
+    cursor: default;
+    opacity: 0.55;
+}
+
+.bm-picker__check {
+    display: flex;
+    flex: 0 0 auto;
+}
+
+.bm-picker__thumb {
+    position: relative;
+    flex: 0 0 auto;
+    width: 32px;
+    height: 48px;
+    border-radius: 2px;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.25);
+}
+
+.bm-picker__thumb ::deep .bm-picker__cover {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.bm-picker__text {
+    display: flex;
+    flex: 1 1 auto; /* take the free space, so every row lines up on the left */
+    flex-direction: column;
+    align-items: flex-start;
+    min-width: 0;
+}
+
+.bm-picker__title {
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.bm-picker__meta,
+.bm-picker__hint {
+    font-size: 0.8rem;
+    color: var(--mud-palette-text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.bm-picker__hint {
+    font-style: italic;
+}
+
+@media (max-width: 599px) {
+    .bm-picker__target {
+        grid-template-columns: 1fr;
+    }
+
+    .bm-picker__list {
+        max-height: none;
+    }
+}

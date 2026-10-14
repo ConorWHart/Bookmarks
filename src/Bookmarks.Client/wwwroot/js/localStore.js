@@ -29,6 +29,7 @@ const entityTypes = {
     bookcases: 'bookcase',
     shelves: 'shelf',
     presets: 'preset',
+    shelfPlacements: 'placement',
 };
 
 const dataTables = Object.keys(entityTypes);
@@ -75,6 +76,20 @@ function define(name) {
             book.updatedAt = new Date().toISOString();
         }
     }));
+
+    // Version 3 only ever existed on a development machine (a collections experiment). It stays declared
+    // so that database upgrades cleanly; version 4 removes its tables.
+    database.version(3).stores({
+        collections: 'id, version',
+        collectionItems: 'id, collectionId, libraryItemId, version',
+    });
+
+    // Phase 6b: a book can be on a shelf in several bookcases (one placement each). Bookcase.isHidden needs no index.
+    database.version(4).stores({
+        collections: null,
+        collectionItems: null,
+        shelfPlacements: 'id, shelfId, libraryItemId, version',
+    });
 
     return database;
 }

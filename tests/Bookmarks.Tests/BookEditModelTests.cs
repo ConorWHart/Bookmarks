@@ -102,7 +102,6 @@ public class BookEditModelTests
         {
             BookId = book.Id,
             Format = BookFormat.Hardcover,
-            ShelfId = Guid.CreateVersion7(),
             WantToReread = true,
             Appearance = new SpineAppearance { SpineColor = "#7FB7BE", TextColor = "#E9C46A", FaceOut = true, Style = SpineStyle.Minimal },
         };
@@ -114,7 +113,6 @@ public class BookEditModelTests
 
         Assert.Equal(book.Title, book2.Title);
         Assert.Equal(book.Authors, book2.Authors);
-        Assert.Equal(item.ShelfId, item2.ShelfId);
         Assert.Equal(item.Format, item2.Format);
         Assert.True(item2.WantToReread);
         Assert.True(item2.Appearance.FaceOut);
