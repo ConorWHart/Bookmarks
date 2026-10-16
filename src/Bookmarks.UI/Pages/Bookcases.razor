@@ -1,8 +1,10 @@
 @page "/bookcases"
-@implements IDisposable
+@using Microsoft.JSInterop
+@implements IAsyncDisposable
 @inject LibraryService LibraryData
 @inject IDialogService Dialogs
 @inject UserPreferences Prefs
+@inject IJSRuntime JS
 
 <PageTitle>Bookcases · Bookmarks</PageTitle>
 
@@ -35,15 +37,22 @@
     else
     {
         var bookcases = LibraryData.Bookcases;
-        for (var i = 0; i < bookcases.Count; i++)
+        <div class="bm-bc-list" data-sort-list="bookcases" @ref="_list">
+        @for (var i = 0; i < bookcases.Count; i++)
         {
             var bookcase = bookcases[i];
             var index = i;
             var shelves = LibraryData.ShelvesIn(bookcase.Id);
             var collapsed = _collapsed.Contains(bookcase.Id);
 
-            <MudPaper Elevation="0" Class="pa-4 mb-4 bm-panel" @key="bookcase.Id">
+            <MudPaper Elevation="0" Class="pa-4 mb-4 bm-panel" @key="bookcase.Id" data-sort-item="bookcases" data-sort-id="@bookcase.Id">
                 <div class="@(collapsed ? "bm-bc__head bm-bc__head--collapsed" : "bm-bc__head")">
+                    @if (bookcases.Count > 1)
+                    {
+                        <span class="bm-handle" data-sort-handle="bookcases" title="Drag to reorder bookcases">
+                            <MudIcon Icon="@Icons.Material.Filled.DragIndicator" Size="Size.Small" />
+                        </span>
+                    }
                     <MudIconButton Icon="@(collapsed ? Icons.Material.Filled.ChevronRight : Icons.Material.Filled.ExpandMore)"
                                    Size="Size.Small" OnClick="() => ToggleCollapsedAsync(bookcase.Id)"
                                    aria-expanded="@(collapsed ? "false" : "true")"
@@ -89,6 +98,7 @@
                 else
                 {
                     <div class="bm-bc__shelves">
+                        <div data-sort-list="shelves">
                         @for (var j = 0; j < shelves.Count; j++)
                         {
                             var shelf = shelves[j];
@@ -96,8 +106,16 @@
                             var (count, usedMm) = LibraryData.ShelfUsage(shelf.Id);
                             var percent = shelf.WidthMm is > 0 ? (int)Math.Round(100.0 * usedMm / shelf.WidthMm.Value) : (int?)null;
 
-                            <div class="bm-bc__shelf" @key="shelf.Id">
-                                <MudText Typo="Typo.body1" Class="bm-bc__shelf-name">Shelf @(shelfIndex + 1)</MudText>
+                            <div class="bm-bc__shelf" @key="shelf.Id" data-sort-item="shelves" data-sort-id="@shelf.Id">
+                                <div class="bm-bc__shelf-name">
+                                    @if (shelves.Count > 1)
+                                    {
+                                        <span class="bm-handle" data-sort-handle="shelves" title="Drag to reorder shelves">
+                                            <MudIcon Icon="@Icons.Material.Filled.DragIndicator" Size="Size.Small" />
+                                        </span>
+                                    }
+                                    <MudText Typo="Typo.body1">Shelf @(shelfIndex + 1)</MudText>
+                                </div>
                                 <MudNumericField T="int?" Value="shelf.WidthMm" ValueChanged="(int? v) => LibraryData.SetShelfWidthAsync(shelf.Id, v)"
                                                  Label="Width" Adornment="Adornment.End" AdornmentText="mm" HideSpinButtons="true"
                                                  Min="LibraryService.MinShelfWidthMm" Max="LibraryService.MaxShelfWidthMm"
@@ -124,12 +142,14 @@
                                 </div>
                             </div>
                         }
+                        </div>
                         <MudButton Size="Size.Small" StartIcon="@Icons.Material.Filled.Add" Class="mt-1"
                                    OnClick="() => LibraryData.AddShelfAsync(bookcase.Id)">Add shelf</MudButton>
                     </div>
                 }
             </MudPaper>
         }
+        </div>
     }
 </MudContainer>
 
@@ -165,7 +185,68 @@
         return $"{Plural(shelves.Count, "shelf", "shelves")} · {Plural(books, "book", "books")}";
     }
 
-    public void Dispose() => LibraryData.Changed -= OnLibraryChanged;
+    // ---------- Drag to reorder (Phase 6c): listDrag.js handles the gesture by the grip handles ----------
+
+    private ElementReference _list;
+    private IJSObjectReference? _dragModule;
+    private DotNetObjectReference<Bookcases>? _dragRef;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_loaded || LibraryData.Bookcases.Count == 0)
+        {
+            return;
+        }
+
+        try
+        {
+            _dragModule ??= await JS.InvokeAsync<IJSObjectReference>("import", "./_content/Bookmarks.UI/js/listDrag.js");
+            _dragRef ??= DotNetObjectReference.Create(this);
+            await _dragModule.InvokeVoidAsync("sync", _list, _dragRef); // picks up new lists (expanded bookcases)
+        }
+        catch (JSException ex)
+        {
+            // The arrows still reorder.
+            Console.Error.WriteLine($"Drag to reorder unavailable: {ex.Message}");
+        }
+    }
+
+    /// <summary>Called by listDrag.js when a bookcase or shelf is dropped at a new position.</summary>
+    [JSInvokable]
+    public Task OnReordered(string kind, string id, int from, int to)
+    {
+        if (!Guid.TryParse(id, out var guid) || from == to)
+        {
+            return Task.CompletedTask;
+        }
+
+        return kind switch
+        {
+            "bookcases" => LibraryData.MoveBookcaseAsync(guid, to - from),
+            "shelves" => LibraryData.MoveShelfAsync(guid, to - from),
+            _ => Task.CompletedTask,
+        };
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        LibraryData.Changed -= OnLibraryChanged;
+        if (_dragModule is not null)
+        {
+            try
+            {
+                await _dragModule.InvokeVoidAsync("dispose");
+                await _dragModule.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+            }
+            catch (JSException)
+            {
+            }
+        }
+        _dragRef?.Dispose();
+    }
 
     private void OnLibraryChanged() => _ = InvokeAsync(StateHasChanged);
 

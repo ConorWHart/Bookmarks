@@ -54,6 +54,45 @@
     opacity: 0.6;
 }
 
+/* ---------- Dragging (Phase 6c) ---------- */
+
+/* Holding a finger on a book picks it up, so no text selection or iOS callout. */
+.bm-book {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+}
+
+.bm-book ::deep img {
+    -webkit-user-drag: none;
+    pointer-events: none;
+}
+
+/* Picked up (after the hold on touch): lifts like hover. */
+.bm-drag-chosen {
+    transform: translateY(-8px);
+    filter: brightness(1.1);
+}
+
+/* The gap where the book will land. */
+.bm-drag-ghost {
+    opacity: 0.35;
+    filter: grayscale(0.5);
+    outline: 2px dashed var(--mud-palette-primary);
+    outline-offset: -2px;
+}
+
+/* The copy that follows the pointer (a clone of this button, so these scoped styles still apply).
+   SortableJS moves it with an inline transform on every pointer move, so the book's hover transition
+   must be off here, or the copy trails behind the pointer. */
+.bm-drag-copy {
+    transition: none !important;
+    opacity: 0.95 !important;
+    filter: brightness(1.1);
+    box-shadow: 10px 12px 18px -4px rgb(0 0 0 / 0.6);
+    cursor: grabbing;
+}
+
 /* ---------- Spines ---------- */
 
 .bm-spine {

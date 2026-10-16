@@ -124,3 +124,46 @@
 .bm-bc__summary {
     margin: 2px 0 0 40px;
 }
+
+/* ---------- Drag to reorder (grip handles) ---------- */
+.bm-bc__shelf-name {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+}
+
+.bm-handle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 32px;
+    margin-left: -6px;
+    border-radius: 6px;
+    color: var(--mud-palette-text-secondary);
+    cursor: grab;
+    touch-action: none; /* a touch on the grip drags instead of scrolling */
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.bm-handle:hover {
+    color: var(--mud-palette-primary);
+    background-color: color-mix(in srgb, var(--mud-palette-primary) 10%, transparent);
+}
+
+/* Bookcase rows are MudPapers (child components), so these reach them with ::deep. */
+.bm-bc-list ::deep .bm-sort-ghost {
+    opacity: 0.4;
+    outline: 2px dashed var(--mud-palette-primary);
+    outline-offset: -2px;
+}
+
+.bm-bc-list ::deep .bm-sort-copy {
+    transition: none !important;
+    opacity: 0.95 !important;
+    background-color: var(--mud-palette-surface);
+    box-shadow: 0 10px 24px rgb(0 0 0 / 0.35);
+    cursor: grabbing;
+}

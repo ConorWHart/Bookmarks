@@ -15,6 +15,44 @@ public class ReorderTests
         return result;
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(3)]
+    public void Insert_lands_between_its_neighbours_with_one_write(int index)
+    {
+        var keys = RankKey.Sequence(3).Cast<string?>().ToArray();
+
+        var (key, renumber) = Reorder.Insert(keys, index);
+
+        Assert.Empty(renumber);
+        var all = keys.ToList();
+        all.Insert(index, key);
+        Assert.Equal(all.Order(StringComparer.Ordinal), all);
+    }
+
+    [Fact]
+    public void Insert_into_an_empty_list()
+    {
+        var (key, renumber) = Reorder.Insert([], 5);
+
+        Assert.False(string.IsNullOrEmpty(key));
+        Assert.Empty(renumber);
+    }
+
+    [Fact]
+    public void Insert_renumbers_when_neighbours_are_unusable()
+    {
+        string?[] keys = ["V", null, "V"];
+
+        var (key, renumber) = Reorder.Insert(keys, 1);
+
+        var result = Apply(keys, renumber).ToList();
+        result.Insert(1, key);
+        Assert.Equal(result.Order(StringComparer.Ordinal), result);
+        Assert.Equal(result.Count, result.Distinct().Count());
+    }
+
     /// <summary>Original indexes sorted by their (new) key.</summary>
     private static int[] OrderOf(string?[] keys)
         => Enumerable.Range(0, keys.Length).OrderBy(i => keys[i], StringComparer.Ordinal).ToArray();

@@ -5,7 +5,7 @@
     {
         <div class="bm-shelf__label">@Label</div>
     }
-    <div class="bm-shelf__books" style="@MinHeightStyle">
+    <div class="bm-shelf__books" style="@MinHeightStyle" data-shelf-id="@ShelfId">
         @foreach (var book in Books)
         {
             <BookSpine @key="book.Entry.Id"
@@ -26,6 +26,9 @@
     [Parameter, EditorRequired] public IReadOnlyList<PlacedBook> Books { get; set; } = [];
 
     [Parameter] public string? Label { get; set; }
+
+    /// <summary>Set to let books be dragged onto and along this shelf (Library page, Phase 6c).</summary>
+    [Parameter] public Guid? ShelfId { get; set; }
 
     [Parameter] public double Scale { get; set; } = 0.55;
 

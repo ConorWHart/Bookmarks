@@ -53,5 +53,39 @@ public static class Reorder
         return writes;
     }
 
+    /// <summary>
+    /// A key for an item inserted into another rank-ordered list (dragged in from another shelf).
+    /// </summary>
+    /// <param name="keys">The target list's current keys in display order (without the inserted item).</param>
+    /// <param name="index">Where it goes (clamped to 0..Count).</param>
+    /// <returns>The inserted item's key, plus writes for existing items (index in <paramref name="keys"/>, new key):
+    /// normally none; if the neighbours' keys are missing or out of order, the whole list is renumbered once.</returns>
+    public static (string Key, IReadOnlyList<(int Index, string Key)> Renumber) Insert(IReadOnlyList<string?> keys, int index)
+    {
+        ArgumentNullException.ThrowIfNull(keys);
+        index = Math.Clamp(index, 0, keys.Count);
+
+        var before = index > 0 ? keys[index - 1] : null;
+        var after = index < keys.Count ? keys[index] : null;
+        if ((index == 0 || IsUsable(before)) && (index == keys.Count || IsUsable(after))
+            && (before is null || after is null || RankKey.Compare(before, after) < 0))
+        {
+            return (RankKey.Between(before, after), []);
+        }
+
+        var fresh = RankKey.Sequence(keys.Count + 1);
+        var writes = new List<(int Index, string Key)>();
+        for (var i = 0; i < keys.Count; i++)
+        {
+            var key = fresh[i < index ? i : i + 1];
+            if (!string.Equals(keys[i], key, StringComparison.Ordinal))
+            {
+                writes.Add((i, key));
+            }
+        }
+
+        return (fresh[index], writes);
+    }
+
     private static bool IsUsable(string? key) => !string.IsNullOrEmpty(key) && !key.EndsWith('0');
 }

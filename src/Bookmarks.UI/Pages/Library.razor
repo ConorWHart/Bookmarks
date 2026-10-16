@@ -1,11 +1,12 @@
 @page "/"
 @using Microsoft.JSInterop
-@implements IDisposable
+@implements IAsyncDisposable
 @inject LibraryService LibraryData
 @inject IDialogService Dialogs
 @inject ISnackbar Snackbar
 @inject UserPreferences Prefs
 @inject IBrowserViewportService Viewport
+@inject IJSRuntime JS
 
 <PageTitle>Library · Bookmarks</PageTitle>
 
@@ -212,13 +213,13 @@
         }
         else
         {
-            <div class="bm-room">
+            <div class="bm-room" @ref="_room">
             @foreach (var bookcase in LibraryData.Bookcases.Where(b => !b.IsHidden))
             {
                 <BookcaseFrame @key="bookcase.Id" Title="@bookcase.Name" Subtitle="@BookCountText(bookcase)" Theme="@bookcase.Theme">
                     @foreach (var shelf in LibraryData.ShelvesIn(bookcase.Id))
                     {
-                        <ShelfRowView @key="shelf.Id" Books="PlaceOnShelf(shelf.Id)" Label="@LibraryData.ShelfLabel(shelf)"
+                        <ShelfRowView @key="shelf.Id" ShelfId="shelf.Id" Books="PlaceOnShelf(shelf.Id)" Label="@LibraryData.ShelfLabel(shelf)"
                                       WidthMm="shelf.WidthMm" Scale="_scale" IsDimmed="IsDimmed" OnSelected="Select" />
                     }
                 </BookcaseFrame>
@@ -362,7 +363,77 @@
         }
     }
 
-    public void Dispose() => LibraryData.Changed -= OnLibraryChanged;
+    // ---------- Dragging books (Phase 6c): shelfDrag.js handles the gesture, .NET saves the order ----------
+
+    private ElementReference _room;
+    private IJSObjectReference? _dragModule;
+    private DotNetObjectReference<Library>? _dragRef;
+    private bool _dragWired;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        var showingShelves = _loaded && !IsBooks && LibraryData.Bookcases.Any(b => !b.IsHidden);
+        try
+        {
+            if (showingShelves)
+            {
+                _dragModule ??= await JS.InvokeAsync<IJSObjectReference>("import", "./_content/Bookmarks.UI/js/shelfDrag.js");
+                _dragRef ??= DotNetObjectReference.Create(this);
+                await _dragModule.InvokeVoidAsync("sync", _room, _dragRef); // picks up new shelves, drops old ones
+                _dragWired = true;
+            }
+            else if (_dragWired && _dragModule is not null)
+            {
+                await _dragModule.InvokeVoidAsync("dispose");
+                _dragWired = false;
+            }
+        }
+        catch (JSException ex)
+        {
+            // Dragging is a nice-to-have: the arrows in a book's details still move it.
+            Console.Error.WriteLine($"Shelf dragging unavailable: {ex.Message}");
+        }
+    }
+
+    /// <summary>Called by shelfDrag.js when a book is dropped: index is its place among the books on the target shelf.</summary>
+    [JSInvokable]
+    public async Task OnBookDropped(string itemId, string fromShelfId, string toShelfId, int index)
+    {
+        if (!Guid.TryParse(itemId, out var item) || !Guid.TryParse(fromShelfId, out var from) || !Guid.TryParse(toShelfId, out var to))
+        {
+            return;
+        }
+
+        var fromCase = LibraryData.FindShelf(from)?.BookcaseId;
+        var toCase = LibraryData.FindShelf(to)?.BookcaseId;
+        await LibraryData.DropBookAsync(item, from, to, index);
+
+        if (fromCase is { } a && toCase is { } b && a != b)
+        {
+            var title = LibraryData.Find(item)?.Title ?? "Book";
+            Snackbar.Add($"Moved {title} to {LibraryData.FindBookcase(b)?.Name}", Severity.Normal);
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        LibraryData.Changed -= OnLibraryChanged;
+        if (_dragModule is not null)
+        {
+            try
+            {
+                await _dragModule.InvokeVoidAsync("dispose");
+                await _dragModule.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+            }
+            catch (JSException)
+            {
+            }
+        }
+        _dragRef?.Dispose();
+    }
 
     /// <summary>Any write (here, in the drawer or in a dialog) reloads the library; re-run the query
     /// and swap the selected entry for its fresh copy (or close the drawer if it was deleted).</summary>

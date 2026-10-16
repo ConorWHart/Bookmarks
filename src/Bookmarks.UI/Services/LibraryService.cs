@@ -245,6 +245,53 @@ public sealed class LibraryService(ILocalStore store, IAccountService account)
         await ReloadAsync(ct);
     }
 
+    /// <summary>
+    /// A book dragged from one shelf to <paramref name="index"/> on another (or the same) shelf (Phase 6c).
+    /// Within a bookcase it's one placement row changing shelf and rank. Into another bookcase it's a move, not a
+    /// copy: the dragged placement goes there; if the book was already in that bookcase, that placement moves to
+    /// the drop spot instead and the dragged one is removed (a book is in a bookcase at most once).
+    /// </summary>
+    public async Task DropBookAsync(Guid itemId, Guid fromShelfId, Guid toShelfId, int index, CancellationToken ct = default)
+    {
+        var dragged = _placements.FirstOrDefault(p => p.LibraryItemId == itemId && p.ShelfId == fromShelfId);
+        if (dragged is null || FindShelf(toShelfId) is not { } target)
+        {
+            return;
+        }
+
+        if (fromShelfId == toShelfId)
+        {
+            var onShelf = PlacementsOn(toShelfId);
+            await MoveAsync(onShelf, dragged.Id, index - onShelf.FindIndex(p => p.Id == dragged.Id), p => p.Rank, (p, key) => p.Rank = key, ct);
+            return;
+        }
+
+        var placement = dragged;
+        var targetShelves = ShelvesIn(target.BookcaseId).Select(s => s.Id).ToHashSet();
+        if (_placements.FirstOrDefault(p => p.LibraryItemId == itemId && p.Id != dragged.Id && targetShelves.Contains(p.ShelfId)) is { } already)
+        {
+            dragged.IsDeleted = true;
+            dragged.Touch();
+            await store.UpsertAsync(dragged, ct);
+            placement = already;
+        }
+
+        var others = PlacementsOn(toShelfId).Where(p => p.Id != placement.Id).ToList();
+        var (key, renumber) = Reorder.Insert(others.Select(p => p.Rank).ToList(), index);
+        foreach (var (i, newKey) in renumber)
+        {
+            others[i].Rank = newKey;
+            others[i].Touch();
+            await store.UpsertAsync(others[i], ct);
+        }
+
+        placement.ShelfId = toShelfId;
+        placement.Rank = key;
+        placement.Touch();
+        await store.UpsertAsync(placement, ct);
+        await ReloadAsync(ct);
+    }
+
     /// <summary>Moves a placed book left (-1) or right (+1) on its shelf.</summary>
     public Task MovePlacementAsync(Guid placementId, int delta, CancellationToken ct = default)
     {
@@ -286,10 +333,10 @@ public sealed class LibraryService(ILocalStore store, IAccountService account)
         return plan.Count > 0;
     }
 
-    /// <summary>Placements on a shelf, in shelf order.</summary>
+    /// <summary>Placements of live books on a shelf, in shelf order (the same order the shelf is drawn in).</summary>
     private List<ShelfPlacement> PlacementsOn(Guid shelfId)
         => _placements
-            .Where(p => p.ShelfId == shelfId)
+            .Where(p => p.ShelfId == shelfId && _byId.ContainsKey(p.LibraryItemId))
             .OrderBy(p => p.Rank ?? "\uffff", StringComparer.Ordinal)
             .ThenBy(p => p.Id)
             .ToList();
