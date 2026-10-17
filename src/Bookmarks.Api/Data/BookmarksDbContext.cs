@@ -32,6 +32,9 @@ public sealed class BookmarksDbContext(DbContextOptions<BookmarksDbContext> opti
 
     public DbSet<UserAccount> UserAccounts => Set<UserAccount>();
 
+    /// <summary>Signed-in devices (server-only). No query filters: looked up by token hash before authentication.</summary>
+    public DbSet<DeviceSession> DeviceSessions => Set<DeviceSession>();
+
     public DbSet<Book> Books => Set<Book>();
 
     public DbSet<LibraryItem> LibraryItems => Set<LibraryItem>();
@@ -76,6 +79,20 @@ public sealed class BookmarksDbContext(DbContextOptions<BookmarksDbContext> opti
             e.ToTable("UserAccounts");
             e.Property(x => x.Id).ValueGeneratedNever();
             e.Property(x => x.DisplayName).HasMaxLength(200);
+        });
+
+        modelBuilder.Entity<DeviceSession>(e =>
+        {
+            e.ToTable("DeviceSessions");
+            e.Property(x => x.Id).ValueGeneratedNever();
+            e.Property(x => x.TokenHash).HasMaxLength(32).IsFixedLength().IsRequired();
+            e.Property(x => x.PreviousTokenHash).HasMaxLength(32).IsFixedLength();
+            e.Property(x => x.DeviceName).HasMaxLength(100);
+            e.Property(x => x.DisplayName).HasMaxLength(200);
+            e.HasIndex(x => x.TokenHash).IsUnique();
+            e.HasIndex(x => x.PreviousTokenHash).HasFilter("[PreviousTokenHash] IS NOT NULL");
+            e.HasIndex(x => x.UserId);
+            e.HasIndex(x => x.ExpiresAt);
         });
 
         ConfigureSyncEntity<Book>(modelBuilder, "Books", e =>

@@ -2,6 +2,7 @@
 @implements IDisposable
 @inject ISyncService Sync
 @inject IAppStatusService AppStatus
+@inject IAccountService Accounts
 
 @if (Sync.IsEnabled && Sync.Status != SyncStatus.Offline)
 {
@@ -10,6 +11,12 @@
             @if (Sync.IsSlow)
             {
                 <span class="bm-sync__waking" role="status">Waking up…</span>
+            }
+            else if (Sync.NeedsSignIn && Sync.Status != SyncStatus.Syncing)
+            {
+                <button type="button" class="bm-sync__waking bm-sync__renew" disabled="@_renewing" @onclick="RenewAsync">
+                    Sign in again
+                </button>
             }
             <MudIconButton Icon="@Icon" Size="Size.Medium" Color="Color.Inherit"
                            Disabled="@(Sync.Status == SyncStatus.Syncing)"
@@ -56,5 +63,30 @@
 
     private void OnChanged() => _ = InvokeAsync(StateHasChanged);
 
-    private async Task SyncNowAsync() => await Sync.SyncNowAsync();
+    private bool _renewing;
+
+    private async Task SyncNowAsync()
+    {
+        if (Sync.NeedsSignIn)
+        {
+            await RenewAsync();
+            return;
+        }
+
+        await Sync.SyncNowAsync();
+    }
+
+    /// <summary>Back to the sign-in site as the same account; the app reloads and syncs afterwards.</summary>
+    private async Task RenewAsync()
+    {
+        _renewing = true;
+        try
+        {
+            await Accounts.RenewSignInAsync();
+        }
+        finally
+        {
+            _renewing = false;
+        }
+    }
 }

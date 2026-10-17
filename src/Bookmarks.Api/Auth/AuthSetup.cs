@@ -1,4 +1,6 @@
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.Extensions.Options;
 
 namespace Bookmarks.Api.Auth;
 
@@ -15,6 +17,23 @@ public static class AuthConstants
     public const string ScopeClaim = "scp";
 
     public const string NameClaim = "name";
+
+    /// <summary>The default scheme: forwards device session tokens (<c>bms_…</c>) to <see cref="DeviceSessionScheme"/>, anything else to Entra.</summary>
+    public const string SelectorScheme = "EntraOrDeviceSession";
+
+    public const string DeviceSessionScheme = "DeviceSession";
+
+    /// <summary>Set on requests signed in with a device session (its id). Entra tokens never carry it.</summary>
+    public const string SessionIdClaim = "bm_sid";
+
+    /// <summary>Set when the request used a token that was just replaced by a rotation (still in its grace window).</summary>
+    public const string PreviousSessionTokenClaim = "bm_prev";
+}
+
+/// <summary>Which scheme handles bearer tokens that aren't device sessions. Entra's JwtBearer; tests swap in their own.</summary>
+public sealed class BookmarksAuthSchemes
+{
+    public string TokenScheme { get; set; } = JwtBearerDefaults.AuthenticationScheme;
 }
 
 /// <summary>Bound from the "Auth" configuration section.</summary>
@@ -35,8 +54,17 @@ public static class AuthSetup
     {
         var auth = configuration.GetSection(AuthOptions.SectionName).Get<AuthOptions>() ?? new AuthOptions();
 
+        services.AddOptions<BookmarksAuthSchemes>();
+
         services
-            .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+            .AddAuthentication(AuthConstants.SelectorScheme)
+            .AddPolicyScheme(AuthConstants.SelectorScheme, "Entra token or device session", options =>
+            {
+                options.ForwardDefaultSelector = context => DeviceSessionTokens.FromHeader(context.Request) is not null
+                    ? AuthConstants.DeviceSessionScheme
+                    : context.RequestServices.GetRequiredService<IOptions<BookmarksAuthSchemes>>().Value.TokenScheme;
+            })
+            .AddScheme<AuthenticationSchemeOptions, DeviceSessionAuthenticationHandler>(AuthConstants.DeviceSessionScheme, _ => { })
             .AddJwtBearer(options =>
             {
                 // Metadata (issuer, signing keys) comes from {Authority}/.well-known/openid-configuration.
@@ -63,6 +91,7 @@ public static class AuthSetup
 
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentUser, HttpCurrentUser>();
+        services.AddScoped<DeviceSessionService>();
 
         return services;
     }

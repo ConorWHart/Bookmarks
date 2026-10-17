@@ -35,6 +35,8 @@ namespace Bookmarks.Shared.Serialization;
 [JsonSerializable(typeof(Preset))]
 [JsonSerializable(typeof(List<Preset>), TypeInfoPropertyName = "PresetList")]
 [JsonSerializable(typeof(MeResponse))]
+[JsonSerializable(typeof(CreateSessionRequest))]
+[JsonSerializable(typeof(SessionResponse))]
 [JsonSerializable(typeof(SyncPushRequest))]
 [JsonSerializable(typeof(SyncPushResponse))]
 [JsonSerializable(typeof(SyncPullResponse))]

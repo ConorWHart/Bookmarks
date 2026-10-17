@@ -7,10 +7,11 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Bookmarks.Api.Tests;
 
 /// <summary>
-/// The real API pipeline with <see cref="TestAuthHandler"/> instead of JwtBearer.
+/// The real API pipeline with <see cref="TestAuthHandler"/> instead of JwtBearer (device sessions stay real).
 /// Pass a connection string for tests that reach the database; without one, only auth/pipeline behavior is testable.
+/// Pass a clock to control time (device session expiry).
 /// </summary>
-public sealed class ApiFactory(string? connectionString = null) : WebApplicationFactory<Program>
+public sealed class ApiFactory(string? connectionString = null, TimeProvider? time = null) : WebApplicationFactory<Program>
 {
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -27,14 +28,16 @@ public sealed class ApiFactory(string? connectionString = null) : WebApplication
 
         builder.ConfigureTestServices(services =>
         {
+            // The real selector scheme still sends bms_… tokens to device sessions; everything else goes to the test handler.
             services
-                .AddAuthentication(options =>
-                {
-                    options.DefaultScheme = TestAuthHandler.SchemeName;
-                    options.DefaultAuthenticateScheme = TestAuthHandler.SchemeName;
-                    options.DefaultChallengeScheme = TestAuthHandler.SchemeName;
-                })
+                .AddAuthentication()
                 .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>(TestAuthHandler.SchemeName, _ => { });
+            services.Configure<Bookmarks.Api.Auth.BookmarksAuthSchemes>(o => o.TokenScheme = TestAuthHandler.SchemeName);
+
+            if (time is not null)
+            {
+                services.AddSingleton(time);
+            }
         });
     }
 

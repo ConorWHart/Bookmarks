@@ -45,6 +45,9 @@ public interface ISyncService
     /// <summary>Why <see cref="SyncStatus.NeedsAttention"/>; null otherwise.</summary>
     string? Problem { get; }
 
+    /// <summary>Sync is stopped until the user signs in again (the sign-in expired or was refused).</summary>
+    bool NeedsSignIn { get; }
+
     event Action? Changed;
 
     /// <summary>Starts background syncing (first pass right away). Safe to call more than once.</summary>
@@ -67,6 +70,8 @@ public sealed class NullSyncService : ISyncService
     public int PendingChanges => 0;
 
     public string? Problem => null;
+
+    public bool NeedsSignIn => false;
 
     public event Action? Changed
     {

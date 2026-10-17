@@ -102,6 +102,9 @@ public sealed class BrowserSyncService(
 
     public int PendingChanges { get; private set; }
 
+    /// <summary>The last pass failed because the sign-in ended or was refused: signing in again fixes it.</summary>
+    public bool NeedsSignIn => IsEnabled && _authProblem && _lastError is not null;
+
     public string? Problem => _lastError is not null && (_authProblem || _failures >= FailuresBeforeAttention)
         ? _lastError
         : null;
@@ -380,9 +383,11 @@ public sealed class BrowserSyncService(
     private static (string Message, bool IsAuth) Describe(Exception ex) => ex switch
     {
         HttpRequestException { StatusCode: HttpStatusCode.Unauthorized } =>
-            ("Your sign-in needs renewing. Sign out and back in to keep syncing. Your changes are safe on this device.", true),
+            ("Your sign-in needs renewing. Sign in again to keep syncing. Your changes are safe on this device.", true),
         HttpRequestException { StatusCode: HttpStatusCode.Forbidden } =>
             ("Your sign-in is missing permission to sync. Sign out and back in.", true),
+        SignInRequiredException { SessionEnded: true } =>
+            ("Your sign-in has expired. Sign in again to keep syncing. Your changes are safe on this device.", true),
         SignInRequiredException =>
             ("Couldn't renew your sign-in. If you're online, sign out and back in to keep syncing. Your changes are safe on this device.", false),
         _ => ("Couldn't reach the Bookmarks service. Your changes are safe on this device and will sync when it's back.", false),

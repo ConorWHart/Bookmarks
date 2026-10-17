@@ -36,6 +36,15 @@ public interface IAccountService
 
     /// <summary>An access token for the API, or null when guest, offline, or re-authentication is needed.</summary>
     Task<string?> GetAccessTokenAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// True when the last <see cref="GetAccessTokenAsync"/> returned null because the sign-in session ended
+    /// (not because the device is offline): only <see cref="RenewSignInAsync"/> fixes it.
+    /// </summary>
+    bool NeedsSignIn { get; }
+
+    /// <summary>Signs in again as the same account (navigates away; the app restarts afterwards).</summary>
+    Task RenewSignInAsync(CancellationToken ct = default);
 }
 
 /// <summary>Guest-only implementation for hosts without sign-in.</summary>
@@ -56,4 +65,8 @@ public sealed class GuestAccountService : IAccountService
     public Task SignOutAsync(CancellationToken ct = default) => Task.CompletedTask;
 
     public Task<string?> GetAccessTokenAsync(CancellationToken ct = default) => Task.FromResult<string?>(null);
+
+    public bool NeedsSignIn => false;
+
+    public Task RenewSignInAsync(CancellationToken ct = default) => Task.CompletedTask;
 }

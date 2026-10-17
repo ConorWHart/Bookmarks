@@ -14,7 +14,8 @@ builder.Services.AddHealthChecks();
 
 builder.Services.AddSingleton(TimeProvider.System);
 
-// Entra External ID bearer tokens; every /api query is scoped to the token's user (see BookmarksDbContext).
+// Entra External ID bearer tokens or our own device sessions (bms_…); every /api query is scoped to the
+// caller's user (see BookmarksDbContext).
 builder.Services.AddBookmarksAuth(builder.Configuration);
 builder.Services.AddBookmarksData();
 
@@ -53,6 +54,7 @@ api.MapGet("/version", () => TypedResults.Ok(new VersionInfo(
     .AllowAnonymous();
 
 api.MapMeEndpoints();
+api.MapSessionEndpoints();
 api.MapSyncEndpoints();
 
 app.Run();

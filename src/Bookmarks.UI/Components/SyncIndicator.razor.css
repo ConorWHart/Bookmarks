@@ -19,6 +19,25 @@
     white-space: nowrap;
 }
 
+/* "Sign in again" when the sign-in has expired: same pill, but a button in the accent colour. */
+.bm-sync__renew {
+    margin: 0;
+    border-color: var(--mud-palette-primary);
+    background-color: var(--mud-palette-primary);
+    color: var(--mud-palette-primary-text);
+    font-family: inherit;
+    cursor: pointer;
+}
+
+.bm-sync__renew:hover {
+    filter: brightness(1.08);
+}
+
+.bm-sync__renew:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+
 @media (max-width: 599px) {
     .bm-sync__waking {
         padding: 0 8px;
