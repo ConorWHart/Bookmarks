@@ -1,0 +1,179 @@
+/* Bookmarks — Entra External ID sign-in page (Company Branding → Layout → Custom CSS).
+   Matches the app's dark theme (BookmarksTheme.cs): walnut surfaces, cream text, honey accent.
+   Uses only colours, borders, padding, radius, shadows and fonts — none of the layout/positioning
+   properties Microsoft is retiring from branding CSS (position, margin, display, transform, opacity, …). */
+
+body {
+    font-family: "Segoe UI", Inter, Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: #EDE3D4;
+    background-color: #151210;
+}
+
+a,
+a:link,
+.ext-link {
+    color: #D4A373;
+    text-decoration: none;
+}
+
+a:hover,
+.ext-link:hover {
+    color: #E7C095;
+    text-decoration: underline;
+}
+
+a:focus,
+a:focus:hover,
+.ext-link:focus {
+    color: #E7C095;
+    outline: 2px solid #D4A373;
+    outline-offset: 2px;
+}
+
+a:active {
+    color: #B8875A;
+}
+
+/* ---------- Background ---------- */
+
+.ext-background-image {
+    background-color: #151210;
+}
+
+.ext-middle {
+    background-color: rgba(21, 18, 16, 0.15);
+}
+
+/* ---------- The card ---------- */
+
+.ext-sign-in-box {
+    background-color: #211C18;
+    color: #EDE3D4;
+    border: 1px solid rgba(212, 163, 115, 0.35);
+    border-top: 3px solid #D4A373; /* the app bar's honey underline */
+    border-radius: 14px;
+    box-shadow:
+        0 24px 60px rgba(0, 0, 0, 0.6),
+        0 2px 0 rgba(255, 255, 255, 0.04) inset;
+}
+
+.ext-title {
+    font-family: Georgia, "Times New Roman", serif;
+    font-weight: 400;
+    letter-spacing: 0.01em;
+    color: #EDE3D4;
+}
+
+.ext-subtitle {
+    color: #C9BBA8;
+}
+
+/* ---------- Inputs ---------- */
+
+.ext-input.ext-text-box {
+    background-color: #151210;
+    color: #EDE3D4;
+    border: 1px solid #5A4A3C;
+    border-radius: 8px;
+    padding: 6px 12px;
+}
+
+.ext-input.ext-text-box:hover {
+    border-color: #8A6F55;
+}
+
+.ext-input.ext-text-box:focus,
+.ext-input.ext-text-box:focus:hover {
+    border-color: #D4A373;
+    box-shadow: 0 0 0 2px rgba(212, 163, 115, 0.35);
+    outline: none;
+}
+
+.ext-input.ext-text-box.ext-has-error {
+    border-color: #E57373;
+    box-shadow: 0 0 0 2px rgba(229, 115, 115, 0.3);
+}
+
+.ext-error {
+    color: #F2A3A3;
+}
+
+/* ---------- Buttons ---------- */
+
+.ext-button.ext-primary {
+    background-color: #D4A373;
+    border: 1px solid #D4A373;
+    color: #1B1612;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    border-radius: 8px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+.ext-button.ext-primary:hover {
+    background-color: #E2B588;
+    border-color: #E2B588;
+}
+
+.ext-button.ext-primary:focus,
+.ext-button.ext-primary:focus:hover {
+    background-color: #E2B588;
+    outline: 2px solid #EDE3D4;
+    outline-offset: 2px;
+}
+
+.ext-button.ext-primary:active {
+    background-color: #B8875A;
+    border-color: #B8875A;
+}
+
+.ext-button.ext-secondary {
+    background-color: transparent;
+    border: 1px solid #5A4A3C;
+    color: #EDE3D4;
+    border-radius: 8px;
+}
+
+.ext-button.ext-secondary:hover {
+    background-color: rgba(212, 163, 115, 0.12);
+    border-color: #8A6F55;
+}
+
+.ext-button.ext-secondary:focus,
+.ext-button.ext-secondary:focus:hover {
+    outline: 2px solid #D4A373;
+    outline-offset: 2px;
+}
+
+.ext-button.ext-secondary:active {
+    background-color: rgba(212, 163, 115, 0.2);
+}
+
+/* ---------- Extra text and options ---------- */
+
+.ext-boilerplate-text {
+    color: #C9BBA8;
+    font-family: Georgia, "Times New Roman", serif;
+    font-style: italic;
+    border-top: 1px solid rgba(212, 163, 115, 0.2);
+    padding-top: 12px;
+}
+
+.ext-promoted-fed-cred-box {
+    background-color: #2A231D;
+    color: #EDE3D4;
+    border: 1px solid #5A4A3C;
+    border-radius: 10px;
+}
+
+/* ---------- Footer ---------- */
+
+.ext-footer {
+    background-color: rgba(21, 18, 16, 0.75);
+    color: #A8998A;
+}
+
+.ext-footer-item,
+.ext-debug-item {
+    color: #A8998A;
+}

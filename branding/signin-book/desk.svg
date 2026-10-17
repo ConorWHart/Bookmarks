@@ -1,0 +1,211 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080">
+  <defs>
+    <!-- Wood grain: stretched noise, tinted brown -->
+    <filter id="grain" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.0025 0.09" numOctaves="4" seed="11" result="n"/>
+      <feColorMatrix in="n" type="matrix"
+        values="0 0 0 0 0.22
+                0 0 0 0 0.12
+                0 0 0 0 0.05
+                0 0 0 1.25 -0.45"/>
+    </filter>
+    <filter id="fine" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="1" seed="3" result="n"/>
+      <feColorMatrix in="n" type="matrix"
+        values="0 0 0 0 0
+                0 0 0 0 0
+                0 0 0 0 0
+                0 0 0 0.10 0"/>
+    </filter>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="10" dy="16" stdDeviation="12" flood-color="#000" flood-opacity="0.5"/>
+    </filter>
+    <filter id="softShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="5" dy="8" stdDeviation="6" flood-color="#000" flood-opacity="0.45"/>
+    </filter>
+    <radialGradient id="lampPool" cx="250" cy="190" r="1150" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFD9A0" stop-opacity="0.42"/>
+      <stop offset="0.35" stop-color="#FFC27A" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#FFB060" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="vignette" cx="960" cy="540" r="1150" gradientUnits="userSpaceOnUse">
+      <stop offset="0.45" stop-color="#000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0.72"/>
+    </radialGradient>
+    <radialGradient id="halo" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0.45" stop-color="#FFD9A0" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#FFD9A0" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="dome" cx="0.38" cy="0.34" r="0.75">
+      <stop offset="0" stop-color="#5C9A80"/>
+      <stop offset="0.45" stop-color="#2E5E4E"/>
+      <stop offset="1" stop-color="#15302A"/>
+    </radialGradient>
+    <radialGradient id="bulb" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#FFFBEA"/>
+      <stop offset="0.5" stop-color="#FFE7AE"/>
+      <stop offset="1" stop-color="#F2B95E"/>
+    </radialGradient>
+    <radialGradient id="coffee" cx="0.42" cy="0.4" r="0.6">
+      <stop offset="0" stop-color="#6B3F1F"/>
+      <stop offset="0.7" stop-color="#3E2210"/>
+      <stop offset="1" stop-color="#2A160A"/>
+    </radialGradient>
+    <linearGradient id="page" x1="0" x2="1">
+      <stop offset="0" stop-color="#EADFC6"/>
+      <stop offset="0.85" stop-color="#F6EEDB"/>
+      <stop offset="1" stop-color="#D9CBAA"/>
+    </linearGradient>
+    <linearGradient id="pageR" x1="0" x2="1">
+      <stop offset="0" stop-color="#D9CBAA"/>
+      <stop offset="0.15" stop-color="#F6EEDB"/>
+      <stop offset="1" stop-color="#EADFC6"/>
+    </linearGradient>
+    <pattern id="lines" width="10" height="14" patternUnits="userSpaceOnUse">
+      <rect y="6" width="10" height="2.4" fill="#8A7A62" opacity="0.45"/>
+    </pattern>
+    <pattern id="pageEdge" width="6" height="3" patternUnits="userSpaceOnUse">
+      <rect width="6" height="3" fill="#F1E7D1"/>
+      <rect y="2" width="6" height="1" fill="#CDBD9C"/>
+    </pattern>
+  </defs>
+
+  <!-- ===== Desk ===== -->
+  <rect width="1920" height="1080" fill="#5E3B22"/>
+  <rect width="1920" height="1080" filter="url(#grain)"/>
+  <!-- plank seams -->
+  <g fill="#2B180B" opacity="0.55">
+    <rect y="148" width="1920" height="3"/>
+    <rect y="398" width="1920" height="3"/>
+    <rect y="652" width="1920" height="3"/>
+    <rect y="905" width="1920" height="3"/>
+  </g>
+  <g fill="#C08A55" opacity="0.18">
+    <rect y="151" width="1920" height="2"/>
+    <rect y="401" width="1920" height="2"/>
+    <rect y="655" width="1920" height="2"/>
+    <rect y="908" width="1920" height="2"/>
+  </g>
+  <rect width="1920" height="1080" filter="url(#fine)"/>
+
+  <!-- Light spilling around the lamp shade -->
+  <circle cx="250" cy="190" r="260" fill="url(#halo)"/>
+
+  <!-- ===== Reading lamp (top left), a dome shade seen from above ===== -->
+  <g filter="url(#shadow)">
+    <path d="M 60 -30 Q 40 110 140 160" stroke="#8C6A3A" stroke-width="14" fill="none" stroke-linecap="round"/>
+    <circle cx="250" cy="190" r="128" fill="url(#dome)"/>
+    <circle cx="250" cy="190" r="128" fill="none" stroke="#C9A227" stroke-width="6"/>
+    <circle cx="250" cy="190" r="14" fill="#D9B44A"/>
+    <circle cx="246" cy="186" r="5" fill="#F3DC8A"/>
+  </g>
+
+  <!-- ===== Two paper bookmarks (top, left of centre) ===== -->
+  <g filter="url(#softShadow)">
+    <g transform="translate(610 95) rotate(-14)">
+      <rect x="-26" y="-90" width="52" height="180" rx="3" fill="#E9D9B4"/>
+      <rect x="-18" y="-80" width="36" height="160" fill="none" stroke="#2E5E4E" stroke-width="2"/>
+      <circle cx="0" cy="-62" r="5" fill="#5E3B22"/>
+    </g>
+    <g transform="translate(680 110) rotate(9)">
+      <rect x="-24" y="-84" width="48" height="168" rx="3" fill="#C9A227"/>
+      <path d="M -24 84 L 0 64 L 24 84 Z" fill="#5E3B22"/>
+    </g>
+  </g>
+
+  <!-- ===== Stack of closed books (top right) ===== -->
+  <g filter="url(#shadow)">
+    <g transform="translate(1660 120) rotate(-9)">
+      <rect x="-170" y="-210" width="340" height="440" rx="8" fill="#1E3A5F"/>
+      <rect x="160" y="-200" width="14" height="420" fill="url(#pageEdge)"/>
+      <rect x="-150" y="-190" width="12" height="400" fill="#16304F"/>
+    </g>
+    <g transform="translate(1680 150) rotate(5)">
+      <rect x="-160" y="-190" width="320" height="410" rx="8" fill="#8B2E1E"/>
+      <rect x="152" y="-182" width="14" height="394" fill="url(#pageEdge)"/>
+      <rect x="-140" y="-172" width="10" height="374" fill="#741F12"/>
+      <rect x="-70" y="40" width="160" height="56" rx="4" fill="#E9D9B4" opacity="0.92"/>
+      <rect x="-52" y="58" width="124" height="6" fill="#8B2E1E" opacity="0.6"/>
+      <rect x="-40" y="74" width="100" height="5" fill="#8B2E1E" opacity="0.4"/>
+    </g>
+    <g transform="translate(1700 175) rotate(-2)">
+      <rect x="-140" y="-160" width="280" height="370" rx="8" fill="#C9A227"/>
+      <rect x="132" y="-152" width="14" height="354" fill="url(#pageEdge)"/>
+      <rect x="-120" y="-142" width="8" height="334" fill="#A88415"/>
+      <circle cx="10" cy="40" r="46" fill="none" stroke="#7A5C12" stroke-width="5" opacity="0.7"/>
+      <path d="M -14 40 L 10 14 L 34 40 L 10 66 Z" fill="#7A5C12" opacity="0.6"/>
+    </g>
+  </g>
+
+  <!-- ===== Coffee: saucer, mug, handle (right middle) ===== -->
+  <g filter="url(#shadow)">
+    <circle cx="1730" cy="600" r="108" fill="#EFE6D6"/>
+    <circle cx="1730" cy="600" r="84" fill="#E2D6C1"/>
+    <rect x="1782" y="583" width="74" height="34" rx="17" fill="#2E5E4E" transform="rotate(-20 1730 600)"/>
+    <circle cx="1730" cy="600" r="72" fill="#2E5E4E"/>
+    <circle cx="1730" cy="600" r="60" fill="url(#coffee)"/>
+    <ellipse cx="1712" cy="584" rx="16" ry="8" fill="#C8A27A" opacity="0.35" transform="rotate(-30 1712 584)"/>
+  </g>
+
+  <!-- ===== Loose leather bookmark with tassel (left middle) ===== -->
+  <g transform="translate(150 500) rotate(-62)" filter="url(#softShadow)">
+    <path d="M -10 -150 C -30 -190 -40 -220 -20 -250" stroke="#C9A227" stroke-width="3" fill="none"/>
+    <path d="M -4 -150 C -12 -200 0 -230 -6 -262" stroke="#C9A227" stroke-width="3" fill="none"/>
+    <path d="M 2 -150 C 8 -195 20 -222 10 -255" stroke="#C9A227" stroke-width="3" fill="none"/>
+    <rect x="-38" y="-150" width="76" height="300" rx="6" fill="#7A4E2D"/>
+    <rect x="-30" y="-142" width="60" height="284" rx="4" fill="none" stroke="#D9B07A" stroke-width="2" stroke-dasharray="7 6" opacity="0.8"/>
+    <circle cx="0" cy="-122" r="7" fill="#3A2416"/>
+    <path d="M -22 40 L 0 18 L 22 40 L 0 62 Z" fill="none" stroke="#D9B07A" stroke-width="3" opacity="0.8"/>
+  </g>
+
+  <!-- ===== Open book with ribbon (bottom left) ===== -->
+  <g transform="translate(330 860) rotate(-12)" filter="url(#shadow)">
+    <rect x="-262" y="-178" width="524" height="356" rx="10" fill="#2E5E4E"/>
+    <rect x="-248" y="-168" width="244" height="336" rx="3" fill="url(#page)"/>
+    <rect x="4" y="-168" width="244" height="336" rx="3" fill="url(#pageR)"/>
+    <rect x="-6" y="-168" width="12" height="336" fill="#000" opacity="0.18"/>
+    <rect x="-220" y="-130" width="190" height="250" fill="url(#lines)"/>
+    <rect x="34" y="-130" width="190" height="250" fill="url(#lines)"/>
+    <rect x="34" y="-150" width="110" height="12" fill="#6E5A40" opacity="0.6"/>
+    <path d="M -2 -168 L -2 210 L 10 196 L 22 214 L 22 -168 Z" fill="#8B2E1E"/>
+    <!-- wooden page holder resting across the gutter -->
+    <g transform="translate(0 -20)" filter="url(#softShadow)">
+      <path d="M -78 0 C -78 -38 -30 -46 0 -22 C 30 -46 78 -38 78 0 C 78 38 30 46 0 22 C -30 46 -78 38 -78 0 Z" fill="#B98552"/>
+      <path d="M -78 0 C -78 -38 -30 -46 0 -22 C 30 -46 78 -38 78 0" fill="none" stroke="#D9A86F" stroke-width="3" opacity="0.7"/>
+      <ellipse cx="0" cy="0" rx="15" ry="11" fill="#7A5236"/>
+    </g>
+  </g>
+
+  <!-- ===== Reading glasses (bottom middle right) ===== -->
+  <g transform="translate(1240 975) rotate(-8)" filter="url(#softShadow)">
+    <path d="M -150 -6 L -230 -60" stroke="#3B2A1C" stroke-width="7" stroke-linecap="round"/>
+    <path d="M 150 -6 L 226 -64" stroke="#3B2A1C" stroke-width="7" stroke-linecap="round"/>
+    <circle cx="-80" cy="0" r="66" fill="#CFE3E8" fill-opacity="0.16" stroke="#5B3A29" stroke-width="10"/>
+    <circle cx="80" cy="0" r="66" fill="#CFE3E8" fill-opacity="0.16" stroke="#5B3A29" stroke-width="10"/>
+    <path d="M -16 -6 Q 0 -24 16 -6" stroke="#5B3A29" stroke-width="9" fill="none"/>
+    <path d="M -110 -34 A 50 50 0 0 1 -60 -50" stroke="#fff" stroke-width="4" fill="none" opacity="0.35"/>
+    <path d="M 50 -34 A 50 50 0 0 1 100 -50" stroke="#fff" stroke-width="4" fill="none" opacity="0.35"/>
+  </g>
+
+  <!-- ===== Pencil (bottom right) ===== -->
+  <g transform="translate(1560 880) rotate(-28)" filter="url(#softShadow)">
+    <rect x="-180" y="-12" width="330" height="24" fill="#D9822B"/>
+    <rect x="-180" y="-12" width="330" height="8" fill="#E9A04F"/>
+    <rect x="-212" y="-12" width="32" height="24" fill="#B8B4AC"/>
+    <rect x="-238" y="-12" width="28" height="24" rx="6" fill="#D98C8C"/>
+    <path d="M 150 -12 L 206 0 L 150 12 Z" fill="#E7C9A0"/>
+    <path d="M 190 -4 L 206 0 L 190 4 Z" fill="#3A3A3A"/>
+  </g>
+
+  <!-- ===== Closed book with a bookmark ribbon (bottom right corner) ===== -->
+  <g transform="translate(1770 1010) rotate(14)" filter="url(#shadow)">
+    <rect x="-200" y="-150" width="400" height="300" rx="8" fill="#6E2A3A"/>
+    <rect x="-200" y="138" width="400" height="14" fill="url(#pageEdge)"/>
+    <rect x="-188" y="-138" width="376" height="276" rx="5" fill="none" stroke="#C9A227" stroke-width="3" opacity="0.7"/>
+    <path d="M -60 -150 L -60 -230 L -44 -214 L -28 -232 L -28 -150 Z" fill="#C9A227"/>
+  </g>
+
+  <!-- ===== Light: lamp pool and vignette ===== -->
+  <rect width="1920" height="1080" fill="url(#lampPool)"/>
+  <rect width="1920" height="1080" fill="url(#vignette)"/>
+</svg>
