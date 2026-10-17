@@ -284,12 +284,26 @@ a:active {
 
 /* ---------- Extra text and options ---------- */
 
+/* The "Sign-in page text" at the bottom of the card. Microsoft gives it a grey panel by default;
+   here it's just a line of italic text on the page, under a faint rule. */
 .ext-boilerplate-text {
+    background: transparent !important;
+    background-color: transparent !important;
+    box-shadow: none !important;
     color: #5A4636;
     font-family: Georgia, "Times New Roman", serif;
     font-style: italic;
+    font-size: 15px;
+    border: none;
     border-top: 1px solid rgba(122, 78, 45, 0.25);
-    padding-top: 12px;
+    border-radius: 0;
+    padding: 14px 0 0 0;
+}
+
+.ext-boilerplate-text p,
+.ext-boilerplate-text span {
+    background-color: transparent;
+    color: #5A4636;
 }
 
 .ext-promoted-fed-cred-box {

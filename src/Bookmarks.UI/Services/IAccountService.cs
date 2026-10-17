@@ -31,6 +31,9 @@ public interface IAccountService
     /// <summary>Starts the hosted sign-in page. The browser navigates away and the app restarts afterwards.</summary>
     Task SignInAsync(CancellationToken ct = default);
 
+    /// <summary>Like <see cref="SignInAsync"/>, but opens the hosted page on "create account".</summary>
+    Task SignUpAsync(CancellationToken ct = default);
+
     /// <summary>Signs out and returns to guest mode. Library data stays on the device.</summary>
     Task SignOutAsync(CancellationToken ct = default);
 
@@ -61,6 +64,8 @@ public sealed class GuestAccountService : IAccountService
     }
 
     public Task SignInAsync(CancellationToken ct = default) => Task.CompletedTask;
+
+    public Task SignUpAsync(CancellationToken ct = default) => Task.CompletedTask;
 
     public Task SignOutAsync(CancellationToken ct = default) => Task.CompletedTask;
 

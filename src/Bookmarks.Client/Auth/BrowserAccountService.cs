@@ -80,6 +80,12 @@ public sealed class BrowserAccountService(
         await module.InvokeVoidAsync("signIn", ct, Array.Empty<object?>());
     }
 
+    public async Task SignUpAsync(CancellationToken ct = default)
+    {
+        var module = _module ?? throw new InvalidOperationException("Sign-in is not available.");
+        await module.InvokeVoidAsync("signUp", ct, Array.Empty<object?>());
+    }
+
     public async Task RenewSignInAsync(CancellationToken ct = default)
     {
         var module = _module ?? throw new InvalidOperationException("Sign-in is not available.");

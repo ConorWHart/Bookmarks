@@ -317,6 +317,41 @@ export async function countGuestRecords() {
     }
 }
 
+/** How many books (live library items) the signed-out database holds, for the sign-in question. */
+export async function countGuestBooks() {
+    const count = async database => (await database.table('libraryItems').toArray()).filter(r => !r.isDeleted).length;
+
+    if (db?.name === guestDatabase) {
+        return await count(db);
+    }
+
+    if (!(await Dexie.exists(guestDatabase))) {
+        return 0;
+    }
+
+    const guest = define(guestDatabase);
+    try {
+        await guest.open();
+        return await count(guest);
+    } finally {
+        guest.close();
+    }
+}
+
+/**
+ * Deletes the signed-out database while an account is open: the user chose their account's library over it
+ * at sign-in, or removed everything from this device at sign-out.
+ */
+export async function discardGuestLibrary() {
+    if (db?.name === guestDatabase) {
+        throw new Error('Sign in before discarding the signed-out library.');
+    }
+
+    if (await Dexie.exists(guestDatabase)) {
+        await Dexie.delete(guestDatabase);
+    }
+}
+
 async function countIn(database) {
     let total = 0;
     for (const table of dataTables) {
@@ -326,10 +361,62 @@ async function countIn(database) {
     return total;
 }
 
+/** ISBN-13 digits only, so "978-0-..." and "9780..." match. Null when there's no usable ISBN. */
+function isbnKey(isbn) {
+    const digits = (isbn ?? '').replace(/[^0-9Xx]/g, '').toUpperCase();
+    return digits.length >= 10 ? digits : null;
+}
+
+/**
+ * Guest books that are already in the account (same ISBN, and the account has a live copy of it):
+ * returns { books: Map(guestBookId -> accountBookId), items: Map(guestItemId -> accountItemId) }.
+ */
+async function findDuplicates(guest, target) {
+    const accountBookByIsbn = new Map();
+    for (const book of await target.table('books').toArray()) {
+        const key = isbnKey(book.isbn13);
+        if (key && !book.isDeleted && !accountBookByIsbn.has(key)) {
+            accountBookByIsbn.set(key, book.id);
+        }
+    }
+
+    const accountItemByBook = new Map();
+    for (const item of await target.table('libraryItems').toArray()) {
+        if (!item.isDeleted && !accountItemByBook.has(item.bookId)) {
+            accountItemByBook.set(item.bookId, item.id);
+        }
+    }
+
+    const books = new Map();
+    for (const book of await guest.table('books').toArray()) {
+        if (book.isDeleted) {
+            continue;
+        }
+        const accountBookId = accountBookByIsbn.get(isbnKey(book.isbn13));
+        if (accountBookId && accountItemByBook.has(accountBookId)) {
+            books.set(book.id, accountBookId);
+        }
+    }
+
+    const items = new Map();
+    for (const item of await guest.table('libraryItems').toArray()) {
+        if (books.has(item.bookId)) {
+            items.set(item.id, accountItemByBook.get(books.get(item.bookId)));
+        }
+    }
+
+    return { books, items };
+}
+
 /**
  * Copies every record from the signed-out database into the open account database, re-keyed to
  * userId and queued for sync, then deletes the signed-out database. Server versions are reset because
  * the records have never been pushed for this account. Preferences in 'meta' stay with the device.
+ *
+ * Books the account already has (same ISBN) aren't copied twice: the guest's copy of the book and its
+ * library item are dropped, and its reading sessions, notes and shelf places move onto the account's copy.
+ * Tombstones (deleted guest records) are dropped: they never existed in the account.
+ * Returns [records copied, duplicate books merged].
  */
 export async function moveGuestLibrary(userId) {
     const target = active();
@@ -344,15 +431,34 @@ export async function moveGuestLibrary(userId) {
     const guest = define(guestDatabase);
     await guest.open();
     let moved = 0;
+    let duplicates = 0;
 
     try {
+        const dup = await findDuplicates(guest, target);
+        duplicates = dup.books.size;
+
         for (const table of dataTables) {
-            const rows = await guest.table(table).toArray();
+            const rows = (await guest.table(table).toArray()).filter(row => {
+                if (row.isDeleted) {
+                    return false;
+                }
+                if (table === 'books') {
+                    return !dup.books.has(row.id);
+                }
+                if (table === 'libraryItems') {
+                    return !dup.items.has(row.id);
+                }
+                return true;
+            });
             if (rows.length === 0) {
                 continue;
             }
 
             for (const row of rows) {
+                // History of a book the account already has goes onto the account's copy.
+                if (row.libraryItemId && dup.items.has(row.libraryItemId)) {
+                    row.libraryItemId = dup.items.get(row.libraryItemId);
+                }
                 row.userId = userId;
                 row.version = 0;
                 // Pre-Phase 4 books recorded their owner here; books are now ordinary synced records.
@@ -370,5 +476,5 @@ export async function moveGuestLibrary(userId) {
     }
 
     await Dexie.delete(guestDatabase);
-    return moved;
+    return [moved, duplicates];
 }

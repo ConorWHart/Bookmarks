@@ -1,0 +1,327 @@
+/* Bookmarks — Entra External ID sign-in page, "open book on a desk" design.
+   Company Branding → Layout → Custom CSS, with background.jpg (the desk) as the background image.
+
+   The sign-in card is drawn as an open book: the left page is decoration (faux text, a chapter mark
+   and a ribbon, all CSS gradients), and the form sits on the right page. Stacked page edges and the
+   cloth cover are box-shadows. On narrow screens it becomes a single page.
+
+   Only colours, backgrounds, borders, padding, sizes, radius, shadows and fonts: none of the
+   layout/positioning properties Microsoft is retiring from branding CSS (position, margin, display,
+   transform, opacity, overflow, …). */
+
+body {
+    font-family: "Segoe UI", Inter, Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: #F3E9DA;
+    background-color: #3E2716;
+}
+
+a,
+a:link,
+.ext-link {
+    color: #7A4E2D;
+    text-decoration: underline;
+    text-decoration-color: rgba(122, 78, 45, 0.4);
+    text-underline-offset: 3px;
+}
+
+a:hover,
+.ext-link:hover {
+    color: #5A3519;
+    text-decoration-color: #5A3519;
+}
+
+a:focus,
+a:focus:hover,
+.ext-link:focus {
+    color: #5A3519;
+    outline: 2px solid #7A4E2D;
+    outline-offset: 2px;
+}
+
+a:active {
+    color: #3E2716;
+}
+
+/* ---------- The desk ---------- */
+
+.ext-background-image {
+    background-color: #3E2716;
+}
+
+/* ---------- The open book ---------- */
+
+.ext-sign-in-box {
+    box-sizing: border-box;
+    width: 880px;
+    max-width: calc(100vw - 48px);
+    min-height: 560px;
+    /* Left page (440 px) is decoration; the form starts on the right page. */
+    padding: 56px 56px 44px 496px;
+    color: #2E2319;
+    border: none;
+    border-radius: 4px;
+    background:
+        /* ribbon bookmark lying down the left page, near the gutter */
+        linear-gradient(#8B2E1E, #8B2E1E) 396px 0 / 12px 72% no-repeat,
+        linear-gradient(90deg, rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0)) 396px 0 / 4px 72% no-repeat,
+        /* chapter heading and drop of faux text on the left page */
+        linear-gradient(#6E5A40, #6E5A40) 56px 64px / 150px 12px no-repeat,
+        linear-gradient(#B9A88A, #B9A88A) 56px 88px / 96px 6px no-repeat,
+        /* faux text: four paragraphs */
+        linear-gradient(rgba(110, 90, 64, 0.30), rgba(110, 90, 64, 0.30)) 56px 128px / 307px 2px no-repeat,
+        linear-gradient(rgba(110, 90, 64, 0.30), rgba(110, 90, 64, 0.30)) 56px 144px / 312px 2px no-repeat,
+        linear-gradient(rgba(110, 90, 64, 0.30), rgba(110, 90, 64, 0.30)) 56px 160px / 311px 2px no-repeat,
+        linear-gradient(rgba(110, 90, 64, 0.30), rgba(110, 90, 64, 0.30)) 56px 176px / 306px 2px no-repeat,
+        linear-gradient(rgba(110, 90, 64, 0.30), rgba(110, 90, 64, 0.30)) 56px 192px / 225px 2px no-repeat,
+        linear-gradient(rgba(110, 90, 64, 0.30), rgba(110, 90, 64, 0.30)) 78px 216px / 294px 2px no-repeat,
+        linear-gradient(rgba(110, 90, 64, 0.30), rgba(110, 90, 64, 0.30)) 56px 232px / 309px 2px no-repeat,
+        linear-gradient(rgba(110, 90, 64, 0.30), rgba(110, 90, 64, 0.30)) 56px 248px / 313px 2px no-repeat,
+        linear-gradient(rgba(110, 90, 64, 0.30), rgba(110, 90, 64, 0.30)) 56px 264px / 306px 2px no-repeat,
+        linear-gradient(rgba(110, 90, 64, 0.30), rgba(110, 90, 64, 0.30)) 56px 280px / 316px 2px no-repeat,
+        linear-gradient(rgba(110, 90, 64, 0.30), rgba(110, 90, 64, 0.30)) 56px 296px / 130px 2px no-repeat,
+        linear-gradient(rgba(110, 90, 64, 0.30), rgba(110, 90, 64, 0.30)) 78px 320px / 293px 2px no-repeat,
+        linear-gradient(rgba(110, 90, 64, 0.30), rgba(110, 90, 64, 0.30)) 56px 336px / 311px 2px no-repeat,
+        linear-gradient(rgba(110, 90, 64, 0.30), rgba(110, 90, 64, 0.30)) 56px 352px / 309px 2px no-repeat,
+        linear-gradient(rgba(110, 90, 64, 0.30), rgba(110, 90, 64, 0.30)) 56px 368px / 313px 2px no-repeat,
+        linear-gradient(rgba(110, 90, 64, 0.30), rgba(110, 90, 64, 0.30)) 56px 384px / 310px 2px no-repeat,
+        linear-gradient(rgba(110, 90, 64, 0.30), rgba(110, 90, 64, 0.30)) 56px 400px / 308px 2px no-repeat,
+        linear-gradient(rgba(110, 90, 64, 0.30), rgba(110, 90, 64, 0.30)) 56px 416px / 116px 2px no-repeat,
+        linear-gradient(rgba(110, 90, 64, 0.30), rgba(110, 90, 64, 0.30)) 78px 440px / 285px 2px no-repeat,
+        linear-gradient(rgba(110, 90, 64, 0.30), rgba(110, 90, 64, 0.30)) 56px 456px / 313px 2px no-repeat,
+        linear-gradient(rgba(110, 90, 64, 0.30), rgba(110, 90, 64, 0.30)) 56px 472px / 316px 2px no-repeat,
+        linear-gradient(rgba(110, 90, 64, 0.30), rgba(110, 90, 64, 0.30)) 56px 488px / 145px 2px no-repeat,
+        /* folio number */
+        linear-gradient(#9C8A6C, #9C8A6C) 206px 516px / 28px 5px no-repeat,
+        /* gutter: the pages curve down into the spine */
+        linear-gradient(90deg,
+            rgba(0, 0, 0, 0) 44%,
+            rgba(90, 60, 25, 0.10) 47.5%,
+            rgba(50, 30, 10, 0.34) 50%,
+            rgba(90, 60, 25, 0.10) 52.5%,
+            rgba(0, 0, 0, 0) 56%),
+        /* paper, lighter where the pages bulge up */
+        linear-gradient(90deg,
+            #E2D3B3 0%, #F3EAD5 8%, #F8F1E1 30%, #F1E6CE 46%, #E4D5B5 50%,
+            #F1E6CE 54%, #F8F1E1 70%, #F3EAD5 92%, #E2D3B3 100%);
+    box-shadow:
+        /* stacked page edges, thicker towards the bottom */
+        0 1px 0 #E6D9BC,
+        0 2px 0 #CDBD9C,
+        0 3px 0 #E6D9BC,
+        0 4px 0 #C6B592,
+        0 5px 0 #E1D3B4,
+        0 6px 0 #BFAD89,
+        /* cloth cover peeking out all round */
+        0 7px 0 10px #2E5E4E,
+        0 7px 0 12px #24493D,
+        /* lying on the desk */
+        0 22px 40px 10px rgba(0, 0, 0, 0.45),
+        0 6px 12px 10px rgba(0, 0, 0, 0.25);
+}
+
+/* Narrow screens (phones, small windows): only the right-hand page fits, so the book is shown still open,
+   with its left page running off the screen: the gutter's curve and the left page are box-shadows to the
+   left of the card. A striped bookmark sticks out from under the right edge of the book (drawn on
+   .ext-middle, the layer behind the card). */
+@media (max-width: 940px) {
+    .ext-sign-in-box {
+        width: 440px;
+        min-height: 0;
+        padding: 40px 32px 32px 36px;
+        border-radius: 0 4px 4px 0;
+        background:
+            /* the page curving down into the spine */
+            linear-gradient(90deg, rgba(50, 30, 10, 0.30), rgba(90, 60, 25, 0.08) 6%, rgba(0, 0, 0, 0) 12%),
+            linear-gradient(90deg, #E9DCBF 0%, #F6EEDC 14%, #F8F1E1 70%, #F3EAD5 92%, #E6D8B9 100%);
+        box-shadow:
+            /* the left page, curving up out of the spine and running off the screen */
+            -3px 0 0 #B9A57E,
+            -8px 0 0 #CDBB96,
+            -16px 0 0 #DCCCAA,
+            -28px 0 0 #E7DABD,
+            -46px 0 0 #EFE4CB,
+            -440px 0 0 #F3EAD5,
+            /* stacked page edges along the right and bottom */
+            1px 1px 0 #E6D9BC,
+            2px 2px 0 #CDBD9C,
+            3px 3px 0 #E6D9BC,
+            4px 4px 0 #C6B592,
+            /* cloth cover: round this page, and above and below the left page */
+            0 0 0 9px #2E5E4E,
+            -46px 0 0 9px #2E5E4E,
+            -440px 0 0 9px #2E5E4E,
+            0 0 0 11px #24493D,
+            -46px 0 0 11px #24493D,
+            -440px 0 0 11px #24493D,
+            /* lying on the desk */
+            0 18px 36px 10px rgba(0, 0, 0, 0.45);
+    }
+
+    /* Bookmark under the book, its end and tassel poking out to the right (book is 440 px wide here). */
+    .ext-middle {
+        background:
+            repeating-linear-gradient(180deg, #E2B13C 0 2px, rgba(0, 0, 0, 0) 2px 5px) calc(50% + 274px) 38% / 20px 17px no-repeat,
+            radial-gradient(circle, #3E2716 0 3px, #F0D58A 3px 5px, rgba(0, 0, 0, 0) 5.5px) calc(50% + 255px) 38% / 14px 14px no-repeat,
+            linear-gradient(180deg,
+                #2E6F8E 0 9px, #E2B13C 9px 13px, #D9573B 13px 27px, #E2B13C 27px 31px, #2E6F8E 31px 40px)
+                calc(50% + 232px) 38% / 64px 40px no-repeat;
+    }
+}
+
+/* Phones: the book fills the width except a strip of the left page on one side and the bookmark on the other. */
+@media (max-width: 600px) {
+    .ext-sign-in-box {
+        width: calc(100vw - 96px);
+        padding: 36px 22px 28px 28px;
+    }
+
+    .ext-middle {
+        background:
+            repeating-linear-gradient(180deg, #E2B13C 0 2px, rgba(0, 0, 0, 0) 2px 5px) right 0 top 38% / 14px 21px no-repeat,
+            radial-gradient(circle, #3E2716 0 3px, #F0D58A 3px 5px, rgba(0, 0, 0, 0) 5.5px) right 16px top 38% / 14px 14px no-repeat,
+            linear-gradient(180deg,
+                #2E6F8E 0 11px, #E2B13C 11px 16px, #D9573B 16px 32px, #E2B13C 32px 37px, #2E6F8E 37px 48px)
+                right 12px top 38% / 72px 48px no-repeat;
+    }
+}
+
+.ext-title {
+    font-family: Georgia, "Times New Roman", serif;
+    font-weight: 400;
+    font-style: italic;
+    letter-spacing: 0.01em;
+    color: #2E2319;
+}
+
+.ext-subtitle {
+    color: #5A4636;
+}
+
+/* ---------- Inputs: written on ruled lines ---------- */
+
+.ext-input.ext-text-box {
+    background-color: transparent;
+    color: #2E2319;
+    border: none;
+    border-bottom: 2px solid #A08868;
+    border-radius: 0;
+    padding: 6px 2px;
+    font-size: 16px;
+}
+
+.ext-input.ext-text-box::placeholder {
+    color: #8C7860;
+}
+
+.ext-input.ext-text-box:hover {
+    border-bottom-color: #7A4E2D;
+}
+
+.ext-input.ext-text-box:focus,
+.ext-input.ext-text-box:focus:hover {
+    border-bottom-color: #7A4E2D;
+    box-shadow: 0 2px 0 #7A4E2D;
+    outline: none;
+}
+
+.ext-input.ext-text-box.ext-has-error {
+    border-bottom-color: #A3271B;
+    box-shadow: 0 2px 0 #A3271B;
+}
+
+.ext-error {
+    color: #A3271B;
+}
+
+/* ---------- Buttons ---------- */
+
+.ext-button.ext-primary {
+    background-color: #7A4E2D;
+    border: 1px solid #6A4224;
+    color: #F7F2E8;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    border-radius: 6px;
+    box-shadow: 0 2px 4px rgba(46, 35, 25, 0.35);
+}
+
+.ext-button.ext-primary:hover {
+    background-color: #8C5C37;
+}
+
+.ext-button.ext-primary:focus,
+.ext-button.ext-primary:focus:hover {
+    background-color: #8C5C37;
+    outline: 2px solid #2E2319;
+    outline-offset: 2px;
+}
+
+.ext-button.ext-primary:active {
+    background-color: #5A3519;
+}
+
+.ext-button.ext-secondary {
+    background-color: transparent;
+    border: 1px solid #A08868;
+    color: #2E2319;
+    border-radius: 6px;
+}
+
+.ext-button.ext-secondary:hover {
+    background-color: rgba(122, 78, 45, 0.08);
+    border-color: #7A4E2D;
+}
+
+.ext-button.ext-secondary:focus,
+.ext-button.ext-secondary:focus:hover {
+    outline: 2px solid #7A4E2D;
+    outline-offset: 2px;
+}
+
+.ext-button.ext-secondary:active {
+    background-color: rgba(122, 78, 45, 0.16);
+}
+
+/* ---------- Extra text and options ---------- */
+
+/* The "Sign-in page text" at the bottom of the card. Microsoft gives it a grey panel by default;
+   here it's just a line of italic text on the page, under a faint rule. */
+.ext-boilerplate-text {
+    background: transparent !important;
+    background-color: transparent !important;
+    box-shadow: none !important;
+    color: #5A4636;
+    font-family: Georgia, "Times New Roman", serif;
+    font-style: italic;
+    font-size: 15px;
+    border: none;
+    border-top: 1px solid rgba(122, 78, 45, 0.25);
+    border-radius: 0;
+    padding: 14px 0 0 0;
+}
+
+.ext-boilerplate-text p,
+.ext-boilerplate-text span {
+    background-color: transparent;
+    color: #5A4636;
+}
+
+.ext-promoted-fed-cred-box {
+    background-color: rgba(122, 78, 45, 0.06);
+    color: #2E2319;
+    border: 1px solid #C6B592;
+    border-radius: 8px;
+}
+
+/* ---------- Footer (on the desk) ---------- */
+
+.ext-footer {
+    background-color: rgba(30, 18, 10, 0.55);
+    color: #E6D6BF;
+}
+
+.ext-footer-item,
+.ext-footer-item a,
+.ext-debug-item {
+    color: #E6D6BF;
+}

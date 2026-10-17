@@ -7,6 +7,8 @@
 @inject UserPreferences Prefs
 @inject IBrowserViewportService Viewport
 @inject IJSRuntime JS
+@inject IAccountService Accounts
+@inject IAppStatusService AppStatus
 
 <PageTitle>Library · Bookmarks</PageTitle>
 
@@ -29,15 +31,32 @@
                 <MudIcon Icon="@Icons.Material.Outlined.LocalLibrary" Color="Color.Primary" Style="font-size:3.5rem" />
                 <MudText Typo="Typo.h5">Your library is empty</MudText>
                 <MudText Typo="Typo.body1" Align="Align.Center">
-                    Add your first book, or load a demo library to explore the bookcases.
-                    Everything is stored on this device and works offline.
+                    Start your library by adding the first book you own, have read or want to read.
+                    It's saved on this device and works offline.
                 </MudText>
-                <MudStack Row="true" Spacing="2" Wrap="Wrap.Wrap" Justify="Justify.Center">
-                    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
-                               OnClick="() => OpenEditorAsync(null)" Disabled="_busy">Add a new book</MudButton>
-                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.AutoStories"
-                               OnClick="LoadDemoAsync" Disabled="_busy">Load demo library</MudButton>
-                </MudStack>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Large" StartIcon="@Icons.Material.Filled.Add"
+                           OnClick="() => OpenEditorAsync(null)" Disabled="_busy">Add your first book</MudButton>
+
+                @if (Accounts.IsSignInSupported && Accounts.Current.IsGuest)
+                {
+                    <div class="bm-empty-account">
+                        <MudText Typo="Typo.subtitle1" Align="Align.Center">Have a Bookmarks account, or want one?</MudText>
+                        <MudText Typo="Typo.body2" Align="Align.Center">
+                            An account backs up your library and keeps it in sync across your phone, tablet and computer.
+                            Sign in to bring back a library you've already started.
+                        </MudText>
+                        <MudStack Row="true" Spacing="2" Wrap="Wrap.Wrap" Justify="Justify.Center">
+                            <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.PersonAdd"
+                                       OnClick="CreateAccountAsync" Disabled="@(_busy || !AppStatus.IsOnline)">Create an account</MudButton>
+                            <MudButton Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Login"
+                                       OnClick="SignInAsync" Disabled="@(_busy || !AppStatus.IsOnline)">Sign in</MudButton>
+                        </MudStack>
+                        @if (!AppStatus.IsOnline)
+                        {
+                            <MudText Typo="Typo.caption" Align="Align.Center">You're offline. You can sign in when you're back online.</MudText>
+                        }
+                    </div>
+                }
             </MudStack>
         </MudPaper>
     }
@@ -516,17 +535,22 @@
 
     private Task SaveScale() => Prefs.SetDoubleAsync(UserPreferences.LibraryScale, _scale);
 
-    private async Task LoadDemoAsync()
+    /// <summary>Empty library, guest: straight to the hosted sign-up page (the app restarts when it comes back).</summary>
+    private Task CreateAccountAsync() => StartAccountFlowAsync(Accounts.SignUpAsync);
+
+    private Task SignInAsync() => StartAccountFlowAsync(Accounts.SignInAsync);
+
+    private async Task StartAccountFlowAsync(Func<CancellationToken, Task> start)
     {
         _busy = true;
         try
         {
-            await LibraryData.LoadDemoLibraryAsync();
-            Recompute();
+            await start(CancellationToken.None);
         }
-        finally
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _busy = false;
+            Snackbar.Add("Sign-in couldn't start. Please try again.", Severity.Error);
         }
     }
 

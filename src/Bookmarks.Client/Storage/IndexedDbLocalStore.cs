@@ -107,10 +107,23 @@ public sealed class IndexedDbLocalStore(IJSRuntime js, ILogger<IndexedDbLocalSto
         return await module.InvokeAsync<int>("countGuestRecords", ct, Array.Empty<object?>());
     }
 
-    public async Task<int> MoveGuestLibraryAsync(Guid userId, CancellationToken ct = default)
+    public async Task<int> CountGuestBooksAsync(CancellationToken ct = default)
     {
         var module = await GetModuleAsync(ct);
-        return await module.InvokeAsync<int>("moveGuestLibrary", ct, new object?[] { userId.ToString("D") });
+        return await module.InvokeAsync<int>("countGuestBooks", ct, Array.Empty<object?>());
+    }
+
+    public async Task DiscardGuestLibraryAsync(CancellationToken ct = default)
+    {
+        var module = await GetModuleAsync(ct);
+        await module.InvokeVoidAsync("discardGuestLibrary", ct, Array.Empty<object?>());
+    }
+
+    public async Task<GuestLibraryMoveResult> MoveGuestLibraryAsync(Guid userId, CancellationToken ct = default)
+    {
+        var module = await GetModuleAsync(ct);
+        var result = await module.InvokeAsync<int[]>("moveGuestLibrary", ct, new object?[] { userId.ToString("D") });
+        return result is [var records, var duplicates] ? new GuestLibraryMoveResult(records, duplicates) : new GuestLibraryMoveResult(0, 0);
     }
 
     public async Task<string?> GetMetaAsync(string key, CancellationToken ct = default)

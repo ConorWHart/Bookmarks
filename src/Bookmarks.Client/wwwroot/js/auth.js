@@ -104,6 +104,11 @@ export async function signIn() {
     await app.loginRedirect({ scopes: [apiScope], prompt: 'select_account' });
 }
 
+/** The hosted page, opened on "create account" (External ID supports prompt=create). */
+export async function signUp() {
+    await app.loginRedirect({ scopes: [apiScope], prompt: 'create' });
+}
+
 /**
  * Signs in again as the same account after the session ended. A full-page redirect: if the sign-in site
  * still remembers the user it comes straight back without asking; otherwise it shows the sign-in page.
