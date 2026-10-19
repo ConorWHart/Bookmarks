@@ -63,7 +63,7 @@
                     <div class="bm-themes" role="radiogroup" aria-label="Finish">
                         @foreach (var (key, label) in LibraryService.Themes)
                         {
-                            var on = bookcase.Theme == key;
+                            var on = bookcase.CustomColor is null && bookcase.Theme == key;
                             var themeClass = on ? $"bm-theme bm-theme--{key} bm-theme--on" : $"bm-theme bm-theme--{key}";
                             <button type="button" role="radio" aria-checked="@(on ? "true" : "false")" title="@label"
                                     class="@themeClass"
@@ -72,6 +72,14 @@
                                 <span class="bm-theme__label">@label</span>
                             </button>
                         }
+                        @* Phase 6d: any colour, through the browser's colour picker. *@
+                        <label class="@CustomThemeClass(bookcase)" title="A colour of your own">
+                            <span class="bm-theme__chip" style="@CustomChipStyle(bookcase)"></span>
+                            <span class="bm-theme__label">Custom</span>
+                            <input type="color" class="bm-theme__input" value="@(bookcase.CustomColor?.ToLowerInvariant() ?? "#6b8a72")"
+                                   @onchange="e => LibraryData.SetBookcaseColorAsync(bookcase.Id, e.Value?.ToString())"
+                                   aria-label="@CustomColorLabel(bookcase)" />
+                        </label>
                     </div>
 
                     <div class="bm-bc__actions">
@@ -155,6 +163,16 @@
 
 @code {
     private bool _loaded;
+
+    // ---------- Custom colour (Phase 6d) ----------
+
+    private static string CustomThemeClass(Bookcase bookcase)
+        => bookcase.CustomColor is null ? "bm-theme bm-theme--custom" : "bm-theme bm-theme--custom bm-theme--on";
+
+    private static string? CustomChipStyle(Bookcase bookcase)
+        => ColorUtil.BookcasePaletteFor(bookcase.CustomColor) is { } p ? $"--chip-hi:{p.Highlight};--chip-lo:{p.Shadow}" : null;
+
+    private static string CustomColorLabel(Bookcase bookcase) => "Custom colour for " + bookcase.Name;
 
     // Remembered per device (meta table), like the library size.
     private HashSet<Guid> _collapsed = new();

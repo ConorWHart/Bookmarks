@@ -65,6 +65,30 @@
 .bm-theme--white .bm-theme__chip { --chip-hi: #ffffff; --chip-lo: #d6cfc3; }
 .bm-theme--dark .bm-theme__chip { --chip-hi: #4a4540; --chip-lo: #171513; }
 
+.bm-theme--custom {
+    position: relative;
+}
+
+/* The native colour input covers the swatch, invisible, so a click opens the browser's picker. */
+.bm-theme__input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.bm-theme--custom:focus-within {
+    outline: 2px solid var(--mud-palette-primary);
+    outline-offset: 1px;
+}
+
+/* No colour chosen yet: a rainbow chip. */
+.bm-theme--custom:not(.bm-theme--on) .bm-theme__chip {
+    background: conic-gradient(from 200deg, #c0504d, #d9a441, #8db255, #4f8fc0, #8a64b8, #c0504d);
+}
+
 .bm-theme__label {
     font-size: 0.72rem;
     line-height: 1;

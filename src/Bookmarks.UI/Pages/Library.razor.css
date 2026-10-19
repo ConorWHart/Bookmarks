@@ -11,24 +11,17 @@
     flex: 1 1 0;
 }
 
-/* Books view grouped into sections */
-.bm-group + .bm-group {
-    margin-top: 28px;
+/* Books display: Covers | List toggle (Phase 6d). Group headings now live in CoverGrid and BookList. */
+.bm-layout {
+    flex: 0 0 auto;
 }
 
-.bm-group ::deep .bm-group__title {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-    margin: 0 4px 10px;
-    padding-bottom: 4px;
-    border-bottom: 1px solid var(--mud-palette-lines-default);
+.bm-layout ::deep .bm-layout-toggle {
+    width: auto;
 }
 
-.bm-group__count {
-    font-size: 0.8rem;
-    font-weight: 400;
-    color: var(--mud-palette-text-secondary);
+.bm-layout ::deep .mud-toggle-item {
+    min-width: 72px;
 }
 
 /* Empty library: the account options, set apart below "Add your first book". */

@@ -101,6 +101,9 @@ public sealed class Bookcase : SyncEntity
     /// <summary>Theme key, e.g. "oak", "walnut", "white", "dark".</summary>
     public string Theme { get; set; } = "oak";
 
+    /// <summary>A colour of the user's own (#RRGGBB) used instead of <see cref="Theme"/>'s finish; null = the finish (Phase 6d).</summary>
+    public string? CustomColor { get; set; }
+
     public string? SortRank { get; set; }
 
     /// <summary>Not drawn in the Bookcases view (its books still show in Books and search). Synced.</summary>

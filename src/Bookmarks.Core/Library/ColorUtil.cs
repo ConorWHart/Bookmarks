@@ -151,6 +151,46 @@ public static class ColorUtil
         return (Math.Max(a, b) + 0.05) / (Math.Min(a, b) + 0.05);
     }
 
+    /// <summary>
+    /// Mixes a colour toward white (<paramref name="amount"/> &gt; 0) or black (&lt; 0), amount from −1 to 1.
+    /// Returns #RRGGBB, or null when the colour can't be read.
+    /// </summary>
+    public static string? Shade(string? hex, double amount)
+    {
+        if (!TryParseHex(hex, out var c))
+        {
+            return null;
+        }
+
+        amount = Math.Clamp(amount, -1, 1);
+        var target = amount >= 0 ? 255 : 0;
+        var t = Math.Abs(amount);
+        byte Mix(byte v) => (byte)Math.Round(v + ((target - v) * t), MidpointRounding.AwayFromZero);
+        return string.Create(CultureInfo.InvariantCulture, $"#{Mix(c.R):X2}{Mix(c.G):X2}{Mix(c.B):X2}");
+    }
+
+    /// <summary>
+    /// The wood palette for a bookcase in a colour of the user's own (Phase 6d), matching the finishes in
+    /// <c>BookcaseFrame.razor.css</c>: highlight, board, shadow, back panel, and the shelf-label ink. Null when the
+    /// colour can't be read.
+    /// </summary>
+    public static BookcasePalette? BookcasePaletteFor(string? hex)
+    {
+        if (!TryParseHex(hex, out var c))
+        {
+            return null;
+        }
+
+        // Light cases (like White) get a back panel just a little darker than the boards; dark ones a deep shadow.
+        var light = RelativeLuminance(c) > 0.35;
+        return new BookcasePalette(
+            Highlight: Shade(hex, 0.28)!,
+            Wood: Shade(hex, 0)!,
+            Shadow: Shade(hex, -0.34)!,
+            Back: Shade(hex, light ? -0.1 : -0.64)!,
+            Label: light ? "rgba(40, 32, 24, 0.75)" : "rgba(255, 245, 230, 0.78)");
+    }
+
     /// <summary>WCAG relative luminance, 0 (black) to 1 (white).</summary>
     public static double RelativeLuminance((byte R, byte G, byte B) c)
         => (0.2126 * Linear(c.R)) + (0.7152 * Linear(c.G)) + (0.0722 * Linear(c.B));
@@ -161,3 +201,6 @@ public static class ColorUtil
         return v <= 0.04045 ? v / 12.92 : Math.Pow((v + 0.055) / 1.055, 2.4);
     }
 }
+
+/// <summary>See <see cref="ColorUtil.BookcasePaletteFor"/>.</summary>
+public sealed record BookcasePalette(string Highlight, string Wood, string Shadow, string Back, string Label);

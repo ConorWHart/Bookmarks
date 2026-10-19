@@ -59,6 +59,7 @@ public static class LibraryViewJson
         return new LibraryViewDto
         {
             Display = view.Display,
+            BooksLayout = view.BooksLayout,
             Sort = view.Query.Sort.Field,
             Descending = view.Query.Sort.Descending,
             GroupBy = view.Query.GroupBy,
@@ -81,6 +82,7 @@ public static class LibraryViewJson
     private static LibraryView FromDto(LibraryViewDto d) => new()
     {
         Display = d.Display,
+        BooksLayout = d.BooksLayout,
         Query = new LibraryQuery
         {
             Sort = new LibrarySort(d.Sort, d.Descending),
@@ -128,6 +130,8 @@ public static class LibraryViewJson
 internal sealed class LibraryViewDto
 {
     public LibraryDisplay Display { get; set; }
+
+    public BooksLayout BooksLayout { get; set; }
 
     public LibrarySortField Sort { get; set; } = LibrarySortField.Author;
 

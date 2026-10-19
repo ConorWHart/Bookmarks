@@ -1,0 +1,77 @@
+/* Stack view (Phase 6d). Rows of piles are virtualized, so spacing is padding rather than margins. */
+.bm-stacks {
+    padding-top: 8px;
+}
+
+.bm-stacks__row {
+    padding: 0 12px 30px;
+}
+
+.bm-stacks__piles {
+    display: flex;
+    align-items: flex-end;
+    padding: 0 6px;
+}
+
+.bm-stack {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* One book lying flat: a box the size of the book seen from the spine, with the upright spine turned inside it. */
+.bm-stack__book {
+    position: relative;
+    flex: 0 0 auto;
+}
+
+.bm-stack__book:hover {
+    z-index: 1;
+}
+
+/* Turned a quarter anticlockwise, so the spine lettering reads left to right (and a hovered book slides out to the left). */
+.bm-stack__turn {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    display: flex;
+    transform: translate(-50%, -50%) rotate(-90deg);
+}
+
+/* The table the piles stand on. */
+.bm-stacks__table {
+    height: 12px;
+    margin: 0 -6px;
+    border-radius: 2px 2px 4px 4px;
+    background:
+        repeating-linear-gradient(180deg, rgb(0 0 0 / 0.05) 0 1px, transparent 1px 4px),
+        linear-gradient(180deg, #d4a56f 0 3px, #a8743f 3px 70%, #6f4722);
+    box-shadow:
+        0 6px 10px -4px rgb(40 25 10 / 0.5),
+        0 1px 0 rgb(0 0 0 / 0.25);
+}
+
+/* Group headings, one row each */
+.bm-stacks__group {
+    padding-top: 0;
+}
+
+.bm-stacks__group-title {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin: 0 4px 16px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--mud-palette-lines-default);
+    font-family: var(--mud-typography-h6-family);
+    font-size: var(--mud-typography-h6-size);
+    font-weight: var(--mud-typography-h6-weight);
+    line-height: var(--mud-typography-h6-lineheight);
+}
+
+.bm-stacks__group-count {
+    font-size: 0.8rem;
+    font-weight: 400;
+    color: var(--mud-palette-text-secondary);
+}

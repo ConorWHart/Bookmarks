@@ -83,4 +83,33 @@ public class ColorUtilTests
         Assert.Equal("#C8A928", model.SpineColor);
         Assert.Null(model.TextColor);
     }
+
+    [Theory]
+    [InlineData("#000000", 0.5, "#808080")]
+    [InlineData("#ffffff", -0.5, "#808080")]
+    [InlineData("#A8743F", 0, "#A8743F")]
+    [InlineData("#204060", 1, "#FFFFFF")]
+    public void Shade_mixes_toward_white_or_black(string hex, double amount, string expected)
+        => Assert.Equal(expected, ColorUtil.Shade(hex, amount));
+
+    [Fact]
+    public void A_custom_bookcase_colour_gets_a_lighter_highlight_and_darker_shadow_and_back()
+    {
+        var palette = ColorUtil.BookcasePaletteFor("#2F5D50")!;
+
+        Assert.Equal("#2F5D50", palette.Wood);
+        Assert.True(Lum(palette.Highlight) > Lum(palette.Wood));
+        Assert.True(Lum(palette.Shadow) < Lum(palette.Wood));
+        Assert.True(Lum(palette.Back) < Lum(palette.Shadow)); // a dark case: deep back panel, light label ink
+        Assert.StartsWith("rgba(255", palette.Label);
+
+        var light = ColorUtil.BookcasePaletteFor("#E8DCC8")!;
+        Assert.True(Lum(light.Back) > Lum(light.Shadow)); // a light case: back only a little darker, dark ink
+        Assert.StartsWith("rgba(40", light.Label);
+
+        Assert.Null(ColorUtil.BookcasePaletteFor("not a colour"));
+    }
+
+    private static double Lum(string hex)
+        => ColorUtil.TryParseHex(hex, out var c) ? ColorUtil.RelativeLuminance(c) : -1;
 }

@@ -112,6 +112,8 @@
                 <MudItem xs="12" Class="d-flex flex-wrap align-center gap-3">
                     @if (IsBooks)
                     {
+                        @LayoutToggle
+
                         <MudSelect T="LibrarySortField" Value="_view.Query.Sort.Field" ValueChanged="v => SetView(_view.WithSort(_view.Query.Sort with { Field = v }))"
                                    Label="Sort" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true" Style="max-width:180px">
                             @foreach (var (field, label) in LibraryLabels.SortOptions)
@@ -197,7 +199,10 @@
         }
         @if (IsBooks)
         {
-            <MudText Typo="Typo.caption" Class="d-block d-md-none mb-3">@MatchCountText</MudText>
+            <div class="d-flex d-md-none align-center justify-space-between gap-2 mb-3">
+                <MudText Typo="Typo.caption">@MatchCountText</MudText>
+                @LayoutToggle
+            </div>
         }
         else
         {
@@ -207,19 +212,14 @@
         @* ---------- Library ---------- *@
         if (IsBooks)
         {
-            if (_view.Query.GroupBy == LibraryGroupBy.None)
+            var groups = _view.Query.GroupBy == LibraryGroupBy.None ? null : _groups;
+            if (_view.BooksLayout == BooksLayout.List)
             {
-                <CoverGrid Entries="_filtered" OnSelected="Select" />
+                <BookList Entries="_filtered" Groups="groups" Sort="_view.Query.Sort" OnSortChanged="s => SetView(_view.WithSort(s))" OnSelected="Select" />
             }
             else
             {
-                foreach (var group in _groups)
-                {
-                    <section class="bm-group" @key="group.Key">
-                        <MudText Typo="Typo.h6" Class="bm-group__title">@group.Key <span class="bm-group__count">@group.Entries.Count</span></MudText>
-                        <CoverGrid Entries="group.Entries" OnSelected="Select" />
-                    </section>
-                }
+                <CoverGrid Entries="_filtered" Groups="groups" OnSelected="Select" />
             }
         }
         else if (LibraryData.Bookcases.Count == 0)
@@ -239,7 +239,7 @@
             <div class="bm-room" @ref="_room">
             @foreach (var bookcase in LibraryData.Bookcases.Where(b => !b.IsHidden))
             {
-                <BookcaseFrame @key="bookcase.Id" Title="@bookcase.Name" Subtitle="@BookCountText(bookcase)" Theme="@bookcase.Theme">
+                <BookcaseFrame @key="bookcase.Id" Title="@bookcase.Name" Subtitle="@BookCountText(bookcase)" Theme="@bookcase.Theme" CustomColor="@bookcase.CustomColor">
                     @foreach (var shelf in LibraryData.ShelvesIn(bookcase.Id))
                     {
                         <ShelfRowView @key="shelf.Id" ShelfId="shelf.Id" Books="PlaceOnShelf(shelf.Id)" Label="@LibraryData.ShelfLabel(shelf)"
@@ -695,6 +695,18 @@
         _groups = LibraryQueryEngine.Execute(LibraryData.Entries, _view.Query);
         _matchCount = _filtered.Count;
     }
+
+    /// <summary>Covers | List, for the Books display (Phase 6d): in the toolbar on wider screens, by the count on phones.</summary>
+    private RenderFragment LayoutToggle => __builder =>
+    {
+        <div class="bm-layout">
+            <MudToggleGroup T="BooksLayout" Value="_view.BooksLayout" ValueChanged="v => SetView(_view with { BooksLayout = v })"
+                            Color="Color.Primary" Outlined="true" Class="bm-layout-toggle">
+                <MudToggleItem Value="BooksLayout.Covers" Text="Covers" />
+                <MudToggleItem Value="BooksLayout.List" Text="List" />
+            </MudToggleGroup>
+        </div>
+    };
 
     private void ToggleDirection() => SetView(_view.WithSort(_view.Query.Sort with { Descending = !_view.Query.Sort.Descending }));
 

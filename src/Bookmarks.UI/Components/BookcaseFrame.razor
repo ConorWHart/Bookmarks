@@ -1,6 +1,6 @@
 @* Wraps shelves in a themed bookcase (side panels, top, colors via CSS variables). *@
 
-<section class="bm-case bm-case--@Theme">
+<section class="bm-case bm-case--@Theme" style="@CustomStyle">
     @if (!string.IsNullOrEmpty(Title))
     {
         <header class="bm-case__title">
@@ -26,6 +26,13 @@
 
     /// <summary>oak | walnut | white | dark</summary>
     [Parameter] public string Theme { get; set; } = "oak";
+
+    /// <summary>A colour of the user's own (Phase 6d): replaces the finish's wood colours; the name plate stays.</summary>
+    [Parameter] public string? CustomColor { get; set; }
+
+    private string? CustomStyle => ColorUtil.BookcasePaletteFor(CustomColor) is { } p
+        ? $"--bm-wood-hi:{p.Highlight};--bm-wood:{p.Wood};--bm-wood-lo:{p.Shadow};--bm-case-back:{p.Back};--bm-case-label:{p.Label};"
+        : null;
 
     [Parameter] public RenderFragment? ChildContent { get; set; }
 }

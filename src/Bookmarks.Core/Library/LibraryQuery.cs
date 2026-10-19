@@ -24,6 +24,9 @@ public enum LibrarySortField
     Height = 6,
     Color = 7,
     ReadCount = 8,
+
+    /// <summary>Most recent finished read (Phase 6d).</summary>
+    LastRead = 9,
 }
 
 public enum LibraryGroupBy
@@ -42,8 +45,18 @@ public enum LibraryDisplay
     /// <summary>The user's bookcases, books in their shelf order; filters dim, sort and grouping don't apply.</summary>
     Bookcases = 0,
 
-    /// <summary>Every book as a cover grid, filtered, sorted and grouped.</summary>
+    /// <summary>Every book, filtered, sorted and grouped, laid out as <see cref="BooksLayout"/>.</summary>
     Books = 1,
+}
+
+/// <summary>How the Books display draws its books (Phase 6d).</summary>
+public enum BooksLayout
+{
+    /// <summary>A grid of covers.</summary>
+    Covers = 0,
+
+    /// <summary>A compact list, one row per book.</summary>
+    List = 1,
 }
 
 /// <summary>Date ranges for filters. Relative windows stay current when a preset is reopened later.</summary>
@@ -183,6 +196,9 @@ public sealed record LibraryView
     public LibraryQuery Query { get; init; } = new();
 
     public LibraryDisplay Display { get; init; }
+
+    /// <summary>Covers or list, for the Books display.</summary>
+    public BooksLayout BooksLayout { get; init; }
 
     public static LibraryView Default { get; } = new();
 

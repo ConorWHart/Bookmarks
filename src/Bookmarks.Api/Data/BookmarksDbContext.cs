@@ -154,6 +154,7 @@ public sealed class BookmarksDbContext(DbContextOptions<BookmarksDbContext> opti
         {
             e.Property(x => x.Name).HasMaxLength(200).IsRequired();
             e.Property(x => x.Theme).HasMaxLength(32).IsUnicode(false).IsRequired();
+            e.Property(x => x.CustomColor).HasMaxLength(ColorLength).IsUnicode(false);
             e.Property(x => x.SortRank).HasMaxLength(RankLength).IsUnicode(false);
         });
 

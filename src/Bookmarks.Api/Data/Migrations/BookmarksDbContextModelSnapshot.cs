@@ -200,6 +200,11 @@ namespace Bookmarks.Api.Data.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("CustomColor")
+                        .HasMaxLength(9)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(9)");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 

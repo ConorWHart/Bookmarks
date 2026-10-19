@@ -598,6 +598,7 @@ public sealed class LibraryService(ILocalStore store, IAccountService account)
             UserId = CurrentUserId,
             Name = $"Bookcase {_bookcases.Count + 1}",
             Theme = _bookcases.LastOrDefault()?.Theme ?? "oak",
+            CustomColor = _bookcases.LastOrDefault()?.CustomColor,
             SortRank = RankKey.Between(LastRank(_bookcases.Select(b => b.SortRank)), null),
         };
         await store.UpsertAsync(bookcase, ct);
@@ -625,8 +626,24 @@ public sealed class LibraryService(ILocalStore store, IAccountService account)
 
     public Task SetBookcaseThemeAsync(Guid bookcaseId, string theme, CancellationToken ct = default)
         => Themes.Any(t => t.Key == theme)
-            ? UpdateAsync<Bookcase>(bookcaseId, b => b.Theme = theme, ct)
+            ? UpdateAsync<Bookcase>(bookcaseId, b =>
+            {
+                b.Theme = theme;
+                b.CustomColor = null; // picking a finish replaces a custom colour
+            }, ct)
             : Task.CompletedTask;
+
+    /// <summary>A colour of the user's own instead of a finish (Phase 6d). Null goes back to the bookcase's finish.</summary>
+    public Task SetBookcaseColorAsync(Guid bookcaseId, string? color, CancellationToken ct = default)
+    {
+        if (color is not null && !ColorUtil.TryParseHex(color, out _))
+        {
+            return Task.CompletedTask;
+        }
+
+        var value = color?.Trim().ToUpperInvariant();
+        return UpdateAsync<Bookcase>(bookcaseId, b => b.CustomColor = value, ct);
+    }
 
     /// <summary>Moves a bookcase earlier (-1) or later (+1) in the room.</summary>
     public Task MoveBookcaseAsync(Guid bookcaseId, int delta, CancellationToken ct = default)

@@ -16,6 +16,7 @@ public static class LibraryLabels
         (LibrarySortField.DateAdded, "Date added"),
         (LibrarySortField.Rating, "Rating"),
         (LibrarySortField.ReadCount, "Times read"),
+        (LibrarySortField.LastRead, "Last read"),
     ];
 
     public static readonly IReadOnlyList<(LibraryGroupBy Group, string Label)> GroupOptions =

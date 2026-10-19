@@ -143,6 +143,22 @@ public class LibraryQueryEngineTests
     }
 
     [Fact]
+    public void Sorting_by_last_read_puts_the_most_recent_first_and_unread_books_last()
+    {
+        var entries = new[]
+        {
+            Entry("Never") with { LastFinishedOn = null },
+            Entry("Last year") with { LastFinishedOn = new DateOnly(2025, 3, 1) },
+            Entry("This year") with { LastFinishedOn = new DateOnly(2026, 8, 9) },
+        };
+
+        var titles = LibraryQueryEngine.Apply(entries, LibraryFilter.None, new LibrarySort(LibrarySortField.LastRead, Descending: true))
+            .Select(e => e.Title);
+
+        Assert.Equal(new[] { "This year", "Last year", "Never" }, titles);
+    }
+
+    [Fact]
     public void Read_count_is_derived_from_finished_sessions()
         => Assert.Equal(3, Entry("Thrice", reads: 3).ReadCount);
 }

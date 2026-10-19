@@ -1,8 +1,40 @@
+/* Rows are virtualized (Phase 6d): each .bm-grid is one row of the grid, spaced by its bottom padding. */
+.bm-covers {
+    padding-top: 4px;
+}
+
 .bm-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
-    gap: 22px 16px;
-    padding: 4px;
+    column-gap: 16px;
+    padding: 0 4px 22px;
+}
+
+/* Group headings, one row each */
+.bm-covers__group {
+    padding: 6px 0 0;
+}
+
+.bm-covers__group--first {
+    padding-top: 0;
+}
+
+.bm-covers__group-title {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin: 0 4px 12px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--mud-palette-lines-default);
+    font-family: var(--mud-typography-h6-family);
+    font-size: var(--mud-typography-h6-size);
+    font-weight: var(--mud-typography-h6-weight);
+    line-height: var(--mud-typography-h6-lineheight);
+}
+
+.bm-covers__group-count {
+    font-size: 0.8rem;
+    font-weight: 400;
+    color: var(--mud-palette-text-secondary);
 }
 
 .bm-grid__item {

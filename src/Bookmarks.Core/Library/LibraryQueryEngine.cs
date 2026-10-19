@@ -162,6 +162,7 @@ public static class LibraryQueryEngine
             LibrarySortField.Height => By(source, e => SpineMetrics.HeightMm(e), Comparer<int>.Default, sort.Descending),
             LibrarySortField.Color => By(source, e => ColorUtil.RainbowKey(e.SpineColor), Comparer<double>.Default, sort.Descending),
             LibrarySortField.ReadCount => By(source, e => e.ReadCount, Comparer<int>.Default, sort.Descending),
+            LibrarySortField.LastRead => By(source, e => e.LastFinishedOn ?? DateOnly.MinValue, Comparer<DateOnly>.Default, sort.Descending),
             _ => By(source, e => e.Item.ShelfRank ?? "\uffff", Comparer<string>.Create(RankKey.Compare), sort.Descending),
         };
 

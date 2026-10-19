@@ -8,6 +8,7 @@ public class LibraryViewJsonTests
     private static LibraryView FullView() => new()
     {
         Display = LibraryDisplay.Books,
+        BooksLayout = BooksLayout.List,
         Query = new LibraryQuery
         {
             Sort = new LibrarySort(LibrarySortField.Color, Descending: true),
@@ -42,6 +43,7 @@ public class LibraryViewJsonTests
         Assert.NotNull(back);
         Assert.True(LibraryViewJson.SameView(view, back));
         Assert.Equal(LibraryDisplay.Books, back.Display);
+        Assert.Equal(BooksLayout.List, back.BooksLayout);
         Assert.Equal(new LibrarySort(LibrarySortField.Color, true), back.Query.Sort);
         Assert.Equal(new DateFilter(DateWindow.Custom, new DateOnly(2024, 1, 1), new DateOnly(2024, 6, 30)), back.Filter.Acquired);
         Assert.True(back.Filter.Authors!.Contains("frank herbert")); // case-insensitive set
@@ -104,6 +106,7 @@ public class LibraryViewJsonTests
         Assert.Equal(0, view.Filter.ActiveCount);
         Assert.Equal(LibrarySortField.Author, view.Query.Sort.Field);
         Assert.Equal(LibraryDisplay.Bookcases, view.Display);
+        Assert.Equal(BooksLayout.Covers, view.BooksLayout);
     }
 
     [Fact]

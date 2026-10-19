@@ -1,0 +1,160 @@
+@* Compact list of books (Phase 6d): one row per book, virtualized so only the rows near the screen are rendered.
+   Wider screens get column headings that set the sort; phones get a two-line row and sort from the Filters sheet. *@
+@using System.Globalization
+
+<div class="bm-list">
+    <div class="bm-list__head">
+        <span class="bm-list__thumb-col" aria-hidden="true"></span>
+        @Heading("Title", LibrarySortField.Title, "bm-list__title-col")
+        @Heading("Author", LibrarySortField.Author, "bm-list__author-col")
+        <span class="bm-list__status-col">Status</span>
+        @Heading("Rating", LibrarySortField.Rating, "bm-list__rating-col")
+        @Heading("Read", LibrarySortField.ReadCount, "bm-list__read-col")
+        @Heading("Last read", LibrarySortField.LastRead, "bm-list__last-col")
+        @Heading("Added", LibrarySortField.DateAdded, "bm-list__added-col")
+    </div>
+
+    <Virtualize Items="_rows" ItemSize="60" OverscanCount="8" Context="row">
+        @if (row.Group is { } group)
+        {
+            <div class="@(row.IsFirst ? "bm-list__group bm-list__group--first" : "bm-list__group")">
+                <h2 class="bm-list__group-title">@group.Key <span class="bm-list__group-count">@group.Entries.Count</span></h2>
+            </div>
+        }
+        else if (row.Entry is { } e)
+        {
+            <button type="button" class="bm-list__row" @onclick="() => OnSelected.InvokeAsync(e)">
+                <span class="bm-list__thumb" style="--bm-book-bg:@e.SpineColor">
+                    @if (e.Book.CoverUrl is { } cover)
+                    {
+                        <CoverImage Url="@cover" Size="CoverSize.Medium" Class="bm-list__cover" />
+                    }
+                </span>
+                <span class="bm-list__title-col">
+                    <span class="bm-list__title">@e.Title</span>
+                    @if (SeriesText(e) is { } series)
+                    {
+                        <span class="bm-list__sub">@series</span>
+                    }
+                    <span class="bm-list__phone-meta">@PhoneMeta(e)</span>
+                </span>
+                <span class="bm-list__author-col bm-list__muted">@e.Author</span>
+                <span class="bm-list__status-col">
+                    @if (StatusChip(e) is { } chip)
+                    {
+                        <span class="@ChipClass(e)" title="@chip">@chip</span>
+                    }
+                </span>
+                <span class="bm-list__rating-col">@RatingText(e)</span>
+                <span class="bm-list__read-col">@ReadText(e)</span>
+                <span class="bm-list__last-col bm-list__muted">@DateText(e.LastFinishedOn)</span>
+                <span class="bm-list__added-col bm-list__muted">@DateText(DateOnly.FromDateTime(e.Item.AddedAt.ToLocalTime().DateTime))</span>
+            </button>
+        }
+    </Virtualize>
+</div>
+
+@code {
+    /// <summary>The books, when not grouped.</summary>
+    [Parameter, EditorRequired] public IReadOnlyList<LibraryEntry> Entries { get; set; } = [];
+
+    /// <summary>When set, the books in sections with a heading each (Entries is then ignored).</summary>
+    [Parameter] public IReadOnlyList<LibraryGroup>? Groups { get; set; }
+
+    [Parameter, EditorRequired] public LibrarySort Sort { get; set; } = LibrarySort.Default;
+
+    [Parameter] public EventCallback<LibrarySort> OnSortChanged { get; set; }
+
+    [Parameter] public EventCallback<LibraryEntry> OnSelected { get; set; }
+
+    private sealed record Row(LibraryGroup? Group, LibraryEntry? Entry, bool IsFirst = false);
+
+    private List<Row> _rows = [];
+    private object? _builtFrom;
+
+    protected override void OnParametersSet()
+    {
+        object source = Groups is null ? Entries : Groups;
+        if (ReferenceEquals(source, _builtFrom))
+        {
+            return;
+        }
+
+        var rows = new List<Row>();
+        if (Groups is null)
+        {
+            rows.AddRange(Entries.Select(e => new Row(null, e)));
+        }
+        else
+        {
+            foreach (var group in Groups)
+            {
+                rows.Add(new Row(group, null, IsFirst: rows.Count == 0));
+                rows.AddRange(group.Entries.Select(e => new Row(null, e)));
+            }
+        }
+
+        _rows = rows;
+        _builtFrom = source;
+    }
+
+    private RenderFragment Heading(string label, LibrarySortField field, string column) => __builder =>
+    {
+        var active = Sort.Field == field;
+        <button type="button" class="@HeadingClass(column, active)"
+                @onclick="() => SortByAsync(field)" aria-label="@SortLabel(label)">
+            @label
+            @if (active)
+            {
+                <span class="bm-list__arrow" aria-hidden="true">@(Sort.Descending ? "↓" : "↑")</span>
+            }
+        </button>
+    };
+
+    /// <summary>Same column flips the direction; a new one starts the way people usually want it (best / newest first for numbers and dates).</summary>
+    private Task SortByAsync(LibrarySortField field)
+    {
+        var next = Sort.Field == field
+            ? Sort with { Descending = !Sort.Descending }
+            : new LibrarySort(field, Descending: field is LibrarySortField.Rating or LibrarySortField.ReadCount
+                or LibrarySortField.LastRead or LibrarySortField.DateAdded);
+        return OnSortChanged.InvokeAsync(next);
+    }
+
+    private static string HeadingClass(string column, bool active)
+        => active ? "bm-list__sort bm-list__sort--active " + column : "bm-list__sort " + column;
+
+    private static string SortLabel(string label) => "Sort by " + label;
+
+    private static string ChipClass(LibraryEntry e)
+        => "bm-list__chip bm-list__chip--" + e.Item.Status.ToString().ToLowerInvariant();
+
+    private static string? SeriesText(LibraryEntry e)
+        => e.Book.Series is not { Length: > 0 } series ? null
+            : e.Book.SeriesNumber is { } n ? $"{series} #{n.ToString("0.##", CultureInfo.CurrentCulture)}" : series;
+
+    private static string? StatusChip(LibraryEntry e) => e.Item.Status switch
+    {
+        OwnershipStatus.Wishlist => "Wishlist",
+        OwnershipStatus.LentOut => e.Item.LentTo is { Length: > 0 } who ? $"Lent to {who}" : "Lent out",
+        _ => null,
+    };
+
+    private static string? RatingText(LibraryEntry e)
+        => e.Item.Rating is { } r ? $"★ {r.ToString("0.#", CultureInfo.CurrentCulture)}" : null;
+
+    private static string? ReadText(LibraryEntry e) => e switch
+    {
+        { IsReading: true } => "Reading",
+        { ReadCount: 1 } => "Read",
+        { ReadCount: > 1 } => $"Read {e.ReadCount}×",
+        _ => null,
+    };
+
+    private static string? DateText(DateOnly? date)
+        => date?.ToString("d MMM yyyy", CultureInfo.CurrentCulture);
+
+    /// <summary>Phones: the author, status, reads and rating on one line under the title.</summary>
+    private static string PhoneMeta(LibraryEntry e)
+        => string.Join(" · ", new[] { e.Author, StatusChip(e), ReadText(e), RatingText(e) }.Where(s => !string.IsNullOrEmpty(s)));
+}
