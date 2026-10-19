@@ -7,7 +7,8 @@
 
    Only colours, backgrounds, borders, padding, sizes, radius, shadows and fonts: none of the
    layout/positioning properties Microsoft is retiring from branding CSS (position, margin, display,
-   transform, opacity, overflow, …). */
+   transform, opacity, overflow, …). One exception: on phones the box gets a top margin (see the 600 px
+   query), because Microsoft's phone layout otherwise cuts off the top of the book. */
 
 body {
     font-family: "Segoe UI", Inter, Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -173,15 +174,69 @@ a:active {
     .ext-sign-in-box {
         width: calc(100vw - 96px);
         padding: 36px 22px 28px 28px;
+        /* On phones Microsoft pins the box to the top of the screen, which cut off the top of the book and its
+           cover. Lower it so the whole book shows, lying on the desk. (A margin is one of the layout properties
+           Microsoft discourages, but External ID tenants still honour it; without it the book only touches the top.) */
+        margin-top: clamp(36px, 9vh, 80px) !important;
+        margin-bottom: 36px !important;
     }
 
+    /* .ext-middle, the layer behind the book (Microsoft hides the background photo on phones), carries the desk:
+       first the bookmark under the book, then a few things lying below it, anchored to the bottom of the screen
+       (a mug of coffee on its saucer, reading glasses, a pencil, an old coffee ring), then planks and lamplight.
+       Earlier layers are drawn on top. */
     .ext-middle {
         background:
+            /* bookmark under the book */
             repeating-linear-gradient(180deg, #E2B13C 0 2px, rgba(0, 0, 0, 0) 2px 5px) right 0 top 38% / 14px 21px no-repeat,
             radial-gradient(circle, #3E2716 0 3px, #F0D58A 3px 5px, rgba(0, 0, 0, 0) 5.5px) right 16px top 38% / 14px 14px no-repeat,
             linear-gradient(180deg,
                 #2E6F8E 0 11px, #E2B13C 11px 16px, #D9573B 16px 32px, #E2B13C 32px 37px, #2E6F8E 37px 48px)
-                right 12px top 38% / 72px 48px no-repeat;
+                right 12px top 38% / 72px 48px no-repeat,
+
+            /* mug of coffee on a saucer, seen from above (every layer is the same 128 px box) */
+            radial-gradient(circle at 50px 42px, rgba(255, 240, 220, 0.35) 0 3px, rgba(0, 0, 0, 0) 5px) left 16px bottom 112px / 128px 128px no-repeat,
+            radial-gradient(circle at 60px 60px, #2B170B 0 20px, #4E2F19 24px 27px, #F3EADA 28px 35px, #C2B192 36px 37.5px, rgba(0, 0, 0, 0) 38px) left 16px bottom 112px / 128px 128px no-repeat,
+            radial-gradient(circle at 103px 60px, rgba(0, 0, 0, 0) 0 6px, #EEE3CF 6.5px 11.5px, #B9A687 12px 13px, rgba(0, 0, 0, 0) 13.5px) left 16px bottom 112px / 128px 128px no-repeat,
+            radial-gradient(circle at 60px 60px, rgba(0, 0, 0, 0.22) 0 39px, rgba(0, 0, 0, 0) 44px) left 16px bottom 112px / 128px 128px no-repeat,
+            radial-gradient(circle at 60px 60px, #E7DBC5 0 43px, #F4ECDE 46px 50px, #B8A582 51px 52px, rgba(0, 0, 0, 0) 53px) left 16px bottom 112px / 128px 128px no-repeat,
+            radial-gradient(circle at 66px 68px, rgba(0, 0, 0, 0.5) 0 46px, rgba(0, 0, 0, 0) 60px) left 16px bottom 112px / 128px 128px no-repeat,
+
+            /* reading glasses: two lenses, the bridge, a soft shadow */
+            radial-gradient(ellipse 30px 24px at 40px 32px, rgba(225, 238, 242, 0.06) 0 50%, rgba(255, 255, 255, 0.13) 62%, rgba(225, 238, 242, 0.05) 74% 82%, #1C120B 85% 100%, rgba(0, 0, 0, 0) 104%) right 20px bottom 150px / 160px 64px no-repeat,
+            radial-gradient(ellipse 30px 24px at 120px 32px, rgba(225, 238, 242, 0.06) 0 50%, rgba(255, 255, 255, 0.13) 62%, rgba(225, 238, 242, 0.05) 74% 82%, #1C120B 85% 100%, rgba(0, 0, 0, 0) 104%) right 20px bottom 150px / 160px 64px no-repeat,
+            radial-gradient(ellipse 12px 5px at 10px 6px, rgba(0, 0, 0, 0) 0 60%, #1C120B 70% 100%, rgba(0, 0, 0, 0) 110%) right 90px bottom 182px / 20px 8px no-repeat,
+            linear-gradient(#1C120B, #1C120B) right 168px bottom 192px / 14px 3px no-repeat,
+            linear-gradient(#1C120B, #1C120B) right 18px bottom 192px / 14px 3px no-repeat,
+            radial-gradient(ellipse 84px 28px at 84px 38px, rgba(0, 0, 0, 0.32), rgba(0, 0, 0, 0)) right 18px bottom 144px / 168px 72px no-repeat,
+
+            /* pencil: graphite, sharpened wood, painted body, ferrule, eraser, shadow */
+            linear-gradient(to top right, #2F2F2F 50%, rgba(0, 0, 0, 0) 50%) left 230px bottom 52px / 6px 2px no-repeat,
+            linear-gradient(to bottom right, #2F2F2F 50%, rgba(0, 0, 0, 0) 50%) left 230px bottom 50px / 6px 2px no-repeat,
+            linear-gradient(to top right, #EBCB9C 50%, rgba(0, 0, 0, 0) 50%) left 214px bottom 52px / 22px 6px no-repeat,
+            linear-gradient(to bottom right, #CFA46B 50%, rgba(0, 0, 0, 0) 50%) left 214px bottom 46px / 22px 6px no-repeat,
+            linear-gradient(180deg, #F6D261 0 3px, #E5B232 3px 8px, #B88719 8px 12px) left 54px bottom 46px / 160px 12px no-repeat,
+            repeating-linear-gradient(90deg, #EDEDE6 0 2px, #A7A79E 2px 3px) left 44px bottom 46px / 10px 12px no-repeat,
+            linear-gradient(180deg, #EBA3A0 0, #C9706C 100%) left 32px bottom 46px / 12px 12px no-repeat,
+            radial-gradient(ellipse 104px 7px at 104px 10px, rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0)) left 34px bottom 34px / 208px 20px no-repeat,
+
+            /* leather bookmark with a stitched edge, a cord and a tassel */
+            repeating-linear-gradient(90deg, #E2B13C 0 2px, rgba(0, 0, 0, 0) 2px 4px) left 186px bottom 296px / 18px 14px no-repeat,
+            linear-gradient(#C99A3A, #C99A3A) left 166px bottom 302px / 22px 2px no-repeat,
+            radial-gradient(circle at 5px 5px, #E2B13C 0 3.5px, #8E6A1E 4px 4.5px, rgba(0, 0, 0, 0) 5px) left 160px bottom 298px / 10px 10px no-repeat,
+            repeating-linear-gradient(90deg, rgba(236, 200, 150, 0.55) 0 4px, rgba(0, 0, 0, 0) 4px 7px) left 28px bottom 293px / 124px 1px no-repeat,
+            repeating-linear-gradient(90deg, rgba(236, 200, 150, 0.55) 0 4px, rgba(0, 0, 0, 0) 4px 7px) left 28px bottom 313px / 124px 1px no-repeat,
+            linear-gradient(180deg, #8A4B2A 0, #6E3A1F 55%, #55290F 100%) left 22px bottom 288px / 136px 30px no-repeat,
+            radial-gradient(ellipse 72px 10px at 72px 12px, rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0)) left 18px bottom 278px / 150px 24px no-repeat,
+
+            /* an old coffee ring */
+            radial-gradient(circle at 40px 40px, rgba(0, 0, 0, 0) 0 28px, rgba(25, 12, 4, 0.2) 30px 31.5px, rgba(25, 12, 4, 0.07) 33px, rgba(0, 0, 0, 0) 35px) right 140px bottom 70px / 80px 80px no-repeat,
+
+            /* the desk: lamplight from the top left, plank seams, grain, darker towards the bottom */
+            radial-gradient(ellipse 90% 45% at 12% 0%, rgba(255, 196, 120, 0.16), rgba(0, 0, 0, 0) 70%),
+            linear-gradient(180deg, rgba(0, 0, 0, 0) 55%, rgba(0, 0, 0, 0.28)),
+            repeating-linear-gradient(90deg, rgba(0, 0, 0, 0) 0 128px, rgba(20, 10, 4, 0.45) 128px 130px, rgba(255, 210, 160, 0.05) 130px 131px),
+            repeating-linear-gradient(90deg, rgba(255, 220, 180, 0.03) 0 1px, rgba(0, 0, 0, 0) 1px 5px, rgba(0, 0, 0, 0.05) 5px 6px, rgba(0, 0, 0, 0) 6px 11px);
     }
 }
 
