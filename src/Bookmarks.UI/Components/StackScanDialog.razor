@@ -1,0 +1,617 @@
+@* "Scan a stack" (Phase 6e): the camera stays open while you scan book after book. Each ISBN is looked up in the
+   background (one at a time, about one a second, to be kind to Open Library). Then a review step: untick anything,
+   choose a status and (optionally) a shelf, and add them all. ISBNs Open Library doesn't know are handed back to
+   the caller, which opens the editor for each. *@
+@implements IAsyncDisposable
+@implements IBarcodeScanHandler
+@inject IBarcodeScanner Scanner
+@inject IBookLookup Lookup
+@inject ICoverColorService CoverColors
+@inject LibraryService LibraryData
+@inject IAppStatusService AppStatus
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">@(_reviewing ? "Add the stack" : "Scan a stack")</MudText>
+    </TitleContent>
+
+    <DialogContent>
+        @if (!_reviewing)
+        {
+            <div class="bm-stack__scanner">
+                <video @ref="_video" class="bm-stack__video" autoplay muted playsinline></video>
+                @if (_cameraError is null)
+                {
+                    <div class="bm-stack__guide" aria-hidden="true"></div>
+                }
+                @if (_flash is not null)
+                {
+                    <div class="@FlashClass" role="status">@_flash</div>
+                }
+                @if (_torchAvailable && _cameraError is null)
+                {
+                    <button type="button" class="@TorchClass" aria-pressed="@(_torchOn ? "true" : "false")" @onclick="ToggleTorchAsync">
+                        <MudIcon Icon="@(_torchOn ? Icons.Material.Filled.FlashOff : Icons.Material.Filled.FlashOn)" Size="Size.Small" />
+                        <span>@(_torchOn ? "Light off" : "Light on")</span>
+                    </button>
+                }
+                @if (_starting)
+                {
+                    <div class="bm-stack__status">
+                        <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color:#fff" />
+                        <span>Starting the camera…</span>
+                    </div>
+                }
+            </div>
+
+            @if (_cameraError is not null)
+            {
+                <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-2">@_cameraError</MudAlert>
+            }
+            else
+            {
+                <MudText Typo="Typo.body2" Class="mt-2 mud-text-secondary">
+                    Scan each book's barcode in turn; you'll hear a beep for each one. Already scanned books are skipped.
+                </MudText>
+            }
+
+            <div class="bm-stack__type">
+                <MudTextField T="string" @bind-Value="_typed" Label="Or type an ISBN" Variant="Variant.Outlined" Margin="Margin.Dense"
+                              InputMode="InputMode.numeric" OnKeyUp="OnTypedKeyUp" Immediate="true" />
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="AddTyped" Disabled="@string.IsNullOrWhiteSpace(_typed)">Add</MudButton>
+            </div>
+
+            @if (_stack.Count > 0)
+            {
+                <div class="bm-stack__summary">
+                    <MudText Typo="Typo.subtitle2">@ScannedText</MudText>
+                    @if (!AppStatus.IsOnline && _stack.IsLookingUp)
+                    {
+                        <MudText Typo="Typo.caption" Color="Color.Warning">You're offline. Books will be looked up when you're back online.</MudText>
+                    }
+                </div>
+                <ul class="bm-stack__list">
+                    @foreach (var item in _stack.Items.Reverse())
+                    {
+                        <li @key="item.Isbn13" class="bm-stack__row">
+                            <span class="bm-stack__thumb">
+                                @if (item.Result?.CoverUrl is { } cover)
+                                {
+                                    <CoverImage Url="@cover" Size="CoverSize.Small" Class="bm-stack__cover" />
+                                }
+                            </span>
+                            <span class="bm-stack__text">
+                                <span class="bm-stack__title">@RowTitle(item)</span>
+                                <span class="bm-stack__meta">@RowMeta(item)</span>
+                            </span>
+                            @if (item.State is StackItemState.Pending or StackItemState.LookingUp)
+                            {
+                                <MudProgressCircular Indeterminate="@(item.State == StackItemState.LookingUp)" Size="Size.Small" Value="0" />
+                            }
+                            else if (item.State == StackItemState.Failed)
+                            {
+                                <MudIconButton Icon="@Icons.Material.Filled.Refresh" Size="Size.Small" aria-label="Try again" OnClick="() => Retry(item)" />
+                            }
+                            <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" aria-label="Remove from the stack" OnClick="() => Remove(item)" />
+                        </li>
+                    }
+                </ul>
+            }
+        }
+        else
+        {
+            <MudStack Spacing="3">
+                <MudText Typo="Typo.body1">@ReviewIntro</MudText>
+
+                <div class="bm-stack__options">
+                    <MudSelect T="OwnershipStatus" @bind-Value="_status" Label="Status" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true">
+                        @foreach (var (status, label) in LibraryLabels.Statuses)
+                        {
+                            <MudSelectItem Value="status">@label</MudSelectItem>
+                        }
+                    </MudSelect>
+                    @if (LibraryData.Bookcases.Count > 0)
+                    {
+                        <MudSelect T="Guid" Value="_bookcaseId" ValueChanged="OnBookcaseChanged" Label="Put on a shelf" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true">
+                            <MudSelectItem Value="Guid.Empty">No shelf for now</MudSelectItem>
+                            @foreach (var bookcase in LibraryData.Bookcases)
+                            {
+                                <MudSelectItem Value="bookcase.Id">@bookcase.Name</MudSelectItem>
+                            }
+                        </MudSelect>
+                        @if (_bookcaseId != Guid.Empty)
+                        {
+                            <MudSelect T="Guid" @bind-Value="_shelfId" Label="Shelf" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true"
+                                       Disabled="@(Shelves.Count == 0)">
+                                @foreach (var shelf in Shelves)
+                                {
+                                    <MudSelectItem Value="shelf.Id">@LibraryData.ShelfLabel(shelf)</MudSelectItem>
+                                }
+                            </MudSelect>
+                        }
+                    }
+                </div>
+
+                <ul class="bm-stack__list bm-stack__list--review">
+                    @foreach (var item in _stack.Items.Where(i => i.State == StackItemState.Found))
+                    {
+                        <li @key="item.Isbn13" class="bm-stack__row">
+                            <MudCheckBox T="bool" Value="item.Include" ValueChanged="v => item.Include = v" Color="Color.Primary" Dense="true"
+                                         aria-label="@($"Add {item.Result!.Title}")" />
+                            <span class="bm-stack__thumb">
+                                @if (item.Result?.CoverUrl is { } cover)
+                                {
+                                    <CoverImage Url="@cover" Size="CoverSize.Small" Class="bm-stack__cover" />
+                                }
+                            </span>
+                            <span class="bm-stack__text">
+                                <span class="bm-stack__title">@item.Result!.Title</span>
+                                <span class="bm-stack__meta">@RowMeta(item)</span>
+                            </span>
+                        </li>
+                    }
+                </ul>
+
+                @if (_stack.Missing.Count > 0)
+                {
+                    <MudAlert Severity="Severity.Info" Dense="true">
+                        @MissingText
+                    </MudAlert>
+                }
+
+                @if (_adding)
+                {
+                    <MudProgressLinear Color="Color.Primary" Value="@_progress" Max="100" />
+                }
+            </MudStack>
+        }
+    </DialogContent>
+
+    <DialogActions>
+        @if (!_reviewing)
+        {
+            <MudButton OnClick="Cancel">Cancel</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(_stack.Count == 0)" OnClick="ReviewAsync">
+                @ReviewButtonText
+            </MudButton>
+        }
+        else
+        {
+            <MudButton OnClick="BackToScanningAsync" Disabled="_adding">Scan more</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(!CanAdd)" OnClick="AddAllAsync">@AddText</MudButton>
+        }
+    </DialogActions>
+</MudDialog>
+
+@code {
+    /// <summary>What happened: books added (and where), and ISBNs that still need filling in by hand.</summary>
+    public sealed record Outcome(int Added, Guid? ShelfId, OwnershipStatus Status, IReadOnlyList<string> MissingIsbns);
+
+    private static readonly TimeSpan LookupSpacing = TimeSpan.FromSeconds(1);
+
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    public static async Task<Outcome?> OpenAsync(IDialogService dialogs, IBrowserViewportService viewport)
+    {
+        var options = await DialogDefaults.EditorAsync(viewport, MaxWidth.Small);
+        var dialog = await dialogs.ShowAsync<StackScanDialog>(null, new DialogParameters(), options);
+        var result = await dialog.Result;
+        return result is { Canceled: false, Data: Outcome outcome } ? outcome : null;
+    }
+
+    private StackScan _stack = default!;
+    private readonly CancellationTokenSource _cts = new();
+
+    private ElementReference _video;
+    private bool _cameraRunning;
+    private bool _starting = true;
+    private string? _cameraError;
+    private bool _torchAvailable;
+    private bool _torchOn;
+    private string? _flash;
+    private bool _flashIsWarning;
+    private int _flashVersion;
+    private string? _typed;
+
+    private bool _lookupLoopRunning;
+
+    private bool _reviewing;
+    private bool _startCameraAfterRender;
+    private OwnershipStatus _status = OwnershipStatus.Owned;
+    private Guid _bookcaseId;
+    private Guid _shelfId;
+    private bool _adding;
+    private double _progress;
+
+    protected override void OnInitialized()
+    {
+        _stack = new StackScan(LibraryData.HasIsbn);
+        AppStatus.Changed += OnStatusChanged;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender || _startCameraAfterRender)
+        {
+            _startCameraAfterRender = false;
+            await StartCameraAsync();
+        }
+    }
+
+    private async Task StartCameraAsync()
+    {
+        _starting = true;
+        _cameraError = null;
+        StateHasChanged();
+
+        var error = await Scanner.StartAsync(_video, this, continuous: true);
+        _starting = false;
+        if (error is null)
+        {
+            _cameraRunning = true;
+            _torchAvailable = await Scanner.TorchAvailableAsync();
+        }
+        else
+        {
+            _cameraError = CameraMessage(error);
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task StopCameraAsync()
+    {
+        if (_cameraRunning)
+        {
+            _cameraRunning = false;
+            _torchOn = false;
+            await Scanner.StopAsync();
+        }
+    }
+
+    // ---------- Adding to the stack ----------
+
+    public Task OnDetectedAsync(string isbn13) => InvokeAsync(() => AddIsbn(isbn13, fromCamera: true));
+
+    public Task OnNotIsbnAsync() => InvokeAsync(() =>
+    {
+        ShowFlash("That's not an ISBN. Look for the barcode starting 978 or 979.", warning: true);
+        StateHasChanged();
+    });
+
+    private void AddTyped()
+    {
+        if (AddIsbn(_typed, fromCamera: false))
+        {
+            _typed = null;
+        }
+    }
+
+    private void OnTypedKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key is "Enter" or "NumpadEnter")
+        {
+            AddTyped();
+        }
+    }
+
+    /// <summary>Returns true when the input was used (added, or already in the stack).</summary>
+    private bool AddIsbn(string? input, bool fromCamera)
+    {
+        switch (_stack.Add(input, out var item))
+        {
+            case StackAddOutcome.Added:
+                ShowFlash(item!.AlreadyInLibrary ? "Added (already in your library)" : $"Added · {_stack.Count} in the stack", warning: item.AlreadyInLibrary);
+                EnsureLookupLoop();
+                StateHasChanged();
+                return true;
+
+            case StackAddOutcome.AlreadyScanned:
+                ShowFlash("Already scanned", warning: true);
+                StateHasChanged();
+                return true;
+
+            default:
+                if (!fromCamera)
+                {
+                    ShowFlash("That isn't a valid ISBN", warning: true);
+                    StateHasChanged();
+                }
+
+                return false;
+        }
+    }
+
+    private void ShowFlash(string text, bool warning)
+    {
+        _flash = text;
+        _flashIsWarning = warning;
+        var version = ++_flashVersion;
+        _ = HideFlashLaterAsync(version);
+    }
+
+    private async Task HideFlashLaterAsync(int version)
+    {
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(1.8), _cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        if (version == _flashVersion)
+        {
+            _flash = null;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private void Remove(StackItem item)
+    {
+        _stack.Remove(item);
+        StateHasChanged();
+    }
+
+    private void Retry(StackItem item)
+    {
+        StackScan.Retry(item);
+        EnsureLookupLoop();
+    }
+
+    // ---------- Lookups (one at a time, in scan order) ----------
+
+    private void OnStatusChanged()
+    {
+        if (AppStatus.IsOnline)
+        {
+            _ = InvokeAsync(EnsureLookupLoop);
+        }
+
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private void EnsureLookupLoop()
+    {
+        if (!_lookupLoopRunning)
+        {
+            _ = LookupLoopAsync();
+        }
+    }
+
+    private async Task LookupLoopAsync()
+    {
+        _lookupLoopRunning = true;
+        try
+        {
+            while (!_cts.IsCancellationRequested && AppStatus.IsOnline && _stack.StartNextLookup() is { } item)
+            {
+                await InvokeAsync(StateHasChanged);
+                var started = DateTime.UtcNow;
+                try
+                {
+                    StackScan.Complete(item, await Lookup.FindByIsbnAsync(item.Isbn13, _cts.Token));
+                }
+                catch (OperationCanceledException) when (_cts.IsCancellationRequested)
+                {
+                    return;
+                }
+                catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or ArgumentException)
+                {
+                    StackScan.Fail(item);
+                }
+
+                await InvokeAsync(StateHasChanged);
+
+                var wait = LookupSpacing - (DateTime.UtcNow - started);
+                if (wait > TimeSpan.Zero)
+                {
+                    await Task.Delay(wait, _cts.Token);
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Closed.
+        }
+        finally
+        {
+            _lookupLoopRunning = false;
+        }
+    }
+
+    // ---------- Review and add ----------
+
+    private async Task ReviewAsync()
+    {
+        await StopCameraAsync();
+        _reviewing = true;
+    }
+
+    private Task BackToScanningAsync()
+    {
+        _reviewing = false;
+        _startCameraAfterRender = true; // the video element comes back with the next render
+        return Task.CompletedTask;
+    }
+
+    private IReadOnlyList<Shelf> Shelves => LibraryData.ShelvesIn(_bookcaseId);
+
+    private void OnBookcaseChanged(Guid bookcaseId)
+    {
+        _bookcaseId = bookcaseId;
+        _shelfId = Shelves.FirstOrDefault()?.Id ?? Guid.Empty;
+    }
+
+    private bool CanAdd => !_adding && !_stack.IsLookingUp
+        && (_stack.ToAdd.Count > 0 || _stack.Missing.Count > 0)
+        && (_bookcaseId == Guid.Empty || _shelfId != Guid.Empty);
+
+    private async Task AddAllAsync()
+    {
+        if (!CanAdd)
+        {
+            return;
+        }
+
+        _adding = true;
+        _progress = 0;
+        try
+        {
+            var chosen = _stack.ToAdd;
+            var models = new List<BookEditModel>();
+            for (var i = 0; i < chosen.Count; i++)
+            {
+                models.Add(await ModelForAsync(chosen[i].Result!));
+                _progress = 80.0 * (i + 1) / chosen.Count;
+                StateHasChanged();
+            }
+
+            var ids = await LibraryData.AddBooksAsync(models, _cts.Token);
+            Guid? shelfId = _bookcaseId != Guid.Empty && _shelfId != Guid.Empty ? _shelfId : null;
+            if (shelfId is { } shelf && ids.Count > 0)
+            {
+                await LibraryData.PlaceBooksAsync(ids, shelf, _cts.Token);
+            }
+
+            _progress = 100;
+            MudDialog.Close(DialogResult.Ok(new Outcome(ids.Count, shelfId, _status, _stack.Missing.Select(m => m.Isbn13).ToList())));
+        }
+        finally
+        {
+            _adding = false;
+        }
+    }
+
+    /// <summary>The same details the editor would fill in from this lookup, plus the stack's status and the cover's color.</summary>
+    private async Task<BookEditModel> ModelForAsync(BookLookupResult result)
+    {
+        var model = BookEditModel.ForNew();
+        LookupMerge.Apply(model, result, LookupApplyMode.ReplaceAll, isNewBook: true);
+        model.Status = _status;
+
+        if (model.CoverUrl is { } url)
+        {
+            try
+            {
+                using var timeout = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token);
+                timeout.CancelAfter(TimeSpan.FromSeconds(4));
+                model.UseCoverColor(await CoverColors.DominantColorAsync(url, timeout.Token));
+            }
+            catch (OperationCanceledException) when (!_cts.IsCancellationRequested)
+            {
+                // Slow cover: keep the random spine color; "Find covers" can recolor later.
+            }
+        }
+
+        return model;
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    // ---------- Text ----------
+
+    private string ScannedText
+    {
+        get
+        {
+            var text = _stack.Count == 1 ? "1 book scanned" : $"{_stack.Count} books scanned";
+            var waiting = _stack.Items.Count(i => i.State is StackItemState.Pending or StackItemState.LookingUp);
+            return waiting > 0 ? $"{text} · looking up {waiting}…" : text;
+        }
+    }
+
+    private string ReviewButtonText => _stack.Count == 0 ? "Review" : $"Review ({_stack.Count})";
+
+    private string ReviewIntro
+    {
+        get
+        {
+            if (_stack.IsLookingUp)
+            {
+                return "Still looking some up…";
+            }
+
+            var found = _stack.FoundCount;
+            return found switch
+            {
+                0 => "None of these were found on Open Library.",
+                1 => "Found 1 book. Choose how to add it.",
+                _ => $"Found {found} books. Untick any you don't want, and choose how to add them.",
+            };
+        }
+    }
+
+    private string MissingText => _stack.Missing.Count == 1
+        ? "1 ISBN wasn't found on Open Library. After adding, the editor opens so you can fill it in (or skip it)."
+        : $"{_stack.Missing.Count} ISBNs weren't found on Open Library. After adding, the editor opens for each so you can fill them in (or skip them).";
+
+    private string AddText
+    {
+        get
+        {
+            var n = _stack.ToAdd.Count;
+            return n switch
+            {
+                0 => _stack.Missing.Count > 0 ? "Continue" : "Add",
+                1 => "Add 1 book",
+                _ => $"Add {n} books",
+            };
+        }
+    }
+
+    private static string RowTitle(StackItem item) => item.State switch
+    {
+        StackItemState.Found => item.Result!.Title,
+        StackItemState.NotFound => "Not found on Open Library",
+        StackItemState.Failed => "Couldn't look this up",
+        _ => "Looking up…",
+    };
+
+    private static string RowMeta(StackItem item)
+    {
+        var parts = new List<string>();
+        if (item.Result is { Authors.Count: > 0 } result)
+        {
+            parts.Add(string.Join(", ", result.Authors));
+        }
+
+        parts.Add($"ISBN {item.Isbn13}");
+        if (item.AlreadyInLibrary)
+        {
+            parts.Add("already in your library");
+        }
+
+        return string.Join(" · ", parts);
+    }
+
+    private string FlashClass => _flashIsWarning ? "bm-stack__flash bm-stack__flash--warn" : "bm-stack__flash";
+
+    private string TorchClass => _torchOn ? "bm-stack__torch bm-stack__torch--on" : "bm-stack__torch";
+
+    private async Task ToggleTorchAsync()
+    {
+        if (await Scanner.SetTorchAsync(!_torchOn))
+        {
+            _torchOn = !_torchOn;
+        }
+    }
+
+    private static string CameraMessage(string error) => error switch
+    {
+        "denied" => "Camera access was blocked. Allow the camera for this site, or type the ISBNs below.",
+        "nocamera" => "No camera was found. Type the ISBNs below instead.",
+        "inuse" => "The camera is being used by another app. Close it and try again, or type the ISBNs below.",
+        "unsupported" => "This browser can't use the camera here. Type the ISBNs below instead.",
+        "nodecoder" => "The barcode reader couldn't be loaded. If you're offline, connect once so it can download.",
+        _ => "Couldn't start the camera. Type the ISBNs below instead.",
+    };
+
+    public async ValueTask DisposeAsync()
+    {
+        AppStatus.Changed -= OnStatusChanged;
+        _cts.Cancel(); // stops the lookup loop and timers (not disposed: they may still be finishing)
+        await StopCameraAsync();
+    }
+}

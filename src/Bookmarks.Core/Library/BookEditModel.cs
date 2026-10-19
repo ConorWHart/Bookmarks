@@ -115,6 +115,12 @@ public sealed class BookEditModel
 
     public bool FaceOut { get; set; }
 
+    /// <summary>This copy's paper (with the page count, how thick the spine looks); null = automatic.</summary>
+    public PaperThickness? PaperThickness { get; set; }
+
+    /// <summary>This copy's height on the shelf (mm); null = automatic (the book's height, else by format).</summary>
+    public int? HeightOverrideMm { get; set; }
+
     /// <summary>Only used when adding.</summary>
     public InitialReadState ReadState { get; set; }
 
@@ -162,6 +168,8 @@ public sealed class BookEditModel
             TextColor = item.Appearance.TextColor,
             Style = ToChoice(item.Appearance.Style),
             FaceOut = item.Appearance.FaceOut,
+            PaperThickness = item.Appearance.PaperThickness,
+            HeightOverrideMm = item.Appearance.HeightMmOverride,
             _originalRating = item.Rating,
             _originalStars = stars,
         };
@@ -206,6 +214,8 @@ public sealed class BookEditModel
         item.Appearance.TextColor = Clean(TextColor)?.ToUpperInvariant();
         item.Appearance.Style = ToStyle(Style);
         item.Appearance.FaceOut = FaceOut;
+        item.Appearance.PaperThickness = PaperThickness;
+        item.Appearance.HeightMmOverride = HeightOverrideMm is > 0 ? HeightOverrideMm : null;
     }
 
     /// <summary>

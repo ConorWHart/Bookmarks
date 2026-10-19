@@ -26,14 +26,14 @@ public sealed class BrowserBarcodeScanner(IJSRuntime js) : IBarcodeScanner, IAsy
         return _supported.Value;
     }
 
-    public async Task<string?> StartAsync(ElementReference video, IBarcodeScanHandler handler)
+    public async Task<string?> StartAsync(ElementReference video, IBarcodeScanHandler handler, bool continuous = false)
     {
         ArgumentNullException.ThrowIfNull(handler);
         _handler = handler;
         _self ??= DotNetObjectReference.Create(this);
         try
         {
-            return await (await ModuleAsync()).InvokeAsync<string?>("start", video, _self);
+            return await (await ModuleAsync()).InvokeAsync<string?>("start", video, _self, continuous);
         }
         catch (JSException)
         {

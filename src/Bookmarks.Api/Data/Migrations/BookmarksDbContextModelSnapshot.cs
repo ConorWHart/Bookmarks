@@ -321,6 +321,10 @@ namespace Bookmarks.Api.Data.Migrations
                             b1.Property<int?>("HeightMmOverride")
                                 .HasColumnType("int");
 
+                            b1.Property<string>("PaperThickness")
+                                .HasMaxLength(24)
+                                .HasColumnType("nvarchar(24)");
+
                             b1.Property<string>("SpineColor")
                                 .HasMaxLength(9)
                                 .IsUnicode(false)

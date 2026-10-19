@@ -42,3 +42,11 @@
     padding: 18px 16px 4px;
     border-top: 1px solid var(--mud-palette-lines-default);
 }
+
+/* Books view: "Scan a stack" sits above the main "Add new book" button (both fixed, bottom right). */
+.bm-fabs ::deep .bm-fab-scan.mud-fab {
+    position: fixed;
+    right: calc(24px + env(safe-area-inset-right));
+    bottom: calc(24px + 56px + 14px + env(safe-area-inset-bottom));
+    z-index: 1100;
+}

@@ -367,6 +367,32 @@ public sealed class LibraryService(ILocalStore store, IAccountService account)
     /// <summary>Adds a book to the library (not to a shelf: see <see cref="PlaceBooksAsync"/>). Returns the new item's id.</summary>
     public async Task<Guid> AddBookAsync(BookEditModel model, CancellationToken ct = default)
     {
+        var id = await AddBookCoreAsync(model, ct);
+        await ReloadAsync(ct);
+        return id;
+    }
+
+    /// <summary>Adds several books (scan a stack) and reloads once at the end. Returns the new items' ids, in order.</summary>
+    public async Task<IReadOnlyList<Guid>> AddBooksAsync(IEnumerable<BookEditModel> models, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(models);
+
+        var ids = new List<Guid>();
+        foreach (var model in models)
+        {
+            ids.Add(await AddBookCoreAsync(model, ct));
+        }
+
+        await ReloadAsync(ct);
+        return ids;
+    }
+
+    /// <summary>True if the library already has a (live) book with this ISBN-13.</summary>
+    public bool HasIsbn(string isbn13)
+        => _entries.Any(e => string.Equals(e.Book.Isbn13, isbn13, StringComparison.Ordinal));
+
+    private async Task<Guid> AddBookCoreAsync(BookEditModel model, CancellationToken ct)
+    {
         ArgumentNullException.ThrowIfNull(model);
 
         var book = new Book { UserId = CurrentUserId, Source = BookSource.Manual };
@@ -387,7 +413,6 @@ public sealed class LibraryService(ILocalStore store, IAccountService account)
             await store.UpsertAsync(NewSession(item.Id, ReadingOutcome.Finished), ct);
         }
 
-        await ReloadAsync(ct);
         return item.Id;
     }
 

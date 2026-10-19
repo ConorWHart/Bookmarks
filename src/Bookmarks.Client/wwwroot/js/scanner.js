@@ -19,15 +19,28 @@ let zxing = null;
 let canvas = null;
 let lastNotIsbn = 0;
 
+// Stack mode (Phase 6e): keep scanning after each book. A short pause after every read gives time to move to
+// the next book, and the same code isn't reported twice in a row.
+let continuous = false;
+let pausedUntil = 0;
+let lastCode = null;
+let lastCodeAt = 0;
+const ContinuousPauseMs = 1200;
+const SameCodeIgnoreMs = 4000;
+let audio = null;
+
 export function isSupported() {
     return !!(window.isSecureContext && navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
 }
 
 /** Starts the camera into videoElement and scans. Returns null when running, or an error code. */
-export async function start(videoElement, dotnetRef) {
+export async function start(videoElement, dotnetRef, keepScanning) {
     await stop();
     dotnet = dotnetRef;
     video = videoElement;
+    continuous = !!keepScanning;
+    pausedUntil = 0;
+    lastCode = null;
 
     if (!isSupported()) {
         return 'unsupported';
@@ -145,7 +158,7 @@ async function prepareDecoder() {
 }
 
 async function scanFrame() {
-    if (busy || !video || video.readyState < 2 || !video.videoWidth) {
+    if (busy || !video || video.readyState < 2 || !video.videoWidth || Date.now() < pausedUntil) {
         return;
     }
 
@@ -213,13 +226,42 @@ function detectZxing() {
 }
 
 async function report(code) {
-    // Stop scanning before handing over, so the same book isn't reported twice.
-    if (timer) {
+    if (continuous) {
+        const now = Date.now();
+        if (code === lastCode && now - lastCodeAt < SameCodeIgnoreMs) {
+            lastCodeAt = now; // still pointing at the same book
+            return;
+        }
+        lastCode = code;
+        lastCodeAt = now;
+        pausedUntil = now + ContinuousPauseMs;
+        beep();
+    } else if (timer) {
+        // Stop scanning before handing over, so the same book isn't reported twice.
         clearInterval(timer);
         timer = null;
     }
     navigator.vibrate?.(60);
     await dotnet?.invokeMethodAsync('OnDetected', code);
+}
+
+/** A short, quiet beep (stack mode), so you know a book was read without looking at the screen. */
+function beep() {
+    try {
+        audio ??= new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audio.createOscillator();
+        const gain = audio.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = 1320;
+        gain.gain.setValueAtTime(0.0001, audio.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.15, audio.currentTime + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime + 0.12);
+        osc.connect(gain).connect(audio.destination);
+        osc.start();
+        osc.stop(audio.currentTime + 0.13);
+    } catch {
+        // No audio: the vibration and the list are enough.
+    }
 }
 
 function notIsbn() {

@@ -57,6 +57,12 @@ public sealed class SpineAppearance
     public int? HeightMmOverride { get; set; }
 
     public int? ThicknessMmOverride { get; set; }
+
+    /// <summary>
+    /// This copy's paper, chosen by the user; null = automatic (the book's measured thickness when known, else
+    /// standard paper). A chosen paper always uses the page count, even when a measured thickness exists.
+    /// </summary>
+    public PaperThickness? PaperThickness { get; set; }
 }
 
 public sealed class ReadingSession : SyncEntity

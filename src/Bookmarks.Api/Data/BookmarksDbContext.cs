@@ -68,6 +68,7 @@ public sealed class BookmarksDbContext(DbContextOptions<BookmarksDbContext> opti
         configurationBuilder.Properties<BookSource>().HaveConversion<string>().HaveMaxLength(24);
         configurationBuilder.Properties<SpineStyle>().HaveConversion<string>().HaveMaxLength(24);
         configurationBuilder.Properties<PresetKind>().HaveConversion<string>().HaveMaxLength(24);
+        configurationBuilder.Properties<PaperThickness>().HaveConversion<string>().HaveMaxLength(24);
 
         configurationBuilder.Properties<decimal>().HavePrecision(10, 2);
     }

@@ -4,6 +4,7 @@
 @inject IAppStatusService AppStatus
 @inject IDialogService Dialogs
 @inject IBrowserViewportService Viewport
+@inject UserPreferences Prefs
 
 <MudDialog ContentClass="bm-editor-content">
     <TitleContent>
@@ -13,6 +14,11 @@
     <DialogContent>
         <div class="bm-editor">
             <div class="bm-editor__form">
+
+                @if (!string.IsNullOrEmpty(Notice))
+                {
+                    <MudAlert Severity="Severity.Info" Dense="true" Class="mb-2">@Notice</MudAlert>
+                }
 
                 @* ---------- Find on Open Library ---------- *@
                 <BookFinder @ref="_finder" InitialQuery="@_initialQuery" AutoFocus="IsNew" OnFound="ApplyLookupAsync" OnIsbnNotFound="KeepIsbn" OnScanned="UseScannedIsbn" />
@@ -29,8 +35,8 @@
                     </MudAlert>
                 }
 
-                @* ---------- Book ---------- *@
-                <MudText Typo="Typo.subtitle2" Class="bm-editor__section">Book</MudText>
+                @* ---------- Sections: collapsed by default, each remembered on this device ---------- *@
+                <EditorSection Title="Book Details" Summary="@DetailsSummary" Expanded="_detailsOpen" ExpandedChanged="v => SetSectionAsync(DetailsKey, v)">
                 <MudGrid Spacing="2">
                     <MudItem xs="12">
                         <MudTextField T="string" Value="_model.Isbn13" ValueChanged="OnIsbnChangedAsync" Label="ISBN"
@@ -72,42 +78,9 @@
                                       Variant="Variant.Outlined" Margin="Margin.Dense" />
                     </MudItem>
                 </MudGrid>
+                </EditorSection>
 
-                <MudButton Variant="Variant.Text" Size="Size.Small" Class="mt-2"
-                           EndIcon="@(_moreOpen ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
-                           OnClick="() => _moreOpen = !_moreOpen" aria-expanded="@(_moreOpen ? "true" : "false")">
-                    Cover and size
-                </MudButton>
-                @if (_moreOpen)
-                {
-                    <MudGrid Spacing="2" Class="mt-1">
-                        <MudItem xs="12">
-                            <MudTextField T="string" Value="_model.CoverUrl" ValueChanged="OnCoverUrlChangedAsync" Label="Cover image URL"
-                                          Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"
-                                          HelperText="Filled in by Open Library; you can paste a link to another image" />
-                        </MudItem>
-                        <MudItem xs="4">
-                            <MudNumericField T="int?" @bind-Value="_model.HeightMm" Label="Height (mm)" Min="1" HideSpinButtons="true"
-                                             Immediate="true" Variant="Variant.Outlined" Margin="Margin.Dense" />
-                        </MudItem>
-                        <MudItem xs="4">
-                            <MudNumericField T="int?" @bind-Value="_model.WidthMm" Label="Width (mm)" Min="1" HideSpinButtons="true"
-                                             Immediate="true" Variant="Variant.Outlined" Margin="Margin.Dense" />
-                        </MudItem>
-                        <MudItem xs="4">
-                            <MudNumericField T="int?" @bind-Value="_model.ThicknessMm" Label="Thickness (mm)" Min="1" HideSpinButtons="true"
-                                             Immediate="true" Variant="Variant.Outlined" Margin="Margin.Dense" />
-                        </MudItem>
-                        <MudItem xs="12">
-                            <MudText Typo="Typo.caption" Class="mud-text-secondary">
-                                Leave sizes empty to estimate them from the page count and format.
-                            </MudText>
-                        </MudItem>
-                    </MudGrid>
-                }
-
-                @* ---------- Your copy ---------- *@
-                <MudText Typo="Typo.subtitle2" Class="bm-editor__section">Your copy</MudText>
+                <EditorSection Title="Your copy" Summary="@CopySummary" Expanded="_copyOpen" ExpandedChanged="v => SetSectionAsync(CopyKey, v)">
                 <MudGrid Spacing="2">
                     <MudItem xs="6">
                         <MudSelect T="OwnershipStatus" @bind-Value="_model.Status" Label="Status" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true">
@@ -146,42 +119,102 @@
                         <MudSwitch T="bool" @bind-Value="_model.WantToReread" Label="Want to re-read" Color="Color.Primary" />
                     </MudItem>
                 </MudGrid>
+                </EditorSection>
 
                 @* ---------- How it looks on a shelf (placing it on shelves is separate since Phase 6b) ---------- *@
-                <MudText Typo="Typo.subtitle2" Class="bm-editor__section">Look on the shelf</MudText>
-                <MudGrid Spacing="2">
-                    <MudItem xs="12" sm="6">
-                        <MudSelect T="SpineStyleChoice" @bind-Value="_model.Style" Label="Spine style" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true">
-                            <MudSelectItem Value="SpineStyleChoice.Automatic">Automatic (by format)</MudSelectItem>
-                            <MudSelectItem Value="SpineStyleChoice.Classic">Classic</MudSelectItem>
-                            <MudSelectItem Value="SpineStyleChoice.Banded">Banded</MudSelectItem>
-                            <MudSelectItem Value="SpineStyleChoice.Ornate">Ornate</MudSelectItem>
-                            <MudSelectItem Value="SpineStyleChoice.Minimal">Minimal</MudSelectItem>
-                        </MudSelect>
-                    </MudItem>
-                    <MudItem xs="12">
-                        <div class="d-flex align-center gap-2 mb-1">
-                            <MudText Typo="Typo.caption">Spine color @(SpineFollowsCover ? "· from the cover" : "")</MudText>
-                            @if (CanUseCoverColor)
-                            {
-                                <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="UseCoverColorForSpine">
-                                    <span class="bm-editor__swatch" style="@CoverSwatchStyle"></span>Use cover color
-                                </MudButton>
-                            }
+                <EditorSection Title="Look on the shelf" Summary="@LookSummary" Expanded="_lookOpen" ExpandedChanged="v => SetSectionAsync(LookKey, v)">
+                    <div class="bm-look">
+
+                        @* Cover *@
+                        <div class="bm-look__group">
+                            <div class="bm-look__label">Cover</div>
+                            <div class="bm-look__row">
+                                <MudButton Variant="Variant.Outlined" Size="Size.Small" StartIcon="@Icons.Material.Filled.PhotoLibrary"
+                                           OnClick="ChooseCoverAsync" Disabled="@(!CanChooseCover)">@ChooseCoverLabel</MudButton>
+                            </div>
+                            <MudTextField T="string" Value="_model.CoverUrl" ValueChanged="OnCoverUrlChangedAsync" Label="Cover image link"
+                                          Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"
+                                          HelperText="Filled in by Open Library, or paste a link to another image." />
                         </div>
-                        <SpineColorPicker @bind-Value="_model.SpineColor" />
-                    </MudItem>
-                    <MudItem xs="12">
-                        <MudText Typo="Typo.caption" Class="d-block mb-1">
-                            Text color @TextColorNote
-                        </MudText>
-                        <SpineColorPicker @bind-Value="_model.TextColor" Palette="BookEditModel.TextPalette" AllowAutomatic="true"
-                                          Label="Text color" FallbackColor="#FFFFFF" />
-                    </MudItem>
-                    <MudItem xs="12">
-                        <MudSwitch T="bool" @bind-Value="_model.FaceOut" Label="Show the cover by default (each shelf can differ)" Color="Color.Primary" />
-                    </MudItem>
-                </MudGrid>
+
+                        @* Spine *@
+                        <div class="bm-look__group">
+                            <div class="bm-look__label">Spine</div>
+                            <MudSelect T="SpineStyleChoice" @bind-Value="_model.Style" Label="Style" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true">
+                                <MudSelectItem Value="SpineStyleChoice.Automatic">Automatic (by format)</MudSelectItem>
+                                <MudSelectItem Value="SpineStyleChoice.Classic">Classic</MudSelectItem>
+                                <MudSelectItem Value="SpineStyleChoice.Banded">Banded</MudSelectItem>
+                                <MudSelectItem Value="SpineStyleChoice.Ornate">Ornate</MudSelectItem>
+                                <MudSelectItem Value="SpineStyleChoice.Minimal">Minimal</MudSelectItem>
+                            </MudSelect>
+
+                            <div class="bm-look__colors">
+                                <div>
+                                    <div class="bm-look__sub">
+                                        <span>Color @(SpineFollowsCover ? "· from the cover" : "")</span>
+                                        @if (CanUseCoverColor)
+                                        {
+                                            <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="UseCoverColorForSpine">
+                                                <span class="bm-editor__swatch" style="@CoverSwatchStyle"></span>Use cover color
+                                            </MudButton>
+                                        }
+                                    </div>
+                                    <SpineColorPicker @bind-Value="_model.SpineColor" />
+                                </div>
+                                <div>
+                                    <div class="bm-look__sub"><span>Lettering @TextColorNote</span></div>
+                                    <SpineColorPicker @bind-Value="_model.TextColor" Palette="BookEditModel.TextPalette" AllowAutomatic="true"
+                                                      Label="Text color" FallbackColor="#FFFFFF" />
+                                </div>
+                            </div>
+                        </div>
+
+                        @* Size *@
+                        <div class="bm-look__group">
+                            <div class="bm-look__label">Size</div>
+                            <div class="bm-look__pair">
+                                <MudSelect T="string" Value="HeightChoice" ValueChanged="SetHeightChoice" Label="Height" Variant="Variant.Outlined"
+                                           Margin="Margin.Dense" Dense="true" HelperText="@HeightHelperText">
+                                    <MudSelectItem Value="@AutoHeight">@AutoHeightLabel</MudSelectItem>
+                                    @foreach (var size in BookSizes.Common)
+                                    {
+                                        <MudSelectItem Value="@size.Name">@($"{size.Name} · {size.HeightMm} mm")</MudSelectItem>
+                                    }
+                                    <MudSelectItem Value="@CustomHeight">Custom…</MudSelectItem>
+                                </MudSelect>
+                                <MudSelect T="string" Value="PaperChoice" ValueChanged="SetPaperChoice" Label="Page thickness" Variant="Variant.Outlined"
+                                           Margin="Margin.Dense" Dense="true" HelperText="@PaperHelperText">
+                                    <MudSelectItem Value="@AutoPaper">@AutoPaperLabel</MudSelectItem>
+                                    <MudSelectItem Value="@nameof(PaperThickness.VeryThin)">Very thin (Bible paper)</MudSelectItem>
+                                    <MudSelectItem Value="@nameof(PaperThickness.Thin)">Thin (lightweight paper)</MudSelectItem>
+                                    <MudSelectItem Value="@nameof(PaperThickness.Standard)">Standard</MudSelectItem>
+                                    <MudSelectItem Value="@nameof(PaperThickness.Thick)">Thick (illustrated, heavier paper)</MudSelectItem>
+                                    <MudSelectItem Value="@nameof(PaperThickness.VeryThick)">Very thick (art paper, photo books)</MudSelectItem>
+                                </MudSelect>
+                            </div>
+                            @if (_customHeight)
+                            {
+                                <div class="bm-look__pair">
+                                    <MudNumericField T="int?" @bind-Value="_model.HeightOverrideMm" Label="Custom height (mm)" Min="60" Max="600"
+                                                     HideSpinButtons="true" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                                </div>
+                            }
+
+                            <div class="bm-look__sub bm-look__sub--spaced"><span>Measured size (optional)</span></div>
+                            <div class="bm-look__measured">
+                                <MudNumericField T="int?" @bind-Value="_model.HeightMm" Label="Height mm" Min="1" HideSpinButtons="true"
+                                                 Immediate="true" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                                <MudNumericField T="int?" @bind-Value="_model.WidthMm" Label="Width mm" Min="1" HideSpinButtons="true"
+                                                 Immediate="true" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                                <MudNumericField T="int?" @bind-Value="_model.ThicknessMm" Label="Thickness mm" Min="1" HideSpinButtons="true"
+                                                 Immediate="true" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                            </div>
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                From Open Library or a ruler. Automatic uses these; leave them empty to estimate from the format and page count.
+                            </MudText>
+                        </div>
+                    </div>
+                </EditorSection>
             </div>
 
             @* ---------- Live preview ---------- *@
@@ -211,6 +244,14 @@
                 </div>
                 <div class="bm-editor__plank"></div>
                 <MudText Typo="Typo.caption" Align="Align.Center" Class="mt-1">Preview</MudText>
+                @* How it stands on shelves by default; each shelf can still differ (book details drawer). *@
+                <div class="bm-editor__faceout">
+                    <MudToggleGroup T="bool" @bind-Value="_model.FaceOut" Color="Color.Primary" Size="Size.Small" Outlined="true"
+                                    aria-label="Show on shelves by">
+                        <MudToggleItem Value="true" Text="Cover" />
+                        <MudToggleItem Value="false" Text="Spine" />
+                    </MudToggleGroup>
+                </div>
             </div>
         </div>
     </DialogContent>
@@ -231,6 +272,15 @@
     /// <summary>The copy to edit; null adds a new book.</summary>
     [Parameter] public Guid? ItemId { get; set; }
 
+    /// <summary>New book: start with this ISBN filled in (scan a stack, for books Open Library didn't know).</summary>
+    [Parameter] public string? InitialIsbn { get; set; }
+
+    /// <summary>New book: start with this status instead of Owned.</summary>
+    [Parameter] public OwnershipStatus? InitialStatus { get; set; }
+
+    /// <summary>A line shown at the top, e.g. "2 of 3 not found on Open Library".</summary>
+    [Parameter] public string? Notice { get; set; }
+
     private BookEditModel _model = BookEditModel.ForNew();
 
     private LibraryEntry? _entry;
@@ -241,7 +291,6 @@
     private BookLookupResult? _lastLookup;
     private string? _lookupSummary;
     private bool _replaced;
-    private bool _moreOpen;
     private string? _colorPendingFor;
     private BookFinder? _finder;
     private string? _autoLookupIsbn;
@@ -257,6 +306,20 @@
         _entry = ItemId is { } id ? LibraryData.Find(id) : null;
         _model = _entry is not null ? BookEditModel.FromEntry(_entry) : BookEditModel.ForNew();
 
+        if (_entry is null)
+        {
+            if (Isbn.TryNormalize(InitialIsbn, out var scanned))
+            {
+                _model.Isbn13 = scanned;
+                _initialQuery = scanned; // in the search box, to look up again or search by title instead
+            }
+
+            if (InitialStatus is { } status)
+            {
+                _model.Status = status;
+            }
+        }
+
         // Editing: offer a lookup of this book (by ISBN when it has a valid one).
         if (_entry is not null)
         {
@@ -265,7 +328,7 @@
                 : $"{_model.Title} {BookEditModel.SplitList(_model.AuthorsText).FirstOrDefault()}".Trim();
         }
 
-        _moreOpen = _model.HeightMm is not null || _model.WidthMm is not null || _model.ThicknessMm is not null;
+        _customHeight = _model.HeightOverrideMm is not null && BookSizes.WithHeight(_model.HeightOverrideMm) is null;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -371,6 +434,9 @@
         {
             _model.Isbn13 = isbn;
         }
+
+        // Not found: the details have to be typed in, so open that section (just this time; not remembered).
+        _detailsOpen = true;
     }
 
     private async Task OnCoverUrlChangedAsync(string? value)
@@ -478,8 +544,7 @@
 
             if (_entry is not null)
             {
-                // Per-copy size overrides aren't edited here; keep them so the preview matches the shelf.
-                item.Appearance.HeightMmOverride = _entry.Item.Appearance.HeightMmOverride;
+                // A per-copy thickness override isn't edited here; keep it so the preview matches the shelf.
                 item.Appearance.ThicknessMmOverride = _entry.Item.Appearance.ThicknessMmOverride;
             }
 
@@ -487,6 +552,150 @@
             return ShelfLayoutEngine.Flow(new[] { entry }, int.MaxValue)[0].Books[0];
         }
     }
+
+    // ---------- Collapsible sections (remembered per device) ----------
+
+    private const string DetailsKey = "editor.section.details";
+    private const string CopyKey = "editor.section.copy";
+    private const string LookKey = "editor.section.look";
+
+    private bool _detailsOpen;
+    private bool _copyOpen;
+    private bool _lookOpen;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _detailsOpen = await Prefs.GetBoolAsync(DetailsKey) ?? false;
+        _copyOpen = await Prefs.GetBoolAsync(CopyKey) ?? false;
+        _lookOpen = await Prefs.GetBoolAsync(LookKey) ?? false;
+
+        // A book that has to be typed in (not found on Open Library) needs its title: show the details.
+        if (IsNew && !string.IsNullOrEmpty(Notice))
+        {
+            _detailsOpen = true;
+        }
+    }
+
+    private async Task SetSectionAsync(string key, bool open)
+    {
+        switch (key)
+        {
+            case DetailsKey: _detailsOpen = open; break;
+            case CopyKey: _copyOpen = open; break;
+            case LookKey: _lookOpen = open; break;
+        }
+
+        await Prefs.SetBoolAsync(key, open);
+    }
+
+    private string? DetailsSummary
+    {
+        get
+        {
+            var author = BookEditModel.SplitList(_model.AuthorsText).FirstOrDefault();
+            var title = string.IsNullOrWhiteSpace(_model.Title) ? "No title yet" : _model.Title.Trim();
+            return author is null ? title : $"{title} · {author}";
+        }
+    }
+
+    private string CopySummary
+        => $"{LibraryLabels.Statuses.FirstOrDefault(s => s.Status == _model.Status).Label ?? _model.Status.ToString()} · {FormatLabel(_model.Format)}"
+            + (_model.RatingStars > 0 ? $" · {new string('★', _model.RatingStars)}" : "");
+
+    private static string FormatLabel(BookFormat format) => format switch
+    {
+        BookFormat.MassMarketPaperback => "Mass-market paperback",
+        BookFormat.LeatherBound => "Leather-bound",
+        _ => format.ToString(),
+    };
+
+    private string LookSummary
+    {
+        get
+        {
+            var parts = new List<string> { _model.Style == SpineStyleChoice.Automatic ? "Automatic style" : $"{_model.Style} spine" };
+            if (BookSizes.WithHeight(_model.HeightOverrideMm) is { } size)
+            {
+                parts.Add(size.Name);
+            }
+            else if (_model.HeightOverrideMm is > 0)
+            {
+                parts.Add($"{_model.HeightOverrideMm} mm tall");
+            }
+
+            if (_model.PaperThickness is { } paper)
+            {
+                parts.Add(paper switch
+                {
+                    PaperThickness.VeryThin => "very thin paper",
+                    PaperThickness.Thin => "thin paper",
+                    PaperThickness.Thick => "thick paper",
+                    PaperThickness.VeryThick => "very thick paper",
+                    _ => "standard paper",
+                });
+            }
+
+            if (_model.FaceOut)
+            {
+                parts.Add("cover out");
+            }
+
+            return string.Join(" · ", parts);
+        }
+    }
+
+    // ---------- Size on the shelf (Phase 6e) ----------
+
+    private const string AutoHeight = "auto";
+    private const string CustomHeight = "custom";
+    private bool _customHeight;
+
+    /// <summary>The Height list's value: automatic, a common size by name, or custom.</summary>
+    private string HeightChoice => _customHeight
+        ? CustomHeight
+        : _model.HeightOverrideMm is null
+            ? AutoHeight
+            : BookSizes.WithHeight(_model.HeightOverrideMm)?.Name ?? CustomHeight;
+
+    private void SetHeightChoice(string choice)
+    {
+        _customHeight = choice == CustomHeight;
+        if (choice == AutoHeight)
+        {
+            _model.HeightOverrideMm = null;
+        }
+        else if (!_customHeight)
+        {
+            _model.HeightOverrideMm = BookSizes.Common.First(s => s.Name == choice).HeightMm;
+        }
+        else
+        {
+            _model.HeightOverrideMm ??= SpineMetrics.NaturalHeightMm(_model.HeightMm, _model.Format);
+        }
+    }
+
+    private string AutoHeightLabel => $"Automatic · {SpineMetrics.NaturalHeightMm(_model.HeightMm is > 0 ? _model.HeightMm : null, _model.Format)} mm";
+
+    private string HeightHelperText => _model.HeightMm is > 0
+        ? "Automatic uses the height in More details."
+        : "Automatic uses a typical height for the format.";
+
+    private const string AutoPaper = "auto";
+
+    private string PaperChoice => _model.PaperThickness?.ToString() ?? AutoPaper;
+
+    private void SetPaperChoice(string choice)
+        => _model.PaperThickness = Enum.TryParse<PaperThickness>(choice, out var paper) ? paper : null;
+
+    private string AutoPaperLabel => _model.ThicknessMm is > 0
+        ? $"Automatic · measured {_model.ThicknessMm} mm"
+        : "Automatic · standard paper";
+
+    private string PaperHelperText => _model.PaperThickness is null
+        ? _model.ThicknessMm is > 0
+            ? "Uses the measured thickness from More details."
+            : "Estimated from the page count."
+        : "With the page count, sets how thick the spine looks.";
 
     private void Cancel() => MudDialog.Cancel();
 

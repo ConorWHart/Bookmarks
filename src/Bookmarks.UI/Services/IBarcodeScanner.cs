@@ -16,7 +16,11 @@ public interface IBarcodeScanner
     /// Returns null when running, or an error code: <c>denied</c>, <c>nocamera</c>, <c>inuse</c>, <c>unsupported</c>,
     /// <c>nodecoder</c>, <c>unknown</c>.
     /// </summary>
-    Task<string?> StartAsync(ElementReference video, IBarcodeScanHandler handler);
+    /// <remarks>
+    /// With <paramref name="continuous"/> (scan a stack), scanning carries on after each ISBN: a short pause, a beep,
+    /// and the same code isn't reported again while it's still in view.
+    /// </remarks>
+    Task<string?> StartAsync(ElementReference video, IBarcodeScanHandler handler, bool continuous = false);
 
     Task StopAsync();
 
@@ -39,7 +43,8 @@ public sealed class NullBarcodeScanner : IBarcodeScanner
 {
     public Task<bool> IsSupportedAsync() => Task.FromResult(false);
 
-    public Task<string?> StartAsync(ElementReference video, IBarcodeScanHandler handler) => Task.FromResult<string?>("unsupported");
+    public Task<string?> StartAsync(ElementReference video, IBarcodeScanHandler handler, bool continuous = false)
+        => Task.FromResult<string?>("unsupported");
 
     public Task StopAsync() => Task.CompletedTask;
 

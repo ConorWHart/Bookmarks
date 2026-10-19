@@ -1,0 +1,33 @@
+@* A collapsible section of the book editor (header button + content). The editor remembers which are open. *@
+
+<section class="bm-section">
+    <button type="button" class="bm-section__header" aria-expanded="@(Expanded ? "true" : "false")" @onclick="ToggleAsync">
+        <span class="bm-section__title">@Title</span>
+        @if (!Expanded && !string.IsNullOrWhiteSpace(Summary))
+        {
+            <span class="bm-section__summary">@Summary</span>
+        }
+        <MudIcon Icon="@(Expanded ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)" Size="Size.Small" Class="bm-section__chevron" />
+    </button>
+    @if (Expanded)
+    {
+        <div class="bm-section__body">
+            @ChildContent
+        </div>
+    }
+</section>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+
+    /// <summary>One line shown beside the title while collapsed (e.g. the title and author).</summary>
+    [Parameter] public string? Summary { get; set; }
+
+    [Parameter] public bool Expanded { get; set; }
+
+    [Parameter] public EventCallback<bool> ExpandedChanged { get; set; }
+
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private Task ToggleAsync() => ExpandedChanged.InvokeAsync(!Expanded);
+}

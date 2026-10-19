@@ -18,6 +18,47 @@ public class ShelfLayoutTests
     }
 
     [Fact]
+    public void Thicker_paper_makes_a_thicker_spine()
+    {
+        var standard = Entry("Standard", pages: 400);
+        var thick = Entry("Thick", pages: 400);
+        thick.Item.Appearance.PaperThickness = PaperThickness.Thick;
+        var veryThick = Entry("Very thick", pages: 400);
+        veryThick.Item.Appearance.PaperThickness = PaperThickness.VeryThick;
+
+        var thin = Entry("Thin", pages: 400);
+        thin.Item.Appearance.PaperThickness = PaperThickness.Thin;
+        var veryThin = Entry("Very thin", pages: 400);
+        veryThin.Item.Appearance.PaperThickness = PaperThickness.VeryThin;
+
+        Assert.Equal(15, SpineMetrics.ThicknessMm(veryThin));   // 400 × 0.035 + 1
+        Assert.Equal(21, SpineMetrics.ThicknessMm(thin));       // 400 × 0.05 + 1
+        Assert.Equal(27, SpineMetrics.ThicknessMm(standard));   // 400 × 0.065 + 1
+        Assert.Equal(37, SpineMetrics.ThicknessMm(thick));      // 400 × 0.09 + 1
+        Assert.Equal(49, SpineMetrics.ThicknessMm(veryThick));  // 400 × 0.12 + 1
+    }
+
+    [Fact]
+    public void Automatic_paper_uses_a_measured_thickness_but_a_chosen_paper_overrides_it()
+    {
+        var entry = Entry("Measured", pages: 400);
+        entry.Book.ThicknessMm = 22;
+        Assert.Equal(22, SpineMetrics.ThicknessMm(entry)); // automatic
+
+        entry.Item.Appearance.PaperThickness = PaperThickness.Thick;
+        Assert.Equal(37, SpineMetrics.ThicknessMm(entry)); // chosen: page count × thick paper
+    }
+
+    [Fact]
+    public void A_chosen_height_wins_over_the_format()
+    {
+        var entry = Entry("Atlas", format: BookFormat.Hardcover);
+        entry.Item.Appearance.HeightMmOverride = BookSizes.Common.Single(s => s.Name == "Quarto").HeightMm;
+
+        Assert.Equal(305, SpineMetrics.HeightMm(entry));
+    }
+
+    [Fact]
     public void Height_falls_back_to_format_defaults()
     {
         Assert.Equal(240, SpineMetrics.HeightMm(Entry("HC", format: BookFormat.Hardcover)));

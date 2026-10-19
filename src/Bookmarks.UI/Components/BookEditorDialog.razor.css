@@ -106,3 +106,74 @@
         min-height: 150px;
     }
 }
+
+/* ---------- "Look on the shelf": three tidy groups (cover, spine, size) ---------- */
+.bm-look {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.bm-look__group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px 14px 14px;
+    border: 1px solid var(--mud-palette-lines-default);
+    border-radius: 10px;
+}
+
+/* Group name: small, quiet, above the controls. */
+.bm-look__label {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--mud-palette-text-primary);
+}
+
+.bm-look__row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 16px;
+}
+
+.bm-look__sub {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 28px;
+    margin-bottom: 4px;
+    font-size: 0.75rem;
+    color: var(--mud-palette-text-secondary);
+}
+
+.bm-look__sub--spaced {
+    margin: 4px 0 0;
+}
+
+/* Spine color and lettering color side by side when there's room. */
+.bm-look__colors {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px 20px;
+}
+
+/* Two selects per row (height, page thickness); one per row on phones. */
+.bm-look__pair {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 10px;
+}
+
+.bm-look__measured {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+}
+
+/* Cover / Spine toggle under the preview. */
+.bm-editor__faceout {
+    display: flex;
+    justify-content: center;
+    margin-top: 8px;
+}

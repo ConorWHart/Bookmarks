@@ -34,8 +34,12 @@
                     Start your library by adding the first book you own, have read or want to read.
                     It's saved on this device and works offline.
                 </MudText>
-                <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Large" StartIcon="@Icons.Material.Filled.Add"
-                           OnClick="() => OpenEditorAsync(null)" Disabled="_busy">Add your first book</MudButton>
+                <MudStack Row="true" Spacing="2" Wrap="Wrap.Wrap" Justify="Justify.Center">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Large" StartIcon="@Icons.Material.Filled.Add"
+                               OnClick="() => OpenEditorAsync(null)" Disabled="_busy">Add your first book</MudButton>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Large" StartIcon="@Icons.Material.Filled.DocumentScanner"
+                               OnClick="ScanStackAsync" Disabled="_busy">Scan a stack</MudButton>
+                </MudStack>
 
                 @if (Accounts.IsSignInSupported && Accounts.Current.IsGuest)
                 {
@@ -294,8 +298,12 @@
 {
     @if (IsBooks)
     {
-        <MudFab Class="bm-fab" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" Label="Add new book"
-                OnClick="() => OpenEditorAsync(null)" aria-label="Add a new book to your library" />
+        <div class="bm-fabs">
+            <MudFab Class="bm-fab-scan" Color="Color.Primary" Size="Size.Medium" StartIcon="@Icons.Material.Filled.DocumentScanner" Label="Scan a stack"
+                    OnClick="ScanStackAsync" aria-label="Scan several books' barcodes in a row" />
+            <MudFab Class="bm-fab" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" Label="Add new book"
+                    OnClick="() => OpenEditorAsync(null)" aria-label="Add a new book to your library" />
+        </div>
     }
     else
     {
@@ -510,6 +518,58 @@
 
     private async Task AddBooksToShelfAsync() => await ShelfPickerDialog.OpenAsync(Dialogs, Viewport);
 
+    /// <summary>
+    /// Scan a stack (Phase 6e). Afterwards, the editor opens for each ISBN Open Library didn't know, with the ISBN
+    /// and the stack's status filled in; saved ones go on the stack's shelf too. Cancelling one skips it.
+    /// </summary>
+    private async Task ScanStackAsync()
+    {
+        if (await StackScanDialog.OpenAsync(Dialogs, Viewport) is not { } outcome)
+        {
+            return;
+        }
+
+        var where = outcome.ShelfId is { } shelfId && LibraryData.FindShelf(shelfId) is { } shelf
+            ? $" to {LibraryData.FindBookcase(shelf.BookcaseId)?.Name} › {LibraryData.ShelfLabel(shelf)}"
+            : "";
+        if (outcome.Added > 0)
+        {
+            Snackbar.Add(outcome.Added == 1 ? $"Added 1 book{where}." : $"Added {outcome.Added} books{where}.", Severity.Success);
+        }
+
+        var missing = outcome.MissingIsbns;
+        var filled = 0;
+        for (var i = 0; i < missing.Count; i++)
+        {
+            var parameters = new DialogParameters
+            {
+                { nameof(BookEditorDialog.InitialIsbn), missing[i] },
+                { nameof(BookEditorDialog.InitialStatus), outcome.Status },
+                {
+                    nameof(BookEditorDialog.Notice),
+                    missing.Count == 1
+                        ? "Open Library didn't find this ISBN. Fill in the title and author, or cancel to skip it."
+                        : $"Not found on Open Library ({i + 1} of {missing.Count}). Fill in the title and author, or cancel to skip it."
+                },
+            };
+            var options = await DialogDefaults.EditorAsync(Viewport);
+            var dialog = await Dialogs.ShowAsync<BookEditorDialog>(parameters, options);
+            if (await dialog.Result is { Canceled: false, Data: Guid id })
+            {
+                filled++;
+                if (outcome.ShelfId is { } shelfId2)
+                {
+                    await LibraryData.PlaceBooksAsync([id], shelfId2);
+                }
+            }
+        }
+
+        if (missing.Count > 0 && filled > 0)
+        {
+            Snackbar.Add(filled == 1 ? "Added 1 more book by hand." : $"Added {filled} more books by hand.", Severity.Success);
+        }
+    }
+
     private Task PutNewBookOnShelfAsync(Guid itemId)
         => InvokeAsync(async () => await ShelfPickerDialog.OpenAsync(Dialogs, Viewport, [itemId]));
 
@@ -529,6 +589,7 @@
         {
             o.Action = "Undo";
             o.ActionColor = Color.Inherit;
+            o.VisibleStateDuration = 5000; // 5 s; MudBlazor pauses the timer while the pointer is over it
             o.OnClick = _ => LibraryData.RestoreBookAsync(entry.Id);
         });
     }
