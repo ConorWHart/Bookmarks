@@ -36,6 +36,13 @@
     border-top: 1px solid var(--mud-palette-lines-default);
 }
 
+/* The account options' own panel (below the empty library): no divider, it's a separate card. */
+.bm-empty-account--panel {
+    margin-top: 0;
+    padding: 0;
+    border-top: none;
+}
+
 /* Books view: "Scan a stack" sits above the main "Add new book" button (both fixed, bottom right). */
 .bm-fabs ::deep .bm-fab-scan.mud-fab {
     position: fixed;

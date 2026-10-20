@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using Bookmarks.Shared.Api;
+using Bookmarks.Shared.Backup;
 using Bookmarks.Shared.Domain;
 using Bookmarks.Shared.Sync;
 
@@ -34,6 +35,7 @@ namespace Bookmarks.Shared.Serialization;
 [JsonSerializable(typeof(List<ShelfPlacement>), TypeInfoPropertyName = "ShelfPlacementList")]
 [JsonSerializable(typeof(Preset))]
 [JsonSerializable(typeof(List<Preset>), TypeInfoPropertyName = "PresetList")]
+[JsonSerializable(typeof(LibraryBackup))]
 [JsonSerializable(typeof(MeResponse))]
 [JsonSerializable(typeof(CreateSessionRequest))]
 [JsonSerializable(typeof(SessionResponse))]

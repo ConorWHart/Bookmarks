@@ -47,6 +47,23 @@ public sealed class InMemoryLocalStore : ILocalStore
         return Task.CompletedTask;
     }
 
+    public Task UpsertManyAsync<T>(IReadOnlyCollection<T> entities, CancellationToken ct = default)
+        where T : SyncEntity
+    {
+        ArgumentNullException.ThrowIfNull(entities);
+        var type = SyncEntityTypes.Of(typeof(T));
+        lock (_sync)
+        {
+            foreach (var entity in entities)
+            {
+                Table(typeof(T))[entity.Id] = entity;
+                _outbox[(type.Name, entity.Id)] = NewStamp();
+            }
+        }
+
+        return Task.CompletedTask;
+    }
+
     /// <summary>
     /// Stores a record without queuing it, as if it had been there before sync existed (e.g. a library moved in from
     /// guest mode during Phase 3). For tests of the first sync.

@@ -1,0 +1,85 @@
+@* Restore from a backup: shows what's in the file and asks Merge or Replace. Closes with the chosen RestoreMode. *@
+@using Bookmarks.Core.Transfer
+@using System.Globalization
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">Restore from backup</MudText>
+    </TitleContent>
+
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudText Typo="Typo.body2">
+                Backup from <strong>@ExportedText</strong>: @Contents.
+            </MudText>
+
+            @if (!Summary.SameOwner)
+            {
+                <MudAlert Severity="Severity.Info" Dense="true" Variant="Variant.Text">
+                    This backup comes from another account, or from this device while signed out. Its books are added
+                    as new copies, so restoring it twice would add them twice.
+                </MudAlert>
+            }
+
+            <div>
+                <MudToggleGroup T="RestoreMode" @bind-Value="_mode" Color="Color.Primary" Size="Size.Small">
+                    <MudToggleItem Value="RestoreMode.Merge" Text="Merge" />
+                    <MudToggleItem Value="RestoreMode.Replace" Text="Replace" />
+                </MudToggleGroup>
+            </div>
+
+            <MudText Typo="Typo.body2">
+                @(_mode == RestoreMode.Merge
+                    ? "Adds anything missing from your library. Where a book is in both, the more recently changed version is kept. Nothing is removed."
+                    : "Makes your library exactly the backup: books, bookcases, reads and notes that aren't in the backup are removed, and the backup's versions replace yours on all your devices.")
+            </MudText>
+
+            @if (_mode == RestoreMode.Replace)
+            {
+                <MudAlert Severity="Severity.Warning" Dense="true" Variant="Variant.Text">
+                    Anything added since this backup was made will be removed. Consider downloading a backup of your
+                    current library first.
+                </MudAlert>
+            }
+        </MudStack>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton OnClick="() => MudDialog.Cancel()">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="@(_mode == RestoreMode.Replace ? Color.Error : Color.Primary)"
+                   OnClick="() => MudDialog.Close(DialogResult.Ok(_mode))">
+            @(_mode == RestoreMode.Replace ? "Replace my library" : "Merge into my library")
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter, EditorRequired] public BackupSummary Summary { get; set; } = default!;
+
+    private RestoreMode _mode = RestoreMode.Merge;
+
+    private string ExportedText => Summary.ExportedAt.ToLocalTime().ToString("d MMMM yyyy, HH:mm", CultureInfo.CurrentCulture);
+
+    private string Contents
+    {
+        get
+        {
+            var parts = new List<string> { Count(Summary.Books, "book"), Count(Summary.Bookcases, "bookcase") };
+            if (Summary.ReadingSessions > 0)
+            {
+                parts.Add(Count(Summary.ReadingSessions, "read"));
+            }
+
+            if (Summary.Notes > 0)
+            {
+                parts.Add(Count(Summary.Notes, "note"));
+            }
+
+            return string.Join(", ", parts);
+        }
+    }
+
+    private static string Count(int n, string noun) => n == 1 ? $"1 {noun}" : $"{n} {noun}s";
+}

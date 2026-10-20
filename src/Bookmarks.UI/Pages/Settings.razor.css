@@ -52,3 +52,12 @@
         margin-bottom: 10px;
     }
 }
+
+/* The Your data wrapper is focused to scroll it into view; no focus ring on a whole section. */
+.bm-settings__anchor:focus {
+    outline: none;
+}
+
+.bm-settings__anchor {
+    scroll-margin-top: 64px; /* clear the sticky app bar */
+}

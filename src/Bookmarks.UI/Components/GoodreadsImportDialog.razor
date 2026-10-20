@@ -1,0 +1,109 @@
+@* Import from Goodreads: preview counts, choose where to-read books go, import. Closes with the GoodreadsImportPlan that was applied. *@
+@using Bookmarks.Core.Transfer
+@inject LibraryService LibraryData
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">Import from Goodreads</MudText>
+    </TitleContent>
+
+    <DialogContent>
+        @if (_preview is null)
+        {
+            <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+        }
+        else
+        {
+            <MudStack Spacing="3">
+                <MudText Typo="Typo.body2">
+                    @Books(_preview.Rows) in the file: @_preview.Read read, @_preview.CurrentlyReading currently reading,
+                    @_preview.ToRead to read.
+                </MudText>
+
+                <ul class="bm-gr-import__summary">
+                    <li><strong>@Books(_preview.NewBooks)</strong> will be added.</li>
+                    @if (_preview.ExistingUpdated > 0)
+                    {
+                        <li>@AlreadyText(_preview.ExistingUpdated) and will get the ratings, reads or notes they're missing.</li>
+                    }
+                    @if (_preview.ExistingUnchanged > 0)
+                    {
+                        <li>@AlreadyText(_preview.ExistingUnchanged) with nothing new, so they're left as they are.</li>
+                    }
+                </ul>
+
+                @if (_preview.ToRead > 0)
+                {
+                    <div>
+                        <MudText Typo="Typo.subtitle2" Class="mb-2">Books on your “Want to read” shelf</MudText>
+                        <MudToggleGroup T="OwnershipStatus" @bind-Value="_toReadStatus" Color="Color.Primary" Size="Size.Small">
+                            <MudToggleItem Value="OwnershipStatus.Wishlist" Text="Add to wishlist" />
+                            <MudToggleItem Value="OwnershipStatus.Owned" Text="I own them" />
+                        </MudToggleGroup>
+                        <MudText Typo="Typo.caption" Class="d-block mt-1 mud-text-secondary">
+                            Books Goodreads lists as owned are always added as owned. Read and currently-reading books are added as owned.
+                        </MudText>
+                    </div>
+                }
+
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                    Goodreads exports have no covers. After importing you can fill them in with Find covers.
+                </MudText>
+            </MudStack>
+        }
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Disabled="@_importing" OnClick="() => MudDialog.Cancel()">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="ImportAsync"
+                   Disabled="@(_preview is null || _importing || (_preview.NewBooks == 0 && _preview.ExistingUpdated == 0))">
+            @(_importing ? "Importing…" : "Import")
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter, EditorRequired] public IReadOnlyList<GoodreadsBook> Rows { get; set; } = [];
+
+    private GoodreadsImportPlan? _preview;
+    private OwnershipStatus _toReadStatus = OwnershipStatus.Wishlist;
+    private bool _importing;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            await LibraryData.EnsureLoadedAsync();
+            _preview = await LibraryData.PlanGoodreadsImportAsync(Rows, _toReadStatus);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            Snackbar.Add("Couldn't read your library to compare with the file.", Severity.Error);
+            MudDialog.Cancel();
+        }
+    }
+
+    private async Task ImportAsync()
+    {
+        _importing = true;
+        try
+        {
+            // Planned again with the chosen status, against the library as it is now.
+            var plan = await LibraryData.PlanGoodreadsImportAsync(Rows, _toReadStatus);
+            await LibraryData.ImportGoodreadsAsync(plan);
+            MudDialog.Close(DialogResult.Ok(plan));
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _importing = false;
+            Snackbar.Add("The import didn't finish. Books already imported stay; importing again won't add them twice.", Severity.Error);
+        }
+    }
+
+    private static string Books(int n) => n == 1 ? "1 book" : $"{n} books";
+
+    private static string AlreadyText(int n) => n == 1 ? "1 book is already in your library" : $"{n} books are already in your library";
+}

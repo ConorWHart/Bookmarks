@@ -24,6 +24,13 @@ public interface ILocalStore
     Task UpsertAsync<T>(T entity, CancellationToken ct = default)
         where T : SyncEntity;
 
+    /// <summary>
+    /// Saves many local edits of one type at once (restore, import), in one transaction, each queued for sync like
+    /// <see cref="UpsertAsync{T}"/>.
+    /// </summary>
+    Task UpsertManyAsync<T>(IReadOnlyCollection<T> entities, CancellationToken ct = default)
+        where T : SyncEntity;
+
     /// <summary>Every book, including tombstones (a deleted item's book stays for Undo). Same as <c>GetAllAsync&lt;Book&gt;(true)</c>.</summary>
     Task<IReadOnlyList<Book>> GetBooksAsync(CancellationToken ct = default);
 

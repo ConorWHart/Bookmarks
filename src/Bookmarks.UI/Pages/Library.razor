@@ -41,28 +41,45 @@
                                OnClick="ScanStackAsync" Disabled="_busy">Scan a stack</MudButton>
                 </MudStack>
 
-                @if (Accounts.IsSignInSupported && Accounts.Current.IsGuest)
+                @if (Accounts.Current.IsGuest)
                 {
                     <div class="bm-empty-account">
-                        <MudText Typo="Typo.subtitle1" Align="Align.Center">Have a Bookmarks account, or want one?</MudText>
+                        <MudText Typo="Typo.subtitle1" Align="Align.Center">Already have a library somewhere?</MudText>
                         <MudText Typo="Typo.body2" Align="Align.Center">
-                            An account backs up your library and keeps it in sync across your phone, tablet and computer.
-                            Sign in to bring back a library you've already started.
+                            Import a Bookmarks backup file saved from this or another device, or bring in your books,
+                            ratings and reading history from a Goodreads export.
                         </MudText>
-                        <MudStack Row="true" Spacing="2" Wrap="Wrap.Wrap" Justify="Justify.Center">
-                            <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.PersonAdd"
-                                       OnClick="CreateAccountAsync" Disabled="@(_busy || !AppStatus.IsOnline)">Create an account</MudButton>
-                            <MudButton Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Login"
-                                       OnClick="SignInAsync" Disabled="@(_busy || !AppStatus.IsOnline)">Sign in</MudButton>
-                        </MudStack>
-                        @if (!AppStatus.IsOnline)
-                        {
-                            <MudText Typo="Typo.caption" Align="Align.Center">You're offline. You can sign in when you're back online.</MudText>
-                        }
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.FileUpload"
+                                   Href="settings?section=data" Disabled="_busy">Import a library</MudButton>
                     </div>
                 }
+
             </MudStack>
         </MudPaper>
+
+        @* Account options in their own panel, same width, just below. *@
+        @if (Accounts.IsSignInSupported && Accounts.Current.IsGuest)
+        {
+            <MudPaper Elevation="0" Class="px-8 py-6 mt-3 mx-auto bm-panel" Style="max-width:560px">
+                <div class="bm-empty-account bm-empty-account--panel">
+                    <MudText Typo="Typo.subtitle1" Align="Align.Center">Have a Bookmarks account, or want one?</MudText>
+                    <MudText Typo="Typo.body2" Align="Align.Center">
+                        An account backs up your library and keeps it in sync across your phone, tablet and computer.
+                        Sign in to bring back a library you've already started.
+                    </MudText>
+                    <MudStack Row="true" Spacing="2" Wrap="Wrap.Wrap" Justify="Justify.Center">
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.PersonAdd"
+                                   OnClick="CreateAccountAsync" Disabled="@(_busy || !AppStatus.IsOnline)">Create an account</MudButton>
+                        <MudButton Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Login"
+                                   OnClick="SignInAsync" Disabled="@(_busy || !AppStatus.IsOnline)">Sign in</MudButton>
+                    </MudStack>
+                    @if (!AppStatus.IsOnline)
+                    {
+                        <MudText Typo="Typo.caption" Align="Align.Center">You're offline. You can sign in when you're back online.</MudText>
+                    }
+                </div>
+            </MudPaper>
+        }
     }
     else
     {

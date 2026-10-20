@@ -29,6 +29,7 @@ public static class ServiceCollectionExtensions
         services.TryAddScoped<IDeviceStorage, NullDeviceStorage>();
         services.TryAddScoped<IAccountDeletion, NullAccountDeletion>();
         services.TryAddScoped<IServerInfo, NullServerInfo>();
+        services.TryAddScoped<IFileSaver, NullFileSaver>();
 
         // Book lookup (Phase 5): Open Library straight from the app; it allows CORS, so no server is involved.
         services.TryAddSingleton<IBookLookup>(_ => new OpenLibraryLookup(new HttpClient

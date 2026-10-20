@@ -84,6 +84,9 @@ builder.Services.AddScoped<IAccountDeletion, BrowserAccountDeletion>();
 builder.Services.AddScoped<IServerInfo>(sp => sp.GetRequiredService<BookmarksApiClient>());
 builder.Services.AddScoped<IDeviceStorage, BrowserDeviceStorage>();
 
+// Backups and exports (Phase 7b): browser downloads (js/files.js).
+builder.Services.AddScoped<IFileSaver, BrowserFileSaver>();
+
 builder.Services.AddBookmarksUI();
 
 var host = builder.Build();

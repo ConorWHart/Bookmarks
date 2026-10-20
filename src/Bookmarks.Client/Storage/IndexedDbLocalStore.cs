@@ -95,6 +95,27 @@ public sealed class IndexedDbLocalStore(IJSRuntime js, ILogger<IndexedDbLocalSto
         }
     }
 
+    public async Task UpsertManyAsync<T>(IReadOnlyCollection<T> entities, CancellationToken ct = default)
+        where T : SyncEntity
+    {
+        ArgumentNullException.ThrowIfNull(entities);
+        if (entities.Count == 0)
+        {
+            return;
+        }
+
+        var table = TableFor(typeof(T));
+        var json = JsonSerializer.Serialize(entities as List<T> ?? entities.ToList(), (JsonTypeInfo<List<T>>)table.List);
+        var entityType = QueuesChanges ? SyncEntityTypes.Of(typeof(T)).Name : null;
+        var module = await GetModuleAsync(ct);
+        await module.InvokeVoidAsync("putMany", ct, new object?[] { table.Name, json, entityType });
+
+        if (entityType is not null)
+        {
+            LocalChanged?.Invoke();
+        }
+    }
+
     public Task<IReadOnlyList<Book>> GetBooksAsync(CancellationToken ct = default)
         => GetAllAsync<Book>(includeDeleted: true, ct);
 

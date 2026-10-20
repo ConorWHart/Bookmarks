@@ -1,6 +1,8 @@
 using Bookmarks.Core.Library;
 using Bookmarks.Core.Ranking;
 using Bookmarks.Core.Storage;
+using Bookmarks.Core.Transfer;
+using Bookmarks.Shared.Backup;
 using Bookmarks.Shared.Domain;
 using Bookmarks.Shared.Sync;
 
@@ -727,6 +729,39 @@ public sealed class LibraryService(ILocalStore store, IAccountService account)
 
     private static string? LastRank(IEnumerable<string?> ranks)
         => ranks.Where(r => !string.IsNullOrEmpty(r)).Max(StringComparer.Ordinal);
+
+    // ---------- Backup, restore, Goodreads (Phase 7b) ----------
+
+    /// <summary>The whole live library as backup JSON, with its file name for today.</summary>
+    public async Task<(string FileName, string Json)> CreateBackupAsync(string? appVersion, CancellationToken ct = default)
+    {
+        var backup = await LibraryBackups.CreateAsync(store, CurrentUserId, DateTimeOffset.UtcNow, appVersion, ct);
+        return (LibraryBackups.FileName(Today), LibraryBackups.ToJson(backup));
+    }
+
+    /// <summary>Restores a parsed backup into this library (see <see cref="LibraryBackups.RestoreAsync"/>), then reloads.</summary>
+    public async Task<RestoreResult> RestoreBackupAsync(LibraryBackup backup, RestoreMode mode, CancellationToken ct = default)
+    {
+        var result = await LibraryBackups.RestoreAsync(store, backup, mode, CurrentUserId, DateTimeOffset.UtcNow, ct);
+        await ReloadAsync(ct);
+        return result;
+    }
+
+    /// <summary>The live library as a Goodreads CSV, with its file name for today.</summary>
+    public async Task<(string FileName, string Csv)> ExportGoodreadsAsync(CancellationToken ct = default)
+        => (GoodreadsCsv.FileName(Today), await GoodreadsCsv.ExportAsync(store, ct));
+
+    /// <summary>What importing these rows would do; nothing is written.</summary>
+    public Task<GoodreadsImportPlan> PlanGoodreadsImportAsync(
+        IReadOnlyList<GoodreadsBook> rows, OwnershipStatus toReadStatus, CancellationToken ct = default)
+        => GoodreadsImport.PlanAsync(store, rows, toReadStatus, CurrentUserId, DateTimeOffset.UtcNow, ct);
+
+    /// <summary>Writes a plan from <see cref="PlanGoodreadsImportAsync"/>, then reloads.</summary>
+    public async Task ImportGoodreadsAsync(GoodreadsImportPlan plan, CancellationToken ct = default)
+    {
+        await GoodreadsImport.ApplyAsync(store, plan, ct);
+        await ReloadAsync(ct);
+    }
 
     // ---------- Helpers ----------
 

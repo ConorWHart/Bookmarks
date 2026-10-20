@@ -9,6 +9,12 @@
 @inject IDeviceStorage Device
 @inject IServerInfo Server
 @inject ISnackbar Snackbar
+@inject LibraryService LibraryData
+@inject IFileSaver Files
+@inject IDialogService Dialogs
+@inject IBrowserViewportService Viewport
+@using Bookmarks.Core.Transfer
+@using Bookmarks.Shared.Backup
 
 <PageTitle>Settings · Bookmarks</PageTitle>
 
@@ -104,6 +110,52 @@
             }
         </MudPaper>
 
+        @* ---------- Your data (Phase 7b) ---------- *@
+        @if (Files.IsSupported)
+        {
+            @* Focusable so /settings?section=data (the empty library's "Import a library" button) can scroll here. *@
+            <div id="your-data" class="bm-settings__anchor" tabindex="-1" @ref="_yourDataSection">
+            <MudPaper Outlined="true" Class="pa-4">
+                <MudText Typo="Typo.h6" Class="mb-3">Your data</MudText>
+
+                <MudText Typo="Typo.subtitle2">Backup</MudText>
+                <MudText Typo="Typo.body2" Class="mb-3">
+                    One file with your whole library: books, reads, notes, bookcases and shelves. Restore it on any device,
+                    signed in or not.
+                </MudText>
+                <div class="bm-settings__actions">
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Download"
+                               Disabled="@DataDisabled" OnClick="DownloadBackupAsync">Download backup</MudButton>
+                    <MudButton HtmlTag="label" for="bm-restore-file" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Restore"
+                               Disabled="@DataDisabled">Restore from backup…</MudButton>
+                </div>
+                <InputFile @key="RestoreInputKey" id="bm-restore-file" accept=".json,application/json" style="display:none"
+                           disabled="@DataDisabled" OnChange="OnBackupChosenAsync" />
+
+                <MudDivider Class="my-4" />
+
+                <MudText Typo="Typo.subtitle2">Goodreads</MudText>
+                <MudText Typo="Typo.body2" Class="mb-3">
+                    Import the file Goodreads exports (My Books → Import and export → Export Library), or export your library
+                    in the same format for Goodreads or a spreadsheet.
+                </MudText>
+                <div class="bm-settings__actions">
+                    <MudButton HtmlTag="label" for="bm-goodreads-file" Variant="Variant.Outlined" Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.FileUpload" Disabled="@DataDisabled">Import from Goodreads…</MudButton>
+                    <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.FileDownload"
+                               Disabled="@DataDisabled" OnClick="ExportGoodreadsAsync">Export for Goodreads</MudButton>
+                </div>
+                <InputFile @key="GoodreadsInputKey" id="bm-goodreads-file" accept=".csv,text/csv" style="display:none"
+                           disabled="@DataDisabled" OnChange="OnGoodreadsChosenAsync" />
+
+                @if (_dataBusy)
+                {
+                    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mt-4" />
+                }
+            </MudPaper>
+            </div>
+        }
+
         @* ---------- This device ---------- *@
         @if (Device.IsSupported)
         {
@@ -177,6 +229,12 @@
 </MudContainer>
 
 @code {
+    /// <summary>"data" scrolls to Your data (from the empty library).</summary>
+    [SupplyParameterFromQuery(Name = "section")]
+    public string? Section { get; set; }
+
+    private ElementReference _yourDataSection;
+
     private DeviceStorageInfo? _storage;
     private bool _requesting;
     private string _appVersion = "";
@@ -194,6 +252,22 @@
         Actions.Changed += OnChanged;
     }
 
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && string.Equals(Section, "data", StringComparison.OrdinalIgnoreCase) && Files.IsSupported)
+        {
+            try
+            {
+                // Focusing scrolls the section into view; no JS needed.
+                await _yourDataSection.FocusAsync(preventScroll: false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                // Not worth an error: the user can scroll.
+            }
+        }
+    }
+
     protected override async Task OnInitializedAsync()
     {
         await Task.WhenAll(LoadStorageAsync(), LoadApiVersionAsync());
@@ -209,6 +283,213 @@
     }
 
     private void OnChanged() => _ = InvokeAsync(StateHasChanged);
+
+    // ---------- Your data ----------
+
+    private const long MaxBackupBytes = 100L * 1024 * 1024;
+    private const long MaxCsvBytes = 20L * 1024 * 1024;
+
+    private bool _dataBusy;
+
+    // A new key gives a fresh <input type=file>, so choosing the same file again still raises OnChange.
+    private int _restoreInputKey;
+    private int _goodreadsInputKey;
+
+    // The two inputs are siblings, so their keys must differ from each other too.
+    private string RestoreInputKey => "restore-" + _restoreInputKey;
+
+    private string GoodreadsInputKey => "goodreads-" + _goodreadsInputKey;
+
+    private bool DataDisabled => _dataBusy || Actions.IsBusy;
+
+    private async Task DownloadBackupAsync()
+    {
+        _dataBusy = true;
+        try
+        {
+            var (fileName, json) = await LibraryData.CreateBackupAsync(SettingsText.AppInformationalVersion());
+            await Files.SaveTextAsync(fileName, "application/json", json);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            Snackbar.Add("Couldn't create the backup. Please try again.", Severity.Error);
+        }
+        finally
+        {
+            _dataBusy = false;
+        }
+    }
+
+    private async Task OnBackupChosenAsync(InputFileChangeEventArgs e)
+    {
+        _restoreInputKey++;
+        if (_dataBusy || await ReadFileAsync(e.File, MaxBackupBytes) is not { } text)
+        {
+            return;
+        }
+
+        LibraryBackup backup;
+        try
+        {
+            backup = LibraryBackups.Parse(text);
+        }
+        catch (BackupFormatException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+            return;
+        }
+
+        var parameters = new DialogParameters
+        {
+            { nameof(RestoreBackupDialog.Summary), LibraryBackups.Summarize(backup, LibraryData.CurrentUserId) },
+        };
+        var dialog = await Dialogs.ShowAsync<RestoreBackupDialog>(null, parameters, new DialogOptions { MaxWidth = MaxWidth.ExtraSmall, FullWidth = true });
+        var result = await dialog.Result;
+        if (result is null || result.Canceled || result.Data is not RestoreMode mode)
+        {
+            return;
+        }
+
+        _dataBusy = true;
+        StateHasChanged();
+        try
+        {
+            var restored = await LibraryData.RestoreBackupAsync(backup, mode);
+            Snackbar.Add(RestoreText(restored, mode), Severity.Success);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            Snackbar.Add("The restore didn't finish. Part of the backup may have been restored; restoring again is safe.", Severity.Error);
+        }
+        finally
+        {
+            _dataBusy = false;
+        }
+    }
+
+    private async Task ExportGoodreadsAsync()
+    {
+        _dataBusy = true;
+        try
+        {
+            var (fileName, csv) = await LibraryData.ExportGoodreadsAsync();
+            await Files.SaveTextAsync(fileName, "text/csv;charset=utf-8", csv);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            Snackbar.Add("Couldn't create the export. Please try again.", Severity.Error);
+        }
+        finally
+        {
+            _dataBusy = false;
+        }
+    }
+
+    private async Task OnGoodreadsChosenAsync(InputFileChangeEventArgs e)
+    {
+        _goodreadsInputKey++;
+        if (_dataBusy || await ReadFileAsync(e.File, MaxCsvBytes) is not { } text)
+        {
+            return;
+        }
+
+        IReadOnlyList<GoodreadsBook> rows;
+        try
+        {
+            rows = GoodreadsCsv.Parse(text);
+        }
+        catch (GoodreadsFormatException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+            return;
+        }
+
+        if (rows.Count == 0)
+        {
+            Snackbar.Add("There are no books in that file.", Severity.Info);
+            return;
+        }
+
+        var parameters = new DialogParameters { { nameof(GoodreadsImportDialog.Rows), rows } };
+        var dialog = await Dialogs.ShowAsync<GoodreadsImportDialog>(null, parameters, new DialogOptions { MaxWidth = MaxWidth.ExtraSmall, FullWidth = true });
+        var result = await dialog.Result;
+        if (result is null || result.Canceled || result.Data is not GoodreadsImportPlan plan)
+        {
+            return;
+        }
+
+        var message = plan.NewBooks == 1 ? "Imported 1 book" : $"Imported {plan.NewBooks} books";
+        if (plan.ExistingUpdated > 0)
+        {
+            message += plan.ExistingUpdated == 1 ? " and updated 1 you already had" : $" and updated {plan.ExistingUpdated} you already had";
+        }
+
+        Snackbar.Add(message + ".", Severity.Success);
+
+        if (plan.NewBooks > 0 && AppStatus.IsOnline)
+        {
+            var findCovers = await Dialogs.ShowMessageBoxAsync(
+                "Find covers?",
+                "Goodreads doesn't export covers. Look up covers and missing details for your books on Open Library now? You can also do it later from the library's Find covers button.",
+                yesText: "Find covers", cancelText: "Later");
+            if (findCovers == true)
+            {
+                var options = await DialogDefaults.EditorAsync(Viewport, MaxWidth.Small);
+                await Dialogs.ShowAsync<FindCoversDialog>(null, new DialogParameters(), options);
+            }
+        }
+    }
+
+    /// <summary>The chosen file's text, or null (with a message) when it's too big or can't be read.</summary>
+    private async Task<string?> ReadFileAsync(IBrowserFile file, long maxBytes)
+    {
+        if (file.Size > maxBytes)
+        {
+            Snackbar.Add($"That file is too large ({SettingsText.FormatBytes(file.Size)}).", Severity.Warning);
+            return null;
+        }
+
+        try
+        {
+            await using var stream = file.OpenReadStream(maxBytes);
+            using var reader = new StreamReader(stream);
+            return await reader.ReadToEndAsync();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            Snackbar.Add("Couldn't read that file.", Severity.Error);
+            return null;
+        }
+    }
+
+    private static string RestoreText(RestoreResult r, RestoreMode mode)
+    {
+        static string Books(int n) => n == 1 ? "1 book" : $"{n} books";
+
+        if (mode == RestoreMode.Replace)
+        {
+            var text = $"Your library now matches the backup: {Books(r.Added + r.Updated)} restored";
+            return r.Removed > 0 ? text + $", {Books(r.Removed)} removed." : text + ".";
+        }
+
+        if (r.Added == 0 && r.Updated == 0)
+        {
+            return "Nothing to restore: your library already has everything in this backup.";
+        }
+
+        var merged = $"Restored {Books(r.Added)}";
+        if (r.Updated > 0)
+        {
+            merged += $" and updated {Books(r.Updated)}";
+        }
+
+        return r.Kept switch
+        {
+            0 => merged + ".",
+            1 => merged + ". 1 book was newer here and kept as it is.",
+            _ => merged + $". {r.Kept} books were newer here and kept as they are.",
+        };
+    }
 
     private async Task LoadStorageAsync()
     {

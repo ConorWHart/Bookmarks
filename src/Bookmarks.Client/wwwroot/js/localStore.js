@@ -160,6 +160,21 @@ export async function put(table, json, entityType) {
     });
 }
 
+/** Saves many local edits of one table in one transaction (restore, import); like put() for each row. */
+export async function putMany(table, json, entityType) {
+    const rows = JSON.parse(json);
+    const d = active();
+    if (!entityType) {
+        await d.table(table).bulkPut(rows);
+        return;
+    }
+
+    await d.transaction('rw', d.table(table), d.table('outbox'), async () => {
+        await d.table(table).bulkPut(rows);
+        await d.table('outbox').bulkPut(rows.map(r => outboxEntry(entityType, r.id)));
+    });
+}
+
 export async function getMeta(key) {
     const row = await active().table('meta').get(key);
     return row === undefined ? null : row.value;
