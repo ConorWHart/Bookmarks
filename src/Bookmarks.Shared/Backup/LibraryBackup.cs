@@ -15,7 +15,10 @@ public sealed class LibraryBackup
     /// <summary>Bump when the shape changes in a way older restores can't read; restore refuses newer versions.</summary>
     public const int CurrentSchemaVersion = 1;
 
-    public string Format { get; set; } = FormatName;
+    /// <summary>
+    /// <see cref="FormatName"/> in every backup. No default on purpose: a JSON file without it must not read as a backup.
+    /// </summary>
+    public string? Format { get; set; }
 
     public int SchemaVersion { get; set; } = CurrentSchemaVersion;
 

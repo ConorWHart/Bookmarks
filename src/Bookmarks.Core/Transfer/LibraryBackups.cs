@@ -86,6 +86,8 @@ public static class LibraryBackups
 
         return new LibraryBackup
         {
+            Format = LibraryBackup.FormatName,
+            SchemaVersion = LibraryBackup.CurrentSchemaVersion,
             ExportedAt = now,
             OwnerId = ownerId,
             AppVersion = appVersion,
