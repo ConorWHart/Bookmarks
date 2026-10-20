@@ -81,3 +81,24 @@
 .bm-shelf + .bm-shelf {
     margin-top: 12px;
 }
+
+/* ---------- Touch devices: cheaper to draw (see BookSpine.razor.css) ---------- */
+@media (hover: none) and (pointer: coarse) {
+    .bm-shelf__books {
+        box-shadow:
+            inset 8px 0 6px -6px rgb(0 0 0 / 0.65),
+            inset -8px 0 6px -6px rgb(0 0 0 / 0.65);
+    }
+
+    .bm-shelf__plank {
+        background:
+            linear-gradient(180deg,
+                var(--bm-wood-hi, #d4a56f) 0 3px,
+                var(--bm-wood, #a8743f) 3px 70%,
+                var(--bm-wood-lo, #6f4722));
+        box-shadow:
+            inset 0 1px 0 rgb(255 255 255 / 0.35),
+            inset 0 -1px 0 rgb(0 0 0 / 0.3),
+            0 5px 4px -2px rgb(0 0 0 / 0.5);
+    }
+}

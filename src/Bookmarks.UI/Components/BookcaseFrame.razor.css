@@ -179,3 +179,31 @@
     text-transform: none;
     opacity: 0.72;
 }
+
+/* ---------- Touch devices: cheaper to draw (see BookSpine.razor.css) ----------
+   No hairline grain across the whole carcass, and tighter shadows; the wood lighting and broad figure stay. */
+@media (hover: none) and (pointer: coarse) {
+    .bm-case {
+        background:
+            repeating-linear-gradient(90deg,
+                transparent 0 40px,
+                rgb(0 0 0 / calc(var(--bm-grain) * 0.8)) 40px 46px,
+                transparent 46px 110px),
+            linear-gradient(90deg, var(--bm-wood-lo), var(--bm-wood) 8%, var(--bm-wood-hi) 50%, var(--bm-wood) 92%, var(--bm-wood-lo));
+        box-shadow:
+            inset 0 0 0 1px rgb(255 255 255 / 0.10),
+            inset 2px 0 0 rgb(255 255 255 / 0.12),
+            inset -2px 0 0 rgb(0 0 0 / 0.25),
+            0 10px 12px -8px rgb(0 0 0 / 0.55);
+    }
+
+    .bm-case::before {
+        box-shadow: 0 3px 3px rgb(0 0 0 / 0.3);
+    }
+
+    .bm-case::after {
+        box-shadow:
+            inset 0 -3px 0 rgb(0 0 0 / 0.25),
+            0 6px 6px -3px rgb(0 0 0 / 0.45);
+    }
+}
