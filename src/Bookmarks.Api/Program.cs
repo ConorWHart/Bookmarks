@@ -1,3 +1,4 @@
+using System.Reflection;
 using Bookmarks.Api.Auth;
 using Bookmarks.Api.Data;
 using Bookmarks.Api.Endpoints;
@@ -47,9 +48,12 @@ app.MapHealthChecks("/health");
 var api = app.MapGroup("/api")
     .RequireAuthorization(AuthConstants.ApiUserPolicy);
 
+// Informational version: "1.0.0+<commit>" (the SDK appends the commit), shown in the app's Settings → About.
 api.MapGet("/version", () => TypedResults.Ok(new VersionInfo(
         "Bookmarks.Api",
-        typeof(Program).Assembly.GetName().Version?.ToString() ?? "0.0.0")))
+        typeof(Program).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+            ?? typeof(Program).Assembly.GetName().Version?.ToString()
+            ?? "0.0.0")))
     .WithName("GetVersion")
     .AllowAnonymous();
 

@@ -143,6 +143,13 @@ async function trimCovers(cache) {
         return;
     }
 
+    // Recount first: the page can clear the cache (Settings > Erase this device's data), leaving the total too high.
+    coverBytes = null;
+    await countCoverBytes(cache);
+    if (coverBytes <= coverBudgetBytes) {
+        return;
+    }
+
     // Trim to 90% so we don't trim again on every new cover.
     for (const request of await cache.keys()) {
         if (coverBytes <= coverBudgetBytes * 0.9) {

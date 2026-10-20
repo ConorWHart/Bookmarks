@@ -1,0 +1,54 @@
+.bm-settings {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding-bottom: 24px;
+}
+
+.bm-settings__facts {
+    display: grid;
+    grid-template-columns: minmax(110px, max-content) 1fr;
+    column-gap: 16px;
+    row-gap: 10px;
+    margin: 0 0 16px;
+    font-size: 0.875rem;
+}
+
+.bm-settings__facts dt {
+    color: var(--mud-palette-text-secondary);
+}
+
+.bm-settings__facts dd {
+    margin: 0;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.bm-settings__sub {
+    display: block;
+    color: var(--mud-palette-text-secondary);
+}
+
+.bm-settings__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.bm-settings ::deep .bm-settings__hint {
+    display: block;
+    margin-top: 8px;
+    color: var(--mud-palette-text-secondary);
+}
+
+/* Phones: labels above their values. */
+@media (max-width: 480px) {
+    .bm-settings__facts {
+        grid-template-columns: 1fr;
+        row-gap: 2px;
+    }
+
+    .bm-settings__facts dd {
+        margin-bottom: 10px;
+    }
+}

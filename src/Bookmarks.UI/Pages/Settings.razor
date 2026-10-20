@@ -1,0 +1,315 @@
+@page "/settings"
+@implements IDisposable
+@inject ThemeService ThemeState
+@inject IAccountService Accounts
+@inject ISyncService Sync
+@inject IAppStatusService AppStatus
+@inject AccountActions Actions
+@inject IAccountDeletion Deletion
+@inject IDeviceStorage Device
+@inject IServerInfo Server
+@inject ISnackbar Snackbar
+
+<PageTitle>Settings · Bookmarks</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="py-4 px-2 px-sm-4">
+    <MudText Typo="Typo.h5" Class="mb-4">Settings</MudText>
+
+    <div class="bm-settings">
+        @* ---------- Appearance ---------- *@
+        <MudPaper Outlined="true" Class="pa-4">
+            <MudText Typo="Typo.h6" Class="mb-3">Appearance</MudText>
+            <MudText Typo="Typo.subtitle2" Class="mb-2">Theme</MudText>
+            <MudToggleGroup T="ThemeMode" Value="ThemeState.Mode" ValueChanged="ThemeState.SetModeAsync"
+                            Color="Color.Primary" Size="Size.Small">
+                <MudToggleItem Value="ThemeMode.Light" Text="Light" />
+                <MudToggleItem Value="ThemeMode.Dark" Text="Dark" />
+                <MudToggleItem Value="ThemeMode.System" Text="Match system" />
+            </MudToggleGroup>
+            <MudText Typo="Typo.caption" Class="bm-settings__hint">
+                @ThemeHint
+            </MudText>
+        </MudPaper>
+
+        @* ---------- Account ---------- *@
+        <MudPaper Outlined="true" Class="pa-4">
+            <MudText Typo="Typo.h6" Class="mb-3">Account</MudText>
+
+            @if (!Accounts.IsSignInSupported)
+            {
+                <MudText Typo="Typo.body2">Your library is stored on this device only.</MudText>
+            }
+            else if (Accounts.Current.IsGuest)
+            {
+                <MudText Typo="Typo.body2" Class="mb-3">
+                    You're not signed in, so your library is stored on this device only. Create an account to back it up
+                    and keep it in sync across your devices.
+                </MudText>
+                <div class="bm-settings__actions">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.PersonAdd"
+                               Disabled="@(Actions.IsBusy || !AppStatus.IsOnline)" OnClick="Actions.SignUpAsync">Create an account</MudButton>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Login"
+                               Disabled="@(Actions.IsBusy || !AppStatus.IsOnline)" OnClick="Actions.SignInAsync">Sign in</MudButton>
+                </div>
+                @if (!AppStatus.IsOnline)
+                {
+                    <MudText Typo="Typo.caption" Class="bm-settings__hint">You're offline. Sign in when you're back online.</MudText>
+                }
+            }
+            else
+            {
+                <dl class="bm-settings__facts">
+                    <dt>Signed in as</dt>
+                    <dd>
+                        @Accounts.Current.Label
+                        @if (!string.IsNullOrWhiteSpace(Accounts.Current.Email) && Accounts.Current.Email != Accounts.Current.Label)
+                        {
+                            <span class="bm-settings__sub">@Accounts.Current.Email</span>
+                        }
+                    </dd>
+                    <dt>Sync</dt>
+                    <dd>@SyncText.Describe(Sync, DateTimeOffset.Now)</dd>
+                </dl>
+                <div class="bm-settings__actions">
+                    @if (Sync.NeedsSignIn)
+                    {
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Login"
+                                   Disabled="@(Actions.IsBusy || !AppStatus.IsOnline)" OnClick="RenewSignInAsync">Sign in again</MudButton>
+                    }
+                    else
+                    {
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Sync"
+                                   Disabled="@(Actions.IsBusy || !AppStatus.IsOnline || Sync.Status == SyncStatus.Syncing)"
+                                   OnClick="Actions.SyncNowAsync">Sync now</MudButton>
+                    }
+                    <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Logout"
+                               Disabled="@Actions.IsBusy" OnClick="Actions.SignOutAsync">Sign out</MudButton>
+                </div>
+
+                @if (Deletion.IsSupported)
+                {
+                    <MudDivider Class="my-4" />
+                    <MudText Typo="Typo.subtitle2">Delete account</MudText>
+                    <MudText Typo="Typo.body2" Class="mb-3">
+                        Permanently deletes your library from Bookmarks, on the server and on this device.
+                        Your email and password sign-in is kept; signing in again starts an empty library.
+                    </MudText>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Error" StartIcon="@Icons.Material.Filled.DeleteForever"
+                               Disabled="@(Actions.IsBusy || !AppStatus.IsOnline)" OnClick="Actions.DeleteAccountAsync">Delete account…</MudButton>
+                    @if (!AppStatus.IsOnline)
+                    {
+                        <MudText Typo="Typo.caption" Class="bm-settings__hint">Needs a connection.</MudText>
+                    }
+                }
+            }
+        </MudPaper>
+
+        @* ---------- This device ---------- *@
+        @if (Device.IsSupported)
+        {
+            <MudPaper Outlined="true" Class="pa-4">
+                <MudText Typo="Typo.h6" Class="mb-3">This device</MudText>
+
+                @if (_storage is null)
+                {
+                    <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+                }
+                else
+                {
+                    <dl class="bm-settings__facts">
+                        <dt>Storage used</dt>
+                        <dd>
+                            @StorageUsedText
+                            @if (StoragePercent is { } percent)
+                            {
+                                <MudProgressLinear Value="@percent" Color="Color.Primary" Rounded="true" Size="Size.Small" Class="mt-1" />
+                            }
+                        </dd>
+
+                        <dt>Persistent storage</dt>
+                        <dd>
+                            @PersistenceText
+                            @if (_storage.IsPersisted == false && _storage.CanRequestPersistence)
+                            {
+                                <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small" Class="ml-1"
+                                           Disabled="@_requesting" OnClick="RequestPersistenceAsync">Request</MudButton>
+                            }
+                        </dd>
+
+                        @if (_storage.CoverCount is { } covers)
+                        {
+                            <dt>Saved covers</dt>
+                            <dd>@CoversText(covers, _storage.CoverBytes)</dd>
+                        }
+                    </dl>
+                }
+
+                <MudDivider Class="my-4" />
+                <MudText Typo="Typo.subtitle2">Erase this device's data</MudText>
+                <MudText Typo="Typo.body2" Class="mb-3">
+                    @(Accounts.Current.IsGuest
+                        ? "Deletes the library stored on this device. You're not signed in, so it isn't backed up anywhere."
+                        : "Removes your library from this device and downloads it again from your account. You stay signed in.")
+                </MudText>
+                <MudButton Variant="Variant.Outlined" Color="Color.Error" StartIcon="@Icons.Material.Filled.PhonelinkErase"
+                           Disabled="@Actions.IsBusy" OnClick="Actions.EraseThisDeviceAsync">Erase this device's data…</MudButton>
+            </MudPaper>
+        }
+
+        @* ---------- About ---------- *@
+        <MudPaper Outlined="true" Class="pa-4">
+            <MudText Typo="Typo.h6" Class="mb-3">About</MudText>
+            <dl class="bm-settings__facts">
+                <dt>App version</dt>
+                <dd>@_appVersion</dd>
+                @if (Accounts.IsSignInSupported)
+                {
+                    <dt>Service version</dt>
+                    <dd>@ApiVersionText</dd>
+                }
+            </dl>
+            <MudText Typo="Typo.body2" Class="mt-3">
+                Book details and covers from
+                <MudLink Href="https://openlibrary.org" Target="_blank" rel="noopener">Open Library</MudLink>.
+            </MudText>
+        </MudPaper>
+    </div>
+</MudContainer>
+
+@code {
+    private DeviceStorageInfo? _storage;
+    private bool _requesting;
+    private string _appVersion = "";
+    private string? _apiVersion;
+    private bool _apiVersionLoaded;
+
+    protected override void OnInitialized()
+    {
+        _appVersion = SettingsText.FormatVersion(SettingsText.AppInformationalVersion());
+
+        ThemeState.Changed += OnChanged;
+        Accounts.Changed += OnChanged;
+        Sync.Changed += OnChanged;
+        AppStatus.Changed += OnChanged;
+        Actions.Changed += OnChanged;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Task.WhenAll(LoadStorageAsync(), LoadApiVersionAsync());
+    }
+
+    public void Dispose()
+    {
+        ThemeState.Changed -= OnChanged;
+        Accounts.Changed -= OnChanged;
+        Sync.Changed -= OnChanged;
+        AppStatus.Changed -= OnChanged;
+        Actions.Changed -= OnChanged;
+    }
+
+    private void OnChanged() => _ = InvokeAsync(StateHasChanged);
+
+    private async Task LoadStorageAsync()
+    {
+        if (!Device.IsSupported)
+        {
+            return;
+        }
+
+        try
+        {
+            _storage = await Device.GetInfoAsync();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _storage = new DeviceStorageInfo(null, null, null, false, null, null);
+        }
+    }
+
+    private async Task LoadApiVersionAsync()
+    {
+        try
+        {
+            _apiVersion = await Server.GetApiVersionAsync();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _apiVersion = null;
+        }
+
+        _apiVersionLoaded = true;
+    }
+
+    private async Task RequestPersistenceAsync()
+    {
+        _requesting = true;
+        try
+        {
+            var granted = await Device.RequestPersistenceAsync();
+            if (!granted)
+            {
+                Snackbar.Add("The browser said no for now. Installing Bookmarks as an app usually lets it keep your data.", Severity.Info);
+            }
+
+            await LoadStorageAsync();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            Snackbar.Add("Couldn't ask the browser right now.", Severity.Warning);
+        }
+        finally
+        {
+            _requesting = false;
+        }
+    }
+
+    private async Task RenewSignInAsync()
+    {
+        try
+        {
+            await Accounts.RenewSignInAsync();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            Snackbar.Add("Sign-in couldn't start. Please try again.", Severity.Error);
+        }
+    }
+
+    private string ThemeHint => ThemeState.Mode != ThemeMode.System
+        ? "Saved on this device."
+        : ThemeState.IsDarkMode
+            ? "Follows your device's setting (dark right now)."
+            : "Follows your device's setting (light right now).";
+
+    private string StorageUsedText => _storage switch
+    {
+        { UsageBytes: { } used, QuotaBytes: { } quota } when quota > 0
+            => $"{SettingsText.FormatBytes(used)} of {SettingsText.FormatBytes(quota)} available",
+        { UsageBytes: { } used } => SettingsText.FormatBytes(used),
+        _ => "Unknown",
+    };
+
+    private double? StoragePercent => _storage is { UsageBytes: { } used, QuotaBytes: { } quota } && quota > 0
+        ? Math.Clamp(100.0 * used / quota, 0, 100)
+        : null;
+
+    private string PersistenceText => _storage?.IsPersisted switch
+    {
+        true => "Granted: the browser won't clear your library to free up space.",
+        false => "Not granted: the browser may clear data if the device runs low on space.",
+        _ => "Unknown on this browser.",
+    };
+
+    private static string CoversText(int count, long? bytes)
+    {
+        var what = count == 1 ? "1 cover" : $"{count} covers";
+        return bytes is { } b && count > 0 ? $"{what}, {SettingsText.FormatBytes(b)}" : what;
+    }
+
+    private string ApiVersionText => !_apiVersionLoaded
+        ? "Checking…"
+        : _apiVersion is { } v
+            ? SettingsText.FormatVersion(v)
+            : AppStatus.IsOnline ? "Unavailable" : "Unavailable offline";
+}

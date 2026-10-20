@@ -1,12 +1,10 @@
-﻿@using Bookmarks.Core.Storage
 @implements IDisposable
 @inject IAccountService Accounts
 @inject ISyncService Sync
-@inject ILocalLibraryEraser LocalLibrary
 @inject IGuestLibraryTransfer GuestLibrary
-@inject ILocalStore Store
 @inject LibraryService LibraryData
 @inject IAppStatusService AppStatus
+@inject AccountActions Actions
 @inject IDialogService Dialogs
 @inject ISnackbar Snackbar
 
@@ -19,7 +17,7 @@ else if (Accounts.Current.IsGuest)
     <MudTooltip Text="@(AppStatus.IsOnline ? "Sign in to back up your library and keep it in sync across your devices." : "You're offline. Sign in when you're back online.")">
         <div class="bm-account">
             <MudButton StartIcon="@Icons.Material.Filled.PersonOutline" Variant="Variant.Text"
-                       Disabled="@(!AppStatus.IsOnline || _busy)" OnClick="SignInAsync">Sign in</MudButton>
+                       Disabled="@(!AppStatus.IsOnline || Actions.IsBusy)" OnClick="Actions.SignInAsync">Sign in</MudButton>
         </div>
     </MudTooltip>
 }
@@ -38,21 +36,21 @@ else
             </div>
         </MudMenuItem>
         <MudDivider />
-        <MudMenuItem Icon="@Icons.Material.Filled.Sync" Disabled="@(!AppStatus.IsOnline || _busy || Sync.Status == SyncStatus.Syncing)" OnClick="SyncNowAsync">
+        <MudMenuItem Icon="@Icons.Material.Filled.Sync" Disabled="@(!AppStatus.IsOnline || Actions.IsBusy || Sync.Status == SyncStatus.Syncing)" OnClick="Actions.SyncNowAsync">
             Sync now
         </MudMenuItem>
-        <MudMenuItem Icon="@Icons.Material.Filled.Logout" Disabled="@_busy" OnClick="SignOutAsync">Sign out</MudMenuItem>
+        <MudMenuItem Icon="@Icons.Material.Filled.Settings" Href="settings">Settings</MudMenuItem>
+        <MudMenuItem Icon="@Icons.Material.Filled.Logout" Disabled="@Actions.IsBusy" OnClick="Actions.SignOutAsync">Sign out</MudMenuItem>
     </MudMenu>
 }
 
 @code {
-    private bool _busy;
-
     protected override void OnInitialized()
     {
         Accounts.Changed += OnAccountChanged;
         AppStatus.Changed += OnAccountChanged;
         Sync.Changed += OnAccountChanged;
+        Actions.Changed += OnAccountChanged;
     }
 
     public void Dispose()
@@ -60,6 +58,7 @@ else
         Accounts.Changed -= OnAccountChanged;
         AppStatus.Changed -= OnAccountChanged;
         Sync.Changed -= OnAccountChanged;
+        Actions.Changed -= OnAccountChanged;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -71,88 +70,6 @@ else
     }
 
     private void OnAccountChanged() => _ = InvokeAsync(StateHasChanged);
-
-    private async Task SignInAsync()
-    {
-        _busy = true;
-        try
-        {
-            // Navigates to the hosted sign-in page; the app restarts when it comes back.
-            await Accounts.SignInAsync();
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            _busy = false;
-            Snackbar.Add("Sign-in couldn't start. Please try again.", Severity.Error);
-        }
-    }
-
-    private async Task SignOutAsync()
-    {
-        // Give unsynced changes a chance to reach the server first, so "remove from this device" can be offered.
-        if (Sync.IsEnabled && AppStatus.IsOnline && (Sync.PendingChanges > 0 || Sync.LastSyncedAt is null))
-        {
-            _busy = true;
-            StateHasChanged();
-            await Task.WhenAny(Sync.SyncNowAsync(), Task.Delay(TimeSpan.FromSeconds(15)));
-            _busy = false;
-        }
-
-        var parameters = new DialogParameters
-        {
-            { nameof(SignOutDialog.PendingChanges), Sync.PendingChanges },
-            { nameof(SignOutDialog.HasSynced), Sync.LastSyncedAt is not null },
-        };
-        var dialog = await Dialogs.ShowAsync<SignOutDialog>(null, parameters, new DialogOptions { MaxWidth = MaxWidth.ExtraSmall, FullWidth = true });
-        var result = await dialog.Result;
-        if (result is null || result.Canceled)
-        {
-            return;
-        }
-
-        var remove = result.Data is true;
-        _busy = true;
-        try
-        {
-            if (remove)
-            {
-                // Re-check right before deleting: an edit could have landed since the dialog opened.
-                if (await Store.CountOutboxAsync() > 0)
-                {
-                    _busy = false;
-                    Snackbar.Add("A change hasn't synced yet, so your library was kept on this device. Try again in a moment.", Severity.Warning);
-                    return;
-                }
-
-                await LocalLibrary.EraseAsync();
-
-                // "Remove my library from this device" means all of it, including any library from before
-                // signing in, so the signed-out view starts empty.
-                await GuestLibrary.DiscardGuestLibraryAsync();
-            }
-
-            await Accounts.SignOutAsync();
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            _busy = false;
-            Snackbar.Add("Sign-out failed. Please try again.", Severity.Error);
-        }
-    }
-
-    private async Task SyncNowAsync()
-    {
-        if (await Sync.SyncNowAsync())
-        {
-            Snackbar.Add(
-                Sync.PendingChanges == 0 ? "Your library is up to date." : SyncText.Describe(Sync, DateTimeOffset.Now),
-                Severity.Success);
-        }
-        else
-        {
-            Snackbar.Add(Sync.Problem ?? "Couldn't sync right now. It will try again shortly.", Severity.Warning);
-        }
-    }
 
     /// <summary>
     /// Signed in while this device still has a library from before (the signed-out one): signing in means the

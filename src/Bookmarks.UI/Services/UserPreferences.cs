@@ -17,7 +17,11 @@ public sealed class UserPreferences(ILocalStore store)
     /// <summary>The library's current view (<c>LibraryViewJson</c>), restored on the next visit.</summary>
     public const string LibraryView = "library.view";
 
-    /// <summary>"true" / "false"; missing = follow the system setting.</summary>
+    /// <summary>"light" / "dark" / "system" (<see cref="ThemeService"/>); missing = system.</summary>
+    public const string Theme = "ui.theme";
+
+    /// <summary>Before Phase 7a: "true" / "false" from the app-bar toggle. <see cref="ThemeService"/> converts it to
+    /// <see cref="Theme"/> once and removes it.</summary>
     public const string DarkMode = "ui.dark";
 
     private const string Prefix = "pref:";

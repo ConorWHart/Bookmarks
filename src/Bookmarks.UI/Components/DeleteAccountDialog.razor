@@ -1,0 +1,50 @@
+@* Delete-account confirmation: the user types DELETE. Closes with Ok when confirmed. *@
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">Delete your account?</MudText>
+    </TitleContent>
+
+    <DialogContent>
+        <MudStack Spacing="2">
+            <MudText Typo="Typo.body2">
+                This permanently deletes the library of <strong>@AccountName</strong> from Bookmarks: every book,
+                bookcase, reading session and note, on the server and on this device. This can't be undone.
+            </MudText>
+            <MudText Typo="Typo.body2">
+                Your sign-in (email and password) isn't removed. Signing in again with this email starts an empty library.
+                Other devices still signed in keep their copy until you sign out there.
+            </MudText>
+            <MudTextField T="string" @bind-Value="_typed" Immediate="true" Variant="Variant.Outlined" Margin="Margin.Dense"
+                          Label="Type DELETE to confirm" AutoFocus="true" />
+        </MudStack>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton OnClick="() => MudDialog.Cancel()">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Error" Disabled="@(!Confirmed)" OnClick="Confirm">
+            Delete account
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private const string Word = "DELETE";
+
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    /// <summary>Email (or name) of the account, shown so the user knows which one goes.</summary>
+    [Parameter] public string? AccountName { get; set; }
+
+    private string? _typed;
+
+    private bool Confirmed => string.Equals(_typed?.Trim(), Word, StringComparison.Ordinal);
+
+    private void Confirm()
+    {
+        if (Confirmed)
+        {
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+    }
+}

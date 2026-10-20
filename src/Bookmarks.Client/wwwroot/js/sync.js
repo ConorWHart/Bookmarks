@@ -55,6 +55,19 @@ export async function runExclusive(dotnetRef, wait) {
     return await navigator.locks.request(lockName, { ifAvailable: !wait }, async lock => lock ? await run() : false);
 }
 
+/**
+ * Runs a .NET method (no arguments) while holding the sync lock of the database named, so no tab can be in the
+ * middle of a sync pass for that account (Settings > Delete account). Works without start().
+ */
+export async function withSyncLock(databaseName, dotnetRef, method) {
+    const run = async () => await dotnetRef.invokeMethodAsync(method);
+    if (!navigator.locks) {
+        return await run();
+    }
+
+    return await navigator.locks.request(`bookmarks-sync:${databaseName}`, run);
+}
+
 function onVisibilityChange() {
     if (document.visibilityState === 'visible') {
         dotnet?.invokeMethodAsync('OnBecameVisible');

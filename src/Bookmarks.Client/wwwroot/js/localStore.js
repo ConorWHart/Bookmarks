@@ -284,10 +284,13 @@ export async function applyPulled(table, entityType, json) {
     });
 }
 
-/** Closes and deletes the open account database (sign-out "Remove from this device"). */
-export async function eraseDatabase() {
+/**
+ * Closes and deletes the open database: an account's (sign-out "Remove from this device", Delete account), or with
+ * allowGuest the signed-out one too (Settings → Erase this device's data). Other tabs using it are closed by Dexie.
+ */
+export async function eraseDatabase(allowGuest) {
     const d = active();
-    if (d.name === guestDatabase) {
+    if (d.name === guestDatabase && !allowGuest) {
         throw new Error('Only an account database can be removed.');
     }
 

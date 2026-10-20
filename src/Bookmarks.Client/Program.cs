@@ -79,6 +79,11 @@ builder.Services.AddScoped(sp => new SyncEngine(
 builder.Services.AddScoped<BrowserSyncService>();
 builder.Services.AddScoped<ISyncService>(sp => sp.GetRequiredService<BrowserSyncService>());
 
+// Settings (Phase 7a): delete account (DELETE /api/me), the API's version, this device's storage (js/device.js).
+builder.Services.AddScoped<IAccountDeletion, BrowserAccountDeletion>();
+builder.Services.AddScoped<IServerInfo>(sp => sp.GetRequiredService<BookmarksApiClient>());
+builder.Services.AddScoped<IDeviceStorage, BrowserDeviceStorage>();
+
 builder.Services.AddBookmarksUI();
 
 var host = builder.Build();

@@ -8,6 +8,7 @@ x64/
 x86/
 [Ll]og/
 [Ll]ogs/
+_to_delete/
 *.user
 *.suo
 *.userosscache

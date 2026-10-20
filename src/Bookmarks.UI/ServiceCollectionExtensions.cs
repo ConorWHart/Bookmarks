@@ -15,6 +15,8 @@ public static class ServiceCollectionExtensions
         services.AddMudServices();
         services.AddScoped<LibraryService>();
         services.AddScoped<UserPreferences>();
+        services.AddScoped<ThemeService>();
+        services.AddScoped<AccountActions>();
 
         // Hosts with a service worker / sign-in register their own before calling this.
         services.TryAddScoped<IAppStatusService, NullAppStatusService>();
@@ -24,6 +26,9 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton<ILocalLibraryEraser, NullLocalLibraryEraser>();
         services.TryAddScoped<ICoverColorService, NullCoverColorService>();
         services.TryAddScoped<IBarcodeScanner, NullBarcodeScanner>();
+        services.TryAddScoped<IDeviceStorage, NullDeviceStorage>();
+        services.TryAddScoped<IAccountDeletion, NullAccountDeletion>();
+        services.TryAddScoped<IServerInfo, NullServerInfo>();
 
         // Book lookup (Phase 5): Open Library straight from the app; it allows CORS, so no server is involved.
         services.TryAddSingleton<IBookLookup>(_ => new OpenLibraryLookup(new HttpClient

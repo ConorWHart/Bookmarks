@@ -212,7 +212,17 @@ public sealed class IndexedDbLocalStore(IJSRuntime js, ILogger<IndexedDbLocalSto
         }
 
         var module = await GetModuleAsync(ct);
-        await module.InvokeVoidAsync("eraseDatabase", ct, Array.Empty<object?>());
+        await module.InvokeVoidAsync("eraseDatabase", ct, new object?[] { false });
+    }
+
+    /// <summary>
+    /// Deletes the database in use, the signed-out one included (Settings → Erase this device's data).
+    /// Nothing can be read or written afterwards; the app reloads.
+    /// </summary>
+    public async Task EraseCurrentDatabaseAsync(CancellationToken ct = default)
+    {
+        var module = await GetModuleAsync(ct);
+        await module.InvokeVoidAsync("eraseDatabase", ct, new object?[] { true });
     }
 
     public async ValueTask DisposeAsync()

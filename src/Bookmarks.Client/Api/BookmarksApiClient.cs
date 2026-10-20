@@ -8,6 +8,7 @@ using Bookmarks.Core.Sync;
 using Bookmarks.Shared.Api;
 using Bookmarks.Shared.Serialization;
 using Bookmarks.Shared.Sync;
+using Bookmarks.UI.Services;
 
 namespace Bookmarks.Client.Api;
 
@@ -19,12 +20,43 @@ namespace Bookmarks.Client.Api;
 /// <remarks>Failures are thrown: <see cref="HttpRequestException"/> (with the status code when the API answered)
 /// or <see cref="SignInRequiredException"/> when no token could be obtained.
 /// A device session the API refuses (401) is forgotten and the request retried once, which goes through Entra.</remarks>
-public sealed class BookmarksApiClient(HttpClient http, BrowserAccountService accounts) : ISyncTransport
+public sealed class BookmarksApiClient(HttpClient http, BrowserAccountService accounts) : ISyncTransport, IServerInfo
 {
     private static readonly BookmarksJsonContext Json = BookmarksJsonContext.Default;
 
     public Task<MeResponse> GetMeAsync(CancellationToken ct = default)
         => SendAsync(() => new HttpRequestMessage(HttpMethod.Get, "api/me"), Json.MeResponse, ct);
+
+    /// <summary>
+    /// DELETE /api/me: deletes all of the signed-in user's data on the server, device sessions included, so the
+    /// token used here stops working straight after.
+    /// </summary>
+    public async Task DeleteMeAsync(CancellationToken ct = default)
+    {
+        using var response = await SendCheckedAsync(() => new HttpRequestMessage(HttpMethod.Delete, "api/me"), ct);
+    }
+
+    /// <summary>GET /api/version (anonymous). Null when the API can't be reached.</summary>
+    public async Task<string?> GetApiVersionAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeout.CancelAfter(TimeSpan.FromSeconds(20));
+            using var response = await http.GetAsync(new Uri("api/version", UriKind.Relative), timeout.Token);
+            if (!response.IsSuccessStatusCode)
+            {
+                return null;
+            }
+
+            using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync(timeout.Token));
+            return json.RootElement.TryGetProperty("version", out var version) ? version.GetString() : null;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or JsonException)
+        {
+            return null;
+        }
+    }
 
     public Task<SyncPushResponse> PushAsync(SyncPushRequest request, CancellationToken ct = default)
     {
@@ -45,8 +77,20 @@ public sealed class BookmarksApiClient(HttpClient http, BrowserAccountService ac
             Json.SyncPullResponse,
             ct);
 
-    /// <summary>Sends a request built by <paramref name="build"/> (called again for the retry, since a request can only be sent once).</summary>
+    /// <summary>Sends a request built by <paramref name="build"/> and reads the JSON response.</summary>
     private async Task<T> SendAsync<T>(Func<HttpRequestMessage> build, JsonTypeInfo<T> typeInfo, CancellationToken ct)
+    {
+        using var response = await SendCheckedAsync(build, ct);
+        var json = await response.Content.ReadAsStringAsync(ct);
+        return JsonSerializer.Deserialize(json, typeInfo)
+            ?? throw new InvalidOperationException($"The service sent an empty {typeof(T).Name}.");
+    }
+
+    /// <summary>
+    /// Sends a request built by <paramref name="build"/> (called again for the retry, since a request can only be sent
+    /// once) and returns the successful response, which the caller disposes.
+    /// </summary>
+    private async Task<HttpResponseMessage> SendCheckedAsync(Func<HttpRequestMessage> build, CancellationToken ct)
     {
         for (var attempt = 0; ; attempt++)
         {
@@ -57,20 +101,27 @@ public sealed class BookmarksApiClient(HttpClient http, BrowserAccountService ac
 
             using var request = build();
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-            using var response = await http.SendAsync(request, ct);
+            var response = await http.SendAsync(request, ct);
 
             if (response.StatusCode == HttpStatusCode.Unauthorized && attempt == 0 && BrowserAccountService.IsSessionToken(token))
             {
                 // Signed out on the server or expired: drop it and try once more (a new session if Entra still can).
+                response.Dispose();
                 await accounts.SessionRejectedAsync(token, ct);
                 continue;
             }
 
-            response.EnsureSuccessStatusCode();
+            try
+            {
+                response.EnsureSuccessStatusCode(); // HttpRequestException with the status code
+            }
+            catch (HttpRequestException)
+            {
+                response.Dispose();
+                throw;
+            }
 
-            var json = await response.Content.ReadAsStringAsync(ct);
-            return JsonSerializer.Deserialize(json, typeInfo)
-                ?? throw new InvalidOperationException($"The service sent an empty {typeof(T).Name}.");
+            return response;
         }
     }
 }
