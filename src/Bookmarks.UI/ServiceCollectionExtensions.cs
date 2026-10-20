@@ -17,6 +17,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<UserPreferences>();
         services.AddScoped<ThemeService>();
         services.AddScoped<AccountActions>();
+        services.AddScoped<OverlayHistory>();
 
         // Hosts with a service worker / sign-in register their own before calling this.
         services.TryAddScoped<IAppStatusService, NullAppStatusService>();

@@ -11,6 +11,25 @@ h1:focus {
     outline: none;
 }
 
+/* Panels that scroll (book details and filter drawers, the nav drawer, dialogs) keep the scroll to themselves:
+   reaching the end doesn't carry on scrolling the library behind them. */
+/* (Whichever element scrolls: MudBlazor scrolls the drawer itself, some drawers scroll an inner body.) */
+.mud-drawer,
+.mud-drawer *,
+.mud-dialog-content,
+.mud-popover {
+    overscroll-behavior: contain;
+}
+
+/* Installed app: no pull-to-refresh (a swipe down from the top reloaded the app). Pull-to-refresh is the root
+   scroller's overscroll, so containing it there turns it off; the browser tab keeps it. */
+@media (display-mode: standalone), (display-mode: fullscreen), (display-mode: minimal-ui) {
+    html,
+    body {
+        overscroll-behavior-y: contain;
+    }
+}
+
 /* ---------- Loading splash (shown until WASM boots) ---------- */
 
 .bm-splash {

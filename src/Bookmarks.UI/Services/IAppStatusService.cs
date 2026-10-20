@@ -1,5 +1,24 @@
 namespace Bookmarks.UI.Services;
 
+/// <summary>Result of Settings → Check for updates.</summary>
+public enum UpdateCheckResult
+{
+    /// <summary>No service worker (development without one, MAUI, tests).</summary>
+    Unsupported,
+
+    /// <summary>This is the latest version.</summary>
+    UpToDate,
+
+    /// <summary>A new version was found and is downloading; Reload is offered when it's ready.</summary>
+    Downloading,
+
+    /// <summary>A new version is waiting; <see cref="IAppStatusService.UpdateAvailable"/> is now true.</summary>
+    Ready,
+
+    /// <summary>Offline or the server couldn't be reached.</summary>
+    Failed,
+}
+
 /// <summary>
 /// Connectivity and app-update state from the host. The PWA implements it with the browser
 /// and its service worker; hosts without either (MAUI, tests) get <see cref="NullAppStatusService"/>.
@@ -18,6 +37,9 @@ public interface IAppStatusService
 
     /// <summary>Switches to the waiting version and reloads.</summary>
     Task ApplyUpdateAsync();
+
+    /// <summary>Looks for a new version now.</summary>
+    Task<UpdateCheckResult> CheckForUpdateAsync();
 }
 
 public sealed class NullAppStatusService : IAppStatusService
@@ -35,4 +57,6 @@ public sealed class NullAppStatusService : IAppStatusService
     public Task StartAsync() => Task.CompletedTask;
 
     public Task ApplyUpdateAsync() => Task.CompletedTask;
+
+    public Task<UpdateCheckResult> CheckForUpdateAsync() => Task.FromResult(UpdateCheckResult.Unsupported);
 }

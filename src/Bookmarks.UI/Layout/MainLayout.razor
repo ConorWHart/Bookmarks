@@ -5,6 +5,7 @@
 @inject ISyncService Sync
 @inject ISnackbar Snackbar
 @inject ThemeService ThemeState
+@inject IBrowserViewportService Viewport
 
 @* IsDarkMode is one-way: ThemeService decides. The provider only watches the system setting while the choice is
    "Match system"; otherwise a system switch would flip the theme behind the user's back. *@
@@ -17,7 +18,7 @@
 <MudLayout Class="@(ThemeState.IsDarkMode ? "bm-dark" : "bm-light")">
     <MudAppBar Elevation="0" Dense="true" Class="bm-appbar">
         <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start"
-                       OnClick="() => _drawerOpen = !_drawerOpen" aria-label="Toggle navigation" />
+                       OnClick="ToggleDrawerAsync" aria-label="Toggle navigation" />
         <MudText Typo="Typo.h6" Class="ml-2 bm-brand">Bookmarks</MudText>
         <MudSpacer />
         @if (!AppStatus.IsOnline)
@@ -33,6 +34,8 @@
         <AccountMenu />
     </MudAppBar>
 
+    @* Phones: the menu slides over the page, so Back closes it. (Wider screens keep it docked; no history entry.) *@
+    <CloseOnBack Key="nav" Open="@(_drawerOpen && _drawerOverlays)" OnClose="() => _drawerOpen = false" />
     <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Variant="DrawerVariant.Responsive" Elevation="1">
         <NavMenu />
     </MudDrawer>
@@ -44,6 +47,26 @@
 
 @code {
     private bool _drawerOpen;
+
+    /// <summary>The drawer covers the page (below MudBlazor's Md breakpoint, where Responsive acts as Temporary).</summary>
+    private bool _drawerOverlays;
+
+    private async Task ToggleDrawerAsync()
+    {
+        if (!_drawerOpen)
+        {
+            try
+            {
+                _drawerOverlays = (await Viewport.GetCurrentBrowserWindowSizeAsync()).Width < 960;
+            }
+            catch (JSException)
+            {
+                _drawerOverlays = false;
+            }
+        }
+
+        _drawerOpen = !_drawerOpen;
+    }
     private MudThemeProvider? _themeProvider;
     private bool _updateAnnounced;
 

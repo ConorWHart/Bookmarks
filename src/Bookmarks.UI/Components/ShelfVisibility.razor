@@ -1,6 +1,6 @@
 @* Show or hide bookcases in the Bookcases view. Synced, so it applies on every device.
    Hidden bookcases aren't drawn there, but their books still show in Books and search.
-   A menu in the desktop toolbar; a list of switches in the phone sheet (AsList). *@
+   A menu in the desktop toolbar; on phones an eye icon next to Filters (IconOnly) opening a list of switches. *@
 @implements IDisposable
 @inject LibraryService LibraryData
 
@@ -10,14 +10,16 @@
 }
 else if (AsList)
 {
-    <div class="bm-visibility">
-        <div class="bm-visibility__label">Bookcases shown</div>
-        @foreach (var bookcase in LibraryData.Bookcases)
-        {
-            <MudSwitch T="bool" Value="!bookcase.IsHidden" ValueChanged="v => LibraryData.SetBookcaseHiddenAsync(bookcase.Id, !v)"
-                       Label="@bookcase.Name" Color="Color.Primary" />
-        }
-    </div>
+    @Switches
+}
+else if (IconOnly)
+{
+    <MudMenu Icon="@ButtonIcon" Variant="Variant.Outlined" Color="Color.Primary" AnchorOrigin="Origin.BottomRight"
+             TransformOrigin="Origin.TopRight" AriaLabel="@IconLabel">
+        <div class="bm-visibility__popover">
+            @Switches
+        </div>
+    </MudMenu>
 }
 else
 {
@@ -32,8 +34,27 @@ else
 }
 
 @code {
-    /// <summary>Switches (phone sheet) instead of a menu.</summary>
+    /// <summary>Just the switches, for a sheet or panel.</summary>
     [Parameter] public bool AsList { get; set; }
+
+    /// <summary>Phones: an eye icon button (crossed out while any bookcase is hidden) whose menu holds the switches.</summary>
+    [Parameter] public bool IconOnly { get; set; }
+
+    private RenderFragment Switches => @<div class="bm-visibility">
+        <div class="bm-visibility__label">Bookcases shown</div>
+        @foreach (var bookcase in LibraryData.Bookcases)
+        {
+            <MudSwitch T="bool" Value="!bookcase.IsHidden" ValueChanged="v => LibraryData.SetBookcaseHiddenAsync(bookcase.Id, !v)"
+                       Label="@bookcase.Name" Color="Color.Primary" />
+        }
+    </div>;
+
+    private string IconLabel => LibraryData.HiddenBookcaseCount switch
+    {
+        0 => "Show or hide bookcases",
+        1 => "Show or hide bookcases (1 hidden)",
+        var n => $"Show or hide bookcases ({n} hidden)",
+    };
 
     // Only a bool parameter, so the parent re-rendering doesn't refresh this: listen for library changes.
     protected override void OnInitialized() => LibraryData.Changed += OnLibraryChanged;

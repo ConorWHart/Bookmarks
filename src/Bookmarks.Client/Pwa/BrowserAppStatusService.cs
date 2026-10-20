@@ -35,6 +35,24 @@ public sealed class BrowserAppStatusService(IJSRuntime js) : IAppStatusService, 
         }
     }
 
+    public async Task<UpdateCheckResult> CheckForUpdateAsync()
+    {
+        if (_module is null)
+        {
+            return UpdateCheckResult.Unsupported;
+        }
+
+        var result = await _module.InvokeAsync<string>("checkNow");
+        return result switch
+        {
+            "ready" => UpdateCheckResult.Ready,
+            "downloading" => UpdateCheckResult.Downloading,
+            "current" => UpdateCheckResult.UpToDate,
+            "failed" => UpdateCheckResult.Failed,
+            _ => UpdateCheckResult.Unsupported,
+        };
+    }
+
     [JSInvokable]
     public void OnOnlineChanged(bool online)
     {

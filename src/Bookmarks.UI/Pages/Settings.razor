@@ -219,6 +219,26 @@
                     <dt>Service version</dt>
                     <dd>@ApiVersionText</dd>
                 }
+                <dt>Updates</dt>
+                <dd>
+                    @if (AppStatus.UpdateAvailable)
+                    {
+                        <span>A new version is ready.</span>
+                        <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small" Class="ml-1"
+                                   StartIcon="@Icons.Material.Filled.Refresh" OnClick="AppStatus.ApplyUpdateAsync">Reload</MudButton>
+                    }
+                    else
+                    {
+                        if (_updateText is not null)
+                        {
+                            <span>@_updateText</span>
+                        }
+                        <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small" Class="@UpdateButtonClass"
+                                   Disabled="@(_checkingUpdates || !AppStatus.IsOnline)" OnClick="CheckForUpdatesAsync">
+                            @(_checkingUpdates ? "Checking…" : "Check for updates")
+                        </MudButton>
+                    }
+                </dd>
             </dl>
             <MudText Typo="Typo.body2" Class="mt-3">
                 Book details and covers from
@@ -586,6 +606,36 @@
     {
         var what = count == 1 ? "1 cover" : $"{count} covers";
         return bytes is { } b && count > 0 ? $"{what}, {SettingsText.FormatBytes(b)}" : what;
+    }
+
+    private bool _checkingUpdates;
+
+    private string UpdateButtonClass => _updateText is null ? "bm-settings__update" : "bm-settings__update ml-1";
+    private string? _updateText;
+
+    private async Task CheckForUpdatesAsync()
+    {
+        _checkingUpdates = true;
+        _updateText = null;
+        try
+        {
+            _updateText = await AppStatus.CheckForUpdateAsync() switch
+            {
+                UpdateCheckResult.UpToDate => "You have the latest version.",
+                UpdateCheckResult.Downloading => "Downloading a new version…",
+                UpdateCheckResult.Ready => null, // UpdateAvailable shows Reload
+                UpdateCheckResult.Failed => "Couldn't check right now.",
+                _ => "Updates aren't available in this build.",
+            };
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _updateText = "Couldn't check right now.";
+        }
+        finally
+        {
+            _checkingUpdates = false;
+        }
     }
 
     private string ApiVersionText => !_apiVersionLoaded

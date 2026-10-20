@@ -1,0 +1,45 @@
+@* Put next to a drawer: while Open is true, Back closes it (OnClose) instead of leaving the page. See OverlayHistory.
+   Renders nothing. Usage: <CloseOnBack Key="details" Open="_detailsOpen" OnClose="() => _detailsOpen = false" /> *@
+@implements IDisposable
+@inject OverlayHistory History
+
+@code {
+    /// <summary>Unique among overlays that can be open at the same time ("details", "filters", "nav").</summary>
+    [Parameter, EditorRequired] public string Key { get; set; } = "";
+
+    [Parameter] public bool Open { get; set; }
+
+    /// <summary>Back was pressed: close the overlay (set the bound Open to false).</summary>
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private bool _registered;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Open && !_registered)
+        {
+            _registered = true;
+            await History.OpenedAsync(Key, CloseFromBackAsync);
+        }
+        else if (!Open && _registered)
+        {
+            _registered = false;
+            await History.ClosedAsync(Key);
+        }
+    }
+
+    private async Task CloseFromBackAsync()
+    {
+        _registered = false; // the history entry is already gone
+        await OnClose.InvokeAsync();
+    }
+
+    public void Dispose()
+    {
+        if (_registered)
+        {
+            _registered = false;
+            _ = History.ClosedAsync(Key);
+        }
+    }
+}

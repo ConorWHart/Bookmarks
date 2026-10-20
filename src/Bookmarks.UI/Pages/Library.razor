@@ -202,6 +202,10 @@
                 <MudIconButton Icon="@Icons.Material.Filled.Tune" Variant="Variant.Outlined" Color="Color.Primary"
                                OnClick="OpenFiltersAsync" aria-label="Filters and view options" />
             </MudBadge>
+            @if (!IsBooks)
+            {
+                <ShelfVisibility IconOnly="true" />
+            }
         </div>
         @if (!IsBooks)
         {
@@ -274,6 +278,10 @@
     }
 </MudContainer>
 
+@* Back (Android button/gesture, browser Back) closes these drawers instead of leaving the page. *@
+<CloseOnBack Key="details" Open="_detailsOpen" OnClose="() => _detailsOpen = false" />
+<CloseOnBack Key="filters" Open="_filtersOpen" OnClose="() => _filtersOpen = false" />
+
 <MudDrawer @bind-Open="_detailsOpen" Anchor="Anchor.End" Variant="DrawerVariant.Temporary" Width="400px" Elevation="2">
     <BookDetails Entry="_selected" OnEdit="OpenEditorAsync" OnDelete="DeleteAsync" OnClose="() => _detailsOpen = false" />
 </MudDrawer>
@@ -291,11 +299,7 @@
         <FilterPanel View="_view" ViewChanged="SetView" ShowLayout="IsSheet" />
         @if (IsSheet)
         {
-            @if (!IsBooks)
-            {
-                <MudDivider Class="my-3" />
-                <ShelfVisibility AsList="true" />
-            }
+            @* Bookcase visibility has its own eye button next to Filters on phones. *@
             <MudStack Row="true" Spacing="1" Class="mt-2" Wrap="Wrap.Wrap">
                 <MudButton Href="bookcases" Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
                            StartIcon="@Icons.Material.Filled.Edit">Edit bookcases</MudButton>
