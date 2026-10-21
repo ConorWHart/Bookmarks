@@ -730,6 +730,54 @@ public sealed class LibraryService(ILocalStore store, IAccountService account)
     private static string? LastRank(IEnumerable<string?> ranks)
         => ranks.Where(r => !string.IsNullOrEmpty(r)).Max(StringComparer.Ordinal);
 
+    // ---------- Wishlist (Phase 7c) ----------
+
+    /// <summary>1 High, 2 Medium, 3 Low, or null for none.</summary>
+    public Task SetWishlistPriorityAsync(Guid itemId, int? priority, CancellationToken ct = default)
+        => UpdateAsync<LibraryItem>(itemId, i => i.WishlistPriority = Wishlist.Normalize(priority), ct);
+
+    /// <summary>
+    /// "I got it": the wishlist book becomes Owned, acquired on <paramref name="acquiredOn"/> (and the price paid, if
+    /// given); its wishlist priority and note are cleared. Returns what's needed to undo it, or null if not found.
+    /// </summary>
+    public async Task<WishlistUndo?> MarkAcquiredAsync(Guid itemId, DateOnly acquiredOn, decimal? pricePaid, CancellationToken ct = default)
+    {
+        var item = await store.GetAsync<LibraryItem>(itemId, ct);
+        if (item is null)
+        {
+            return null;
+        }
+
+        var undo = new WishlistUndo(item.Id, item.Status, item.WishlistPriority, item.WishlistNote, item.AcquiredOn, item.PurchasePrice);
+        item.Status = OwnershipStatus.Owned;
+        item.AcquiredOn = acquiredOn;
+        if (pricePaid is { } price)
+        {
+            item.PurchasePrice = price;
+        }
+
+        item.WishlistPriority = null;
+        item.WishlistNote = null;
+        item.Touch();
+        await store.UpsertAsync(item, ct);
+        await ReloadAsync(ct);
+        return undo;
+    }
+
+    /// <summary>Puts a book back on the wishlist as it was before <see cref="MarkAcquiredAsync"/>.</summary>
+    public Task UndoAcquiredAsync(WishlistUndo undo, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(undo);
+        return UpdateAsync<LibraryItem>(undo.ItemId, i =>
+        {
+            i.Status = undo.Status;
+            i.WishlistPriority = undo.Priority;
+            i.WishlistNote = undo.Note;
+            i.AcquiredOn = undo.AcquiredOn;
+            i.PurchasePrice = undo.PurchasePrice;
+        }, ct);
+    }
+
     // ---------- Backup, restore, Goodreads (Phase 7b) ----------
 
     /// <summary>The whole live library as backup JSON, with its file name for today.</summary>
@@ -786,6 +834,9 @@ public sealed class LibraryService(ILocalStore store, IAccountService account)
         await ReloadAsync(ct);
     }
 }
+
+/// <summary>A wishlist book's fields before "I got it", for Undo.</summary>
+public sealed record WishlistUndo(Guid ItemId, OwnershipStatus Status, int? Priority, string? Note, DateOnly? AcquiredOn, decimal? PurchasePrice);
 
 /// <summary>One place a book is in: the placement with its bookcase and shelf.</summary>
 public sealed record BookPlace(ShelfPlacement Placement, Bookcase Bookcase, Shelf Shelf);

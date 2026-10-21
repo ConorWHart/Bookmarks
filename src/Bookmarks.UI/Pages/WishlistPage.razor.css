@@ -1,0 +1,139 @@
+.bm-wishlist__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.bm-wishlist__empty {
+    max-width: 560px;
+}
+
+.bm-wishlist__tools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+    margin-bottom: 12px;
+}
+
+.bm-wishlist__search {
+    flex: 1 1 240px;
+}
+
+.bm-wishlist__sort {
+    flex: 0 0 160px;
+}
+
+.bm-wishlist__list {
+    display: flex;
+    flex-direction: column;
+    border-top: 1px solid var(--mud-palette-lines-default);
+}
+
+/* One wish: thumbnail, title / author / note (tap to edit), then priority and "I got it". */
+.bm-wish {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 4px;
+    border-bottom: 1px solid var(--mud-palette-lines-default);
+}
+
+.bm-wish__main {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 0;
+    border: none;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.bm-wish__thumb {
+    position: relative;
+    flex: 0 0 40px;
+    width: 40px;
+    height: 60px;
+    border-radius: 2px 3px 3px 2px;
+    overflow: hidden;
+    background: var(--bm-book-bg, #6b5b4b);
+    box-shadow: 1px 1px 3px rgb(0 0 0 / 0.35);
+}
+
+.bm-wish__thumb ::deep .bm-wish__cover {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.bm-wish__text {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.bm-wish__title {
+    font-weight: 600;
+    line-height: 1.3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.bm-wish__author {
+    font-size: 0.85rem;
+    color: var(--mud-palette-text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.bm-wish__note {
+    margin-top: 2px;
+    font-size: 0.82rem;
+    font-style: italic;
+    color: var(--mud-palette-text-secondary);
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow-wrap: anywhere;
+}
+
+.bm-wish__actions {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Phones: the actions go under the text, indented past the thumbnail. */
+@media (max-width: 599.98px) {
+    .bm-wish {
+        flex-wrap: wrap;
+        row-gap: 8px;
+    }
+
+    .bm-wish__main {
+        flex-basis: 100%;
+    }
+
+    .bm-wish__actions {
+        margin-left: 52px;
+    }
+
+    .bm-wishlist__sort {
+        flex: 1 1 140px;
+    }
+}

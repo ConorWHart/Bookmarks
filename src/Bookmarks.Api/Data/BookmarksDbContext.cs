@@ -117,6 +117,7 @@ public sealed class BookmarksDbContext(DbContextOptions<BookmarksDbContext> opti
         {
             e.Property(x => x.ShelfRank).HasMaxLength(RankLength).IsUnicode(false);
             e.Property(x => x.LentTo).HasMaxLength(200);
+            e.Property(x => x.WishlistNote).HasMaxLength(500); // Wishlist.MaxNoteLength
             e.Property(x => x.Rating).HasPrecision(3, 1);
 
             // TagIds is a primitive collection (JSON array of GUIDs).

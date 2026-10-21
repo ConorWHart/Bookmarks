@@ -159,9 +159,6 @@
                     @if (!IsBooks)
                     {
                         <ShelfVisibility />
-
-                        <MudButton Href="bookcases" Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
-                                   StartIcon="@Icons.Material.Filled.Edit">Edit bookcases</MudButton>
                     }
 
                     <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
@@ -301,8 +298,6 @@
         {
             @* Bookcase visibility has its own eye button next to Filters on phones. *@
             <MudStack Row="true" Spacing="1" Class="mt-2" Wrap="Wrap.Wrap">
-                <MudButton Href="bookcases" Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
-                           StartIcon="@Icons.Material.Filled.Edit">Edit bookcases</MudButton>
                 <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small" StartIcon="@Icons.Material.Filled.ImageSearch"
                            OnClick="OpenFindCoversFromSheetAsync">Find covers</MudButton>
             </MudStack>
@@ -347,8 +342,8 @@
     }
 
     private string HiddenBookcasesText => LibraryData.HiddenBookcaseCount == 1
-        ? "1 bookcase is hidden. Show it from the Bookcases menu (Filters on a phone)."
-        : $"{LibraryData.HiddenBookcaseCount} bookcases are hidden. Show them from the Bookcases menu (Filters on a phone).";
+        ? "1 bookcase is hidden. Show it from the Bookcases menu (the eye button on a phone)."
+        : $"{LibraryData.HiddenBookcaseCount} bookcases are hidden. Show them from the Bookcases menu (the eye button on a phone).";
 
     private bool _loaded;
     private string? _loadError;
@@ -530,6 +525,9 @@
             var canShelve = LibraryData.Bookcases.Count > 0;
             Snackbar.Add($"Added “{saved.Title}”", Severity.Success, o =>
             {
+                // With an action MudBlazor keeps a snackbar until it's clicked unless told otherwise.
+                o.RequireInteraction = false;
+                o.VisibleStateDuration = 6000;
                 o.Action = canShelve ? "Put on a shelf" : "View";
                 o.ActionColor = Color.Inherit;
                 o.OnClick = _ => canShelve ? PutNewBookOnShelfAsync(saved.Id) : ShowAsync(saved);
@@ -608,6 +606,7 @@
         await LibraryData.DeleteBookAsync(entry.Id);
         Snackbar.Add($"Deleted “{entry.Title}”", Severity.Normal, o =>
         {
+            o.RequireInteraction = false; // an action would otherwise keep it until clicked
             o.Action = "Undo";
             o.ActionColor = Color.Inherit;
             o.VisibleStateDuration = 5000; // 5 s; MudBlazor pauses the timer while the pointer is over it

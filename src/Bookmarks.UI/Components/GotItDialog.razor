@@ -1,0 +1,53 @@
+@* "I got it" for a wishlist book: marks it Owned, with when it was acquired, the price paid (optional), and whether
+   to shelve it next.
+   Closes with a GotItResult. *@
+@using System.Globalization
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">You got it!</MudText>
+    </TitleContent>
+
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudText Typo="Typo.body2">
+                <strong>@BookTitle</strong> will be marked as Owned and leave your wishlist.
+            </MudText>
+            <MudDatePicker @bind-Date="_acquired" Label="Got it on" MaxDate="DateTime.Today" Variant="Variant.Outlined"
+                           Margin="Margin.Dense" DateFormat="d MMM yyyy" />
+            <MudNumericField T="decimal?" @bind-Value="_price" Label="Price paid (optional)" Min="0m" HideSpinButtons="true"
+                             Variant="Variant.Outlined" Margin="Margin.Dense" Format="0.00" Culture="CultureInfo.CurrentCulture" />
+            @if (CanShelve)
+            {
+                <MudCheckBox T="bool" @bind-Value="_putOnShelf" Color="Color.Primary" Label="Put it on a shelf next" />
+            }
+        </MudStack>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton OnClick="() => MudDialog.Cancel()">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Check" OnClick="Confirm">
+            Mark as Owned
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public string BookTitle { get; set; } = "";
+
+    /// <summary>There's at least one bookcase, so "put it on a shelf" makes sense.</summary>
+    [Parameter] public bool CanShelve { get; set; }
+
+    private DateTime? _acquired = DateTime.Today;
+    private decimal? _price;
+    private bool _putOnShelf = true;
+
+    private void Confirm()
+    {
+        var date = DateOnly.FromDateTime(_acquired ?? DateTime.Today);
+        var price = (_price is >= 0m) ? Math.Round(_price.Value, 2, MidpointRounding.AwayFromZero) : (decimal?)null;
+        MudDialog.Close(DialogResult.Ok(new GotItResult(date, price, CanShelve && _putOnShelf)));
+    }
+}

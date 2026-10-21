@@ -41,8 +41,9 @@
 
 .bm-editor__cover-actions {
     display: flex;
+    flex-wrap: wrap;
     justify-content: center;
-    margin: -6px 0 10px;
+    margin-top: 4px;
 }
 
 .bm-editor__swatch {
@@ -68,11 +69,37 @@
     top: 0;
 }
 
+/* Focused by "Edit cover" only to scroll it into view: no focus ring on the whole group. */
+.bm-look__group:focus {
+    outline: none;
+}
+
+/* Cover above, spine below (side by side on phones). */
+.bm-editor__previews {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.bm-editor__look {
+    padding: 4px 4px 6px;
+}
+
+.bm-editor__stage-label {
+    margin-bottom: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    text-align: center;
+    color: var(--mud-palette-text-secondary);
+}
+
 .bm-editor__stage {
     display: flex;
     align-items: flex-end;
     justify-content: center;
-    min-height: 200px;
+    min-height: 160px;
     padding: 12px 8px 0;
     border-radius: 6px 6px 0 0;
     background:
@@ -98,12 +125,23 @@
     .bm-editor__preview {
         position: static;
         order: -1;
-        width: 160px;
+        width: 100%;
+        max-width: 320px;
         margin: 0 auto;
     }
 
+    /* Phones: cover and spine side by side. */
+    .bm-editor__previews {
+        flex-direction: row;
+    }
+
+    .bm-editor__look {
+        flex: 1 1 0;
+        min-width: 0;
+    }
+
     .bm-editor__stage {
-        min-height: 150px;
+        min-height: 140px;
     }
 }
 
@@ -171,9 +209,3 @@
     gap: 8px;
 }
 
-/* Cover / Spine toggle under the preview. */
-.bm-editor__faceout {
-    display: flex;
-    justify-content: center;
-    margin-top: 8px;
-}

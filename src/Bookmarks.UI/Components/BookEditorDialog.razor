@@ -83,7 +83,7 @@
                 <EditorSection Title="Your copy" Summary="@CopySummary" Expanded="_copyOpen" ExpandedChanged="v => SetSectionAsync(CopyKey, v)">
                 <MudGrid Spacing="2">
                     <MudItem xs="6">
-                        <MudSelect T="OwnershipStatus" @bind-Value="_model.Status" Label="Status" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true">
+                        <MudSelect T="OwnershipStatus" @bind-Value="_model.Status" @bind-Value:after="OnStatusChanged" Label="Status" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true">
                             <MudSelectItem Value="OwnershipStatus.Owned">Owned</MudSelectItem>
                             <MudSelectItem Value="OwnershipStatus.Wishlist">Wishlist</MudSelectItem>
                             <MudSelectItem Value="OwnershipStatus.LentOut">Lent out</MudSelectItem>
@@ -102,6 +102,22 @@
                     {
                         <MudItem xs="12">
                             <MudTextField T="string" @bind-Value="_model.LentTo" Label="Lent to" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                        </MudItem>
+                    }
+                    @if (_model.Status == OwnershipStatus.Wishlist)
+                    {
+                        <MudItem xs="12" sm="6">
+                            <MudSelect T="int?" @bind-Value="_model.WishlistPriority" Label="Priority" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true">
+                                @foreach (var (priority, label) in Wishlist.Priorities)
+                                {
+                                    <MudSelectItem T="int?" Value="priority">@label</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudTextField T="string" @bind-Value="_model.WishlistNote" Label="Wishlist note" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                          Lines="2" Sizing="InputSizing.Auto" MaxLines="6" MaxLength="Wishlist.MaxNoteLength" Counter="Wishlist.MaxNoteLength"
+                                          HelperText="Where to buy it, the edition you want, a price you've seen" />
                         </MudItem>
                     }
                     @if (IsNew)
@@ -125,12 +141,19 @@
                 <EditorSection Title="Look on the shelf" Summary="@LookSummary" Expanded="_lookOpen" ExpandedChanged="v => SetSectionAsync(LookKey, v)">
                     <div class="bm-look">
 
-                        @* Cover *@
-                        <div class="bm-look__group">
+                        @* Cover (focusable so "Edit cover" under the preview can scroll here) *@
+                        <div class="bm-look__group" tabindex="-1" @ref="_coverGroup">
                             <div class="bm-look__label">Cover</div>
                             <div class="bm-look__row">
-                                <MudButton Variant="Variant.Outlined" Size="Size.Small" StartIcon="@Icons.Material.Filled.PhotoLibrary"
-                                           OnClick="ChooseCoverAsync" Disabled="@(!CanChooseCover)">@ChooseCoverLabel</MudButton>
+                                <MudTooltip Text="@ChooseCoverTooltip">
+                                    <MudButton Variant="Variant.Outlined" Size="Size.Small" StartIcon="@Icons.Material.Filled.PhotoLibrary"
+                                               OnClick="ChooseCoverAsync" Disabled="@(!CanChooseCover)">@ChooseCoverLabel</MudButton>
+                                </MudTooltip>
+                                @if (_model.CoverUrl is not null)
+                                {
+                                    <MudButton Variant="Variant.Text" Size="Size.Small" StartIcon="@Icons.Material.Filled.HideImage"
+                                               OnClick="RemoveCover">Remove cover</MudButton>
+                                }
                             </div>
                             <MudTextField T="string" Value="_model.CoverUrl" ValueChanged="OnCoverUrlChangedAsync" Label="Cover image link"
                                           Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"
@@ -217,40 +240,28 @@
                 </EditorSection>
             </div>
 
-            @* ---------- Live preview ---------- *@
+            @* ---------- Live preview only: the book by its cover, then by its spine. How it stands is chosen per shelf
+                 in the book details drawer (On shelf). ---------- *@
             <div class="bm-editor__preview">
-                @if (_model.CoverUrl is { } cover)
-                {
-                    <div class="bm-editor__cover">
-                        <CoverImage Url="@cover" Size="CoverSize.Medium" Alt="Cover" Class="bm-editor__cover-img" Eager="true">
-                            <Fallback>
-                                <div class="bm-editor__cover-missing">Cover unavailable</div>
-                            </Fallback>
-                        </CoverImage>
-                        <MudTooltip Text="Remove cover">
-                            <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" Class="bm-editor__cover-remove"
-                                           aria-label="Remove cover" OnClick="RemoveCover" />
-                        </MudTooltip>
+                <div class="bm-editor__previews">
+                    <div class="bm-editor__look">
+                        <div class="bm-editor__stage-label">Cover</div>
+                        <div class="bm-editor__stage" aria-hidden="true">
+                            <BookSpine Book="PreviewAs(true)" Scale="PreviewScale" />
+                        </div>
+                        <div class="bm-editor__plank"></div>
                     </div>
-                }
+                    <div class="bm-editor__look">
+                        <div class="bm-editor__stage-label">Spine</div>
+                        <div class="bm-editor__stage" aria-hidden="true">
+                            <BookSpine Book="PreviewAs(false)" Scale="PreviewScale" />
+                        </div>
+                        <div class="bm-editor__plank"></div>
+                    </div>
+                </div>
                 <div class="bm-editor__cover-actions">
-                    <MudTooltip Text="@ChooseCoverTooltip">
-                        <MudButton Variant="Variant.Text" Size="Size.Small" StartIcon="@Icons.Material.Filled.PhotoLibrary"
-                                   OnClick="ChooseCoverAsync" Disabled="@(!CanChooseCover)">@ChooseCoverLabel</MudButton>
-                    </MudTooltip>
-                </div>
-                <div class="bm-editor__stage" aria-hidden="true">
-                    <BookSpine Book="Preview" Scale="PreviewScale" />
-                </div>
-                <div class="bm-editor__plank"></div>
-                <MudText Typo="Typo.caption" Align="Align.Center" Class="mt-1">Preview</MudText>
-                @* How it stands on shelves by default; each shelf can still differ (book details drawer). *@
-                <div class="bm-editor__faceout">
-                    <MudToggleGroup T="bool" @bind-Value="_model.FaceOut" Color="Color.Primary" Size="Size.Small" Outlined="true"
-                                    aria-label="Show on shelves by">
-                        <MudToggleItem Value="true" Text="Cover" />
-                        <MudToggleItem Value="false" Text="Spine" />
-                    </MudToggleGroup>
+                    <MudButton Variant="Variant.Text" Size="Size.Small" StartIcon="@Icons.Material.Filled.Edit"
+                               OnClick="EditCoverAsync">Edit cover</MudButton>
                 </div>
             </div>
         </div>
@@ -317,6 +328,9 @@
             if (InitialStatus is { } status)
             {
                 _model.Status = status;
+
+                // Wishlist books show by their cover (you'll recognise it in a shop); the toggle still changes it.
+                _model.FaceOut = status == OwnershipStatus.Wishlist;
             }
         }
 
@@ -338,6 +352,31 @@
         {
             await RefreshCoverColorAsync();
         }
+
+        if (_scrollToCover)
+        {
+            _scrollToCover = false;
+            try
+            {
+                // Focusing scrolls the dialog to the Cover controls; no JS needed.
+                await _coverGroup.FocusAsync(preventScroll: false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                // The user can scroll there.
+            }
+        }
+    }
+
+    private ElementReference _coverGroup;
+    private bool _scrollToCover;
+
+    /// <summary>"Edit cover" under the preview: open "Look on the shelf" and bring its Cover controls into view.</summary>
+    private async Task EditCoverAsync()
+    {
+        await SetSectionAsync(LookKey, true);
+        _scrollToCover = true;
+        StateHasChanged();
     }
 
     // Only once it's ISBN length, so it doesn't flag while the user is still typing.
@@ -529,28 +568,35 @@
         }
     }
 
-    /// <summary>The book as it would look with the current form values.</summary>
-    private PlacedBook Preview
+    /// <summary>A new book switched to Wishlist shows by its cover (until the Cover / Spine toggle says otherwise).</summary>
+    private void OnStatusChanged()
     {
-        get
+        if (IsNew && _model.Status == OwnershipStatus.Wishlist)
         {
-            var book = new Book();
-            var item = new LibraryItem();
-            _model.ApplyTo(book, item);
-            if (string.IsNullOrWhiteSpace(book.Title))
-            {
-                book.Title = "Title";
-            }
-
-            if (_entry is not null)
-            {
-                // A per-copy thickness override isn't edited here; keep it so the preview matches the shelf.
-                item.Appearance.ThicknessMmOverride = _entry.Item.Appearance.ThicknessMmOverride;
-            }
-
-            var entry = LibraryEntry.Create(item, book, Array.Empty<ReadingSession>());
-            return ShelfLayoutEngine.Flow(new[] { entry }, int.MaxValue)[0].Books[0];
+            _model.FaceOut = true;
         }
+    }
+
+    /// <summary>The book as it would look with the current form values, by its cover or by its spine.</summary>
+    private PlacedBook PreviewAs(bool faceOut)
+    {
+        var book = new Book();
+        var item = new LibraryItem();
+        _model.ApplyTo(book, item);
+        item.Appearance.FaceOut = faceOut; // sized for that way of standing
+        if (string.IsNullOrWhiteSpace(book.Title))
+        {
+            book.Title = "Title";
+        }
+
+        if (_entry is not null)
+        {
+            // A per-copy thickness override isn't edited here; keep it so the preview matches the shelf.
+            item.Appearance.ThicknessMmOverride = _entry.Item.Appearance.ThicknessMmOverride;
+        }
+
+        var entry = LibraryEntry.Create(item, book, Array.Empty<ReadingSession>());
+        return ShelfLayoutEngine.Flow(new[] { entry }, int.MaxValue)[0].Books[0];
     }
 
     // ---------- Collapsible sections (remembered per device) ----------

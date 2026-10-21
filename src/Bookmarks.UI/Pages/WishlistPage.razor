@@ -1,0 +1,242 @@
+@page "/wishlist"
+@* The wishlist as a shopping list (Phase 7c): priority, a note, and "I got it". Named WishlistPage so it doesn't hide
+   the Core Wishlist class. *@
+@using Microsoft.JSInterop
+@implements IDisposable
+@inject LibraryService LibraryData
+@inject UserPreferences Prefs
+@inject IDialogService Dialogs
+@inject ISnackbar Snackbar
+@inject IBrowserViewportService Viewport
+
+<PageTitle>Wishlist · Bookmarks</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Medium" Class="py-4 px-2 px-sm-4">
+    <div class="bm-wishlist__head">
+        <div>
+            <MudText Typo="Typo.h5">Wishlist</MudText>
+            @if (_loaded && _all.Count > 0)
+            {
+                <MudText Typo="Typo.caption" Class="bm-wishlist__count">@CountText</MudText>
+            }
+        </div>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="AddAsync">
+            Add a book
+        </MudButton>
+    </div>
+
+    @if (!_loaded)
+    {
+        <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+    }
+    else if (_all.Count == 0)
+    {
+        <MudPaper Elevation="0" Class="pa-8 mx-auto bm-panel bm-wishlist__empty">
+            <MudStack AlignItems="AlignItems.Center" Spacing="3">
+                <MudIcon Icon="@Icons.Material.Outlined.FavoriteBorder" Color="Color.Primary" Style="font-size:3rem" />
+                <MudText Typo="Typo.h6">Your wishlist is empty</MudText>
+                <MudText Typo="Typo.body2" Align="Align.Center">
+                    Add books you'd like to buy, with a priority and a note (where to find it, the edition you want, a price
+                    you've seen). When one comes home, tap “I got it” and it moves into your library.
+                </MudText>
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="AddAsync">
+                    Add your first wish
+                </MudButton>
+            </MudStack>
+        </MudPaper>
+    }
+    else
+    {
+        <div class="bm-wishlist__tools">
+            <div class="bm-wishlist__search">
+                <MudTextField T="string" @bind-Value="_search" @bind-Value:after="Recompute" Placeholder="Search the wishlist"
+                              Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" Immediate="true"
+                              DebounceInterval="200" Clearable="true" Variant="Variant.Outlined" Margin="Margin.Dense" />
+            </div>
+            <div class="bm-wishlist__sort">
+                <MudSelect T="WishlistSort" Value="_sort" ValueChanged="SetSortAsync" Label="Sort" Variant="Variant.Outlined"
+                           Margin="Margin.Dense" Dense="true">
+                    <MudSelectItem Value="WishlistSort.Priority">Priority</MudSelectItem>
+                    <MudSelectItem Value="WishlistSort.DateAdded">Date added</MudSelectItem>
+                    <MudSelectItem Value="WishlistSort.Title">Title</MudSelectItem>
+                    <MudSelectItem Value="WishlistSort.Author">Author</MudSelectItem>
+                </MudSelect>
+            </div>
+        </div>
+
+        @if (_shown.Count == 0)
+        {
+            <MudText Typo="Typo.body2" Class="mt-4 mud-text-secondary">No wishlist books match “@_search”.</MudText>
+        }
+
+        <div class="bm-wishlist__list">
+            @foreach (var e in _shown)
+            {
+                <div class="bm-wish" @key="e.Id">
+                    <button type="button" class="bm-wish__main" @onclick="() => EditAsync(e)" aria-label="@EditLabel(e)">
+                        <span class="bm-wish__thumb" style="@ThumbStyle(e)">
+                            @if (e.Book.CoverUrl is { } cover)
+                            {
+                                <CoverImage Url="@cover" Size="CoverSize.Medium" Class="bm-wish__cover" />
+                            }
+                        </span>
+                        <span class="bm-wish__text">
+                            <span class="bm-wish__title">@e.Title</span>
+                            <span class="bm-wish__author">@Byline(e)</span>
+                            @if (e.Item.WishlistNote is { Length: > 0 } note)
+                            {
+                                <span class="bm-wish__note">@note</span>
+                            }
+                        </span>
+                    </button>
+                    <div class="bm-wish__actions">
+                        <MudMenu Label="@Wishlist.PriorityLabel(e.Item.WishlistPriority)" Variant="Variant.Outlined" Size="Size.Small"
+                                 Color="@PriorityColor(e.Item.WishlistPriority)" EndIcon="@Icons.Material.Filled.ArrowDropDown"
+                                 Dense="true" AriaLabel="Priority">
+                            @foreach (var (priority, label) in Wishlist.Priorities)
+                            {
+                                <MudMenuItem OnClick="() => SetPriorityAsync(e, priority)">@label</MudMenuItem>
+                            }
+                        </MudMenu>
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                                   StartIcon="@Icons.Material.Filled.Check" OnClick="() => GotItAsync(e)">I got it</MudButton>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</MudContainer>
+
+@code {
+    private const string SortPref = "wishlist.sort";
+
+    private bool _loaded;
+    private string? _search;
+    private WishlistSort _sort = WishlistSort.Priority;
+    private IReadOnlyList<LibraryEntry> _all = [];
+    private IReadOnlyList<LibraryEntry> _shown = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        LibraryData.Changed += OnLibraryChanged;
+        try
+        {
+            if (Enum.TryParse<WishlistSort>(await Prefs.GetStringAsync(SortPref), out var saved))
+            {
+                _sort = saved;
+            }
+
+            await LibraryData.EnsureLoadedAsync();
+        }
+        catch (JSException)
+        {
+            // Shown as an empty wishlist; the Library page reports storage problems.
+        }
+
+        Recompute();
+        _loaded = true;
+    }
+
+    public void Dispose() => LibraryData.Changed -= OnLibraryChanged;
+
+    private void OnLibraryChanged() => _ = InvokeAsync(() =>
+    {
+        Recompute();
+        StateHasChanged();
+    });
+
+    private void Recompute()
+    {
+        _all = Wishlist.Query(LibraryData.Entries, null, _sort);
+        _shown = string.IsNullOrWhiteSpace(_search) ? _all : Wishlist.Query(LibraryData.Entries, _search, _sort);
+    }
+
+    private async Task SetSortAsync(WishlistSort sort)
+    {
+        _sort = sort;
+        Recompute();
+        try
+        {
+            await Prefs.SetStringAsync(SortPref, sort.ToString());
+        }
+        catch (JSException)
+        {
+            // Not remembered; fine for this visit.
+        }
+    }
+
+    private Task SetPriorityAsync(LibraryEntry e, int? priority) => LibraryData.SetWishlistPriorityAsync(e.Id, priority);
+
+    private async Task AddAsync()
+    {
+        var parameters = new DialogParameters { { nameof(BookEditorDialog.InitialStatus), OwnershipStatus.Wishlist } };
+        var options = await DialogDefaults.EditorAsync(Viewport);
+        await Dialogs.ShowAsync<BookEditorDialog>(parameters, options);
+    }
+
+    private async Task EditAsync(LibraryEntry e)
+    {
+        var parameters = new DialogParameters { { nameof(BookEditorDialog.ItemId), e.Id } };
+        var options = await DialogDefaults.EditorAsync(Viewport);
+        await Dialogs.ShowAsync<BookEditorDialog>(parameters, options);
+    }
+
+    private async Task GotItAsync(LibraryEntry e)
+    {
+        var parameters = new DialogParameters
+        {
+            { nameof(GotItDialog.BookTitle), e.Title },
+            { nameof(GotItDialog.CanShelve), LibraryData.Bookcases.Count > 0 },
+        };
+        var dialog = await Dialogs.ShowAsync<GotItDialog>(null, parameters, new DialogOptions { MaxWidth = MaxWidth.ExtraSmall, FullWidth = true });
+        if (await dialog.Result is not { Canceled: false, Data: GotItResult got })
+        {
+            return;
+        }
+
+        var undo = await LibraryData.MarkAcquiredAsync(e.Id, got.AcquiredOn, got.PricePaid);
+        if (undo is null)
+        {
+            return;
+        }
+
+        Snackbar.Add($"Marked “{e.Title}” as Owned.", Severity.Success, o =>
+        {
+            // With an action MudBlazor keeps a snackbar until it's clicked unless told otherwise.
+            o.RequireInteraction = false;
+            o.Action = "Undo";
+            o.ActionColor = Color.Inherit;
+            o.VisibleStateDuration = 6000;
+            o.OnClick = _ => LibraryData.UndoAcquiredAsync(undo);
+        });
+
+        if (got.PutOnShelf)
+        {
+            await ShelfPickerDialog.OpenAsync(Dialogs, Viewport, [e.Id]);
+        }
+    }
+
+    private string CountText => _all.Count == 1 ? "1 book" : $"{_all.Count} books";
+
+    private static string Byline(LibraryEntry e)
+    {
+        var author = string.IsNullOrWhiteSpace(e.Author) ? "Unknown author" : e.Author;
+        return e.Book.Series is { Length: > 0 } series
+            ? e.Book.SeriesNumber is { } n
+                ? $"{author} · {series} #{n.ToString("0.##", System.Globalization.CultureInfo.CurrentCulture)}"
+                : $"{author} · {series}"
+            : author;
+    }
+
+    private static string EditLabel(LibraryEntry e) => $"Edit {e.Title}";
+
+    private static string ThumbStyle(LibraryEntry e) => "--bm-book-bg:" + e.SpineColor;
+
+    private static Color PriorityColor(int? priority) => priority switch
+    {
+        Wishlist.High => Color.Error,
+        Wishlist.Medium => Color.Warning,
+        Wishlist.Low => Color.Info,
+        _ => Color.Default,
+    };
+}

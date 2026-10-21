@@ -316,6 +316,13 @@ namespace Bookmarks.Api.Data.Migrations
                     b.Property<bool>("WantToReread")
                         .HasColumnType("bit");
 
+                    b.Property<string>("WishlistNote")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int?>("WishlistPriority")
+                        .HasColumnType("int");
+
                     b.ComplexProperty(typeof(Dictionary<string, object>), "Appearance", "Bookmarks.Shared.Domain.LibraryItem.Appearance#SpineAppearance", b1 =>
                         {
                             b1.IsRequired();

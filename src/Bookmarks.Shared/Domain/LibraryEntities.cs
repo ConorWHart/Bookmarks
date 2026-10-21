@@ -27,7 +27,14 @@ public sealed class LibraryItem : SyncEntity
 
     public DateOnly? AcquiredOn { get; set; }
 
+    /// <summary>Price actually paid (set by "I got it" on the wishlist, or later).</summary>
     public decimal? PurchasePrice { get; set; }
+
+    /// <summary>Wishlist priority (Phase 7c): 1 High, 2 Medium, 3 Low; null = none. Only meaningful while on the wishlist.</summary>
+    public int? WishlistPriority { get; set; }
+
+    /// <summary>Wishlist note, ≤ 500 characters: where to buy, edition wanted, price seen (Phase 7c).</summary>
+    public string? WishlistNote { get; set; }
 
     public string? LentTo { get; set; }
 

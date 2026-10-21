@@ -86,6 +86,12 @@ public sealed class BookEditModel
 
     public string? LentTo { get; set; }
 
+    /// <summary>Only kept while <see cref="Status"/> is Wishlist (1 High, 2 Medium, 3 Low, null = none).</summary>
+    public int? WishlistPriority { get; set; }
+
+    /// <summary>Only kept while <see cref="Status"/> is Wishlist; ≤ <see cref="Wishlist.MaxNoteLength"/>.</summary>
+    public string? WishlistNote { get; set; }
+
     public bool WantToReread { get; set; }
 
     /// <summary>0 = not rated. Whole stars in the editor; half-star ratings are kept unless changed.</summary>
@@ -161,6 +167,8 @@ public sealed class BookEditModel
             Status = item.Status,
             Format = item.Format,
             LentTo = item.LentTo,
+            WishlistPriority = item.WishlistPriority,
+            WishlistNote = item.WishlistNote,
             WantToReread = item.WantToReread,
             RatingStars = stars,
             SpineColor = entry.SpineColor,
@@ -203,6 +211,8 @@ public sealed class BookEditModel
         item.Status = Status;
         item.Format = Format;
         item.LentTo = Status == OwnershipStatus.LentOut ? Clean(LentTo) : null;
+        item.WishlistPriority = Status == OwnershipStatus.Wishlist ? Wishlist.Normalize(WishlistPriority) : null;
+        item.WishlistNote = Status == OwnershipStatus.Wishlist ? Wishlist.NormalizeNote(WishlistNote) : null;
         item.WantToReread = WantToReread;
         item.Rating = RatingStars == _originalStars ? _originalRating
             : RatingStars == 0 ? null
