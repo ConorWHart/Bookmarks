@@ -13,6 +13,8 @@
                   ObserveSystemDarkModeChange="@(ThemeState.Mode == ThemeMode.System)" />
 <MudPopoverProvider />
 <MudDialogProvider />
+@* Back closes the open dialog (editor, shelf picker, message boxes…) instead of leaving the page. *@
+<CloseDialogsOnBack />
 <MudSnackbarProvider />
 
 <MudLayout Class="@(ThemeState.IsDarkMode ? "bm-dark" : "bm-light")">

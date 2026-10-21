@@ -1,0 +1,40 @@
+@* Back (Android button/gesture, browser Back) closes the dialog on top instead of leaving the page, like CloseOnBack
+   does for drawers. Placed once in MainLayout: every MudBlazor dialog (editor, shelf picker, message boxes, …) is
+   tracked through IDialogService, so new dialogs get this without any changes of their own. Back cancels the
+   dialog, the same as its Cancel button. Renders nothing. *@
+@implements IDisposable
+@inject IDialogService DialogService
+@inject OverlayHistory History
+
+@code {
+    protected override void OnInitialized() => DialogService.DialogInstanceAddedAsync += OnDialogAddedAsync;
+
+    public void Dispose() => DialogService.DialogInstanceAddedAsync -= OnDialogAddedAsync;
+
+    private Task OnDialogAddedAsync(IDialogReference dialog)
+    {
+        // Don't hold up the dialog opening: follow it in the background.
+        _ = TrackAsync(dialog);
+        return Task.CompletedTask;
+    }
+
+    private async Task TrackAsync(IDialogReference dialog)
+    {
+        var key = "dialog-" + dialog.Id.ToString("N")[..8];
+        try
+        {
+            await History.OpenedAsync(key, () =>
+            {
+                dialog.Close(DialogResult.Cancel());
+                return Task.CompletedTask;
+            });
+
+            await dialog.Result;
+        }
+        finally
+        {
+            // Closed by its own buttons or the backdrop: step back over its entry (nothing to do if Back closed it).
+            await History.ClosedAsync(key);
+        }
+    }
+}
