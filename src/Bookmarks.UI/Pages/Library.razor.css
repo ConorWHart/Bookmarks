@@ -24,6 +24,22 @@
     min-width: 72px;
 }
 
+/* Filters footer: Clear takes a quarter (left), Show the remaining three quarters. */
+.bm-filter-foot {
+    display: flex;
+    gap: 8px;
+}
+
+.bm-filter-foot__clear {
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+.bm-filter-foot__show {
+    flex: 3 1 0;
+    min-width: 0;
+}
+
 /* Empty library: the account options, set apart below "Add your first book". */
 .bm-empty-account {
     display: flex;

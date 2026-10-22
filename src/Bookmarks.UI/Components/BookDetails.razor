@@ -32,9 +32,8 @@
             <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" OnClick="OnClose" aria-label="Close details" />
         </div>
 
+        @* Edit is in the footer (thumb reach); Delete stays up here, away from it. *@
         <MudStack Row="true" Spacing="1" Class="my-3" AlignItems="AlignItems.Center">
-            <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary"
-                       StartIcon="@Icons.Material.Filled.Edit" OnClick="() => OnEdit.InvokeAsync(entry)">Edit</MudButton>
             <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Error"
                        StartIcon="@Icons.Material.Outlined.Delete" OnClick="() => OnDelete.InvokeAsync(entry)">Delete</MudButton>
         </MudStack>
@@ -213,6 +212,12 @@
                 <tr><td>Added</td><td>@entry.Item.AddedAt.ToLocalTime().ToString("d MMM yyyy")</td></tr>
             </tbody>
         </MudSimpleTable>
+    </div>
+
+    @* Stays at the bottom of the drawer while the details scroll. *@
+    <div class="bm-details__foot">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" StartIcon="@Icons.Material.Filled.Edit"
+                   OnClick="() => OnEdit.InvokeAsync(entry)">Edit book</MudButton>
     </div>
 }
 

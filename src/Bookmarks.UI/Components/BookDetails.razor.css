@@ -1,3 +1,13 @@
+/* Edit book: pinned to the bottom of the drawer (the drawer content is the scroller). */
+.bm-details__foot {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    padding: 10px 16px calc(12px + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--mud-palette-lines-default);
+    background: var(--mud-palette-drawer-background, var(--mud-palette-surface));
+}
+
 .bm-details__cover {
     flex: 0 0 auto;
     margin-right: 16px;

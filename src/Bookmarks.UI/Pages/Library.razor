@@ -288,8 +288,6 @@
     <div class="bm-filter-drawer__head">
         <MudText Typo="Typo.h6">@(IsSheet ? "View" : "Filters")</MudText>
         <MudSpacer />
-        <MudButton Variant="Variant.Text" Size="Size.Small" Disabled="@(_view.Filter.ActiveCount == 0)"
-                   OnClick="() => SetView(_view.ClearFilters())">Clear filters</MudButton>
         <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" OnClick="() => _filtersOpen = false" aria-label="Close" />
     </div>
     <div class="bm-filter-drawer__body">
@@ -303,10 +301,17 @@
             </MudStack>
         }
     </div>
-    <div class="bm-filter-drawer__foot">
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" OnClick="() => _filtersOpen = false">
-            @ShowBooksText
-        </MudButton>
+    @* Clear (a quarter, left) and Show (the rest), within thumb reach. *@
+    <div class="bm-filter-drawer__foot bm-filter-foot">
+        <div class="bm-filter-foot__clear">
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" FullWidth="true" Disabled="@(_view.Filter.ActiveCount == 0)"
+                       OnClick="() => SetView(_view.ClearFilters())">Clear</MudButton>
+        </div>
+        <div class="bm-filter-foot__show">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" OnClick="() => _filtersOpen = false">
+                @ShowBooksText
+            </MudButton>
+        </div>
     </div>
 </MudDrawer>
 

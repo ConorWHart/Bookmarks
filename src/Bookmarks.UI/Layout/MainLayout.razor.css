@@ -1,0 +1,11 @@
+/* Style self-check probe (see js/pwa.js): only this scoped rule gives it a 3px width. */
+.bm-css-probe {
+    display: block;
+    position: fixed;
+    left: -10px;
+    top: 0;
+    width: 3px;
+    height: 0;
+    overflow: hidden;
+    pointer-events: none;
+}

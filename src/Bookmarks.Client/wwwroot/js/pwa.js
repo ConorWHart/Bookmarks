@@ -8,6 +8,11 @@
 //
 // The service worker itself is registered early in index.html (window.bmSwRegistration),
 // so offline support never depends on Blazor having started.
+//
+// Style self-check: the components' own (scoped) styles live in Bookmarks.Client.styles.css, a file name that doesn't
+// change between versions. If a page ever ends up with that stylesheet from a different version than the app code
+// (or without it), every component loses its styling. MainLayout renders a hidden probe styled only by scoped CSS;
+// when it isn't, the page reloads, and if that doesn't help, it reloads clean from the network (online only).
 
 const UpdateCheckIntervalMs = 60 * 60 * 1000;
 // Coming back to the screen checks at most this often.
@@ -26,6 +31,7 @@ export function start(dotnetRef) {
     document.addEventListener('visibilitychange', onVisibilityChange);
     reportOnline();
     watchForUpdates();
+    setTimeout(verifyStyles, 1500);
 }
 
 export function stop() {
@@ -102,9 +108,95 @@ function track(worker) {
 }
 
 function onVisibilityChange() {
-    if (document.visibilityState === 'visible' && Date.now() - lastCheck > VisibleCheckMinMs) {
+    if (document.visibilityState !== 'visible') {
+        return;
+    }
+
+    setTimeout(verifyStyles, 1000);
+    if (Date.now() - lastCheck > VisibleCheckMinMs) {
         checkForUpdate();
     }
+}
+
+// ---------- Style self-check ----------
+
+const RepairKey = 'bookmarks.styleRepair';
+
+/** True when the scoped styles apply (or there's nothing to check). */
+function stylesApply() {
+    const probe = document.querySelector('.bm-css-probe');
+    return !probe || getComputedStyle(probe).width === '3px';
+}
+
+function repairAttempts() {
+    try {
+        return Number(sessionStorage.getItem(RepairKey)) || 0;
+    } catch {
+        return 0;
+    }
+}
+
+function setRepairAttempts(n) {
+    try {
+        if (n) {
+            sessionStorage.setItem(RepairKey, String(n));
+        } else {
+            sessionStorage.removeItem(RepairKey);
+        }
+    } catch {
+        // Storage blocked: at worst the check reloads once more.
+    }
+}
+
+async function verifyStyles() {
+    if (stylesApply()) {
+        setRepairAttempts(0);
+        return;
+    }
+
+    // A stylesheet can still be arriving: look again before doing anything.
+    await new Promise(r => setTimeout(r, 1500));
+    if (stylesApply()) {
+        setRepairAttempts(0);
+        return;
+    }
+
+    const attempts = repairAttempts();
+    if (attempts === 0) {
+        console.warn('Bookmarks: styles missing; reloading.');
+        setRepairAttempts(1);
+        location.reload();
+        return;
+    }
+
+    if (attempts === 1 && navigator.onLine) {
+        // The stored copy of the app itself is mixed up: drop it and load fresh (it is cached again afterwards).
+        console.warn('Bookmarks: styles still missing; reloading from the network.');
+        setRepairAttempts(2);
+        try {
+            for (const reg of await navigator.serviceWorker.getRegistrations()) {
+                await reg.unregister();
+            }
+
+            for (const key of await caches.keys()) {
+                if (key.startsWith('offline-cache-')) {
+                    await caches.delete(key);
+                }
+            }
+        } catch {
+            // Reload anyway.
+        }
+
+        location.reload();
+    }
+
+    // Otherwise stop: never loop. Settings > About > Reload app is there by hand.
+}
+
+/** Settings > About > Reload app. */
+export function reloadApp() {
+    setRepairAttempts(0);
+    location.reload();
 }
 
 async function checkForUpdate() {

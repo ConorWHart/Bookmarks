@@ -16,6 +16,34 @@
     {
       "route": "/service-worker.js",
       "headers": { "Cache-Control": "no-cache" }
+    },
+    {
+      "route": "/service-worker-assets.js",
+      "headers": { "Cache-Control": "no-cache" }
+    },
+    {
+      "route": "/index.html",
+      "headers": { "Cache-Control": "no-cache" }
+    },
+    {
+      "route": "/Bookmarks.Client.styles.css",
+      "headers": { "Cache-Control": "no-cache" }
+    },
+    {
+      "route": "/css/*",
+      "headers": { "Cache-Control": "no-cache" }
+    },
+    {
+      "route": "/js/*",
+      "headers": { "Cache-Control": "no-cache" }
+    },
+    {
+      "route": "/_content/*",
+      "headers": { "Cache-Control": "no-cache" }
+    },
+    {
+      "route": "/manifest.webmanifest",
+      "headers": { "Cache-Control": "no-cache" }
     }
   ]
 }

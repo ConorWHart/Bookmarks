@@ -40,6 +40,9 @@ public interface IAppStatusService
 
     /// <summary>Looks for a new version now.</summary>
     Task<UpdateCheckResult> CheckForUpdateAsync();
+
+    /// <summary>Restarts the app (Settings → Reload app; the installed app has no browser reload).</summary>
+    Task ReloadAsync();
 }
 
 public sealed class NullAppStatusService : IAppStatusService
@@ -59,4 +62,6 @@ public sealed class NullAppStatusService : IAppStatusService
     public Task ApplyUpdateAsync() => Task.CompletedTask;
 
     public Task<UpdateCheckResult> CheckForUpdateAsync() => Task.FromResult(UpdateCheckResult.Unsupported);
+
+    public Task ReloadAsync() => Task.CompletedTask;
 }

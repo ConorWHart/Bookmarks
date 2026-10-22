@@ -237,6 +237,8 @@
                                    Disabled="@(_checkingUpdates || !AppStatus.IsOnline)" OnClick="CheckForUpdatesAsync">
                             @(_checkingUpdates ? "Checking…" : "Check for updates")
                         </MudButton>
+                        <MudButton Variant="Variant.Text" Size="Size.Small" StartIcon="@Icons.Material.Filled.Refresh"
+                                   OnClick="AppStatus.ReloadAsync">Reload app</MudButton>
                     }
                 </dd>
             </dl>

@@ -17,6 +17,9 @@
 <CloseDialogsOnBack />
 <MudSnackbarProvider />
 
+@* Styled only by this component's scoped CSS: js/pwa.js checks it to spot a page whose styles went missing. *@
+<span class="bm-css-probe" aria-hidden="true"></span>
+
 <MudLayout Class="@(ThemeState.IsDarkMode ? "bm-dark" : "bm-light")">
     <MudAppBar Elevation="0" Dense="true" Class="bm-appbar">
         <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start"

@@ -35,6 +35,14 @@ public sealed class BrowserAppStatusService(IJSRuntime js) : IAppStatusService, 
         }
     }
 
+    public async Task ReloadAsync()
+    {
+        if (_module is not null)
+        {
+            await _module.InvokeVoidAsync("reloadApp");
+        }
+    }
+
     public async Task<UpdateCheckResult> CheckForUpdateAsync()
     {
         if (_module is null)
