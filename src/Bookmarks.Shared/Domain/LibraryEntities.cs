@@ -83,7 +83,16 @@ public sealed class ReadingSession : SyncEntity
     public ReadingOutcome Outcome { get; set; }
 
     public decimal? Rating { get; set; }
+
+    /// <summary>
+    /// Pages read on given days during this read (Phase 7d), one entry per date. Stored with the session (a JSON column
+    /// on the server) rather than as records of their own: it syncs with the session, last writer wins.
+    /// </summary>
+    public List<DailyPages> PageLog { get; set; } = [];
 }
+
+/// <summary>Pages read on one day.</summary>
+public sealed record DailyPages(DateOnly Date, int Pages);
 
 public sealed class Note : SyncEntity
 {

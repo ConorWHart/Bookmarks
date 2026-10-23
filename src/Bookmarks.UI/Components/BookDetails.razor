@@ -126,9 +126,9 @@
             @if (entry.IsReading)
             {
                 <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Check"
-                           OnClick="() => LibraryData.FinishReadingAsync(entry.Id)">Finished it</MudButton>
+                           OnClick="() => FinishAsync(entry, sessions, ReadingOutcome.Finished)">Finished it</MudButton>
                 <MudButton Size="Size.Small" Variant="Variant.Text"
-                           OnClick="() => LibraryData.FinishReadingAsync(entry.Id, ReadingOutcome.Abandoned)">Stopped reading</MudButton>
+                           OnClick="() => FinishAsync(entry, sessions, ReadingOutcome.Abandoned)">Stopped reading</MudButton>
             }
             else
             {
@@ -149,7 +149,7 @@
                 <MudIcon Icon="@OutcomeIcon(session.Outcome)" Size="Size.Small" Color="@OutcomeColor(session.Outcome)" />
                 <div class="flex-grow-1">
                     <MudText Typo="Typo.body2">@SessionDates(session)</MudText>
-                    <MudText Typo="Typo.caption">@OutcomeText(session.Outcome)</MudText>
+                    <MudText Typo="Typo.caption">@OutcomeText(session.Outcome)@PagesLoggedText(session)</MudText>
                 </div>
                 <MudIconButton Icon="@Icons.Material.Outlined.Edit" Size="Size.Small" aria-label="Edit read"
                                OnClick="() => EditSessionAsync(session)" />
@@ -258,6 +258,18 @@
     private Task SetRereadAsync(bool value)
         => Entry is null ? Task.CompletedTask : LibraryData.SetWantToRereadAsync(Entry.Id, value);
 
+    /// <summary>Finished it / Stopped reading: asks for the day and that day's pages, then closes the latest read in progress.</summary>
+    private Task FinishAsync(LibraryEntry entry, IEnumerable<ReadingSession> sessions, ReadingOutcome outcome)
+    {
+        var current = sessions
+            .Where(s => s.Outcome == ReadingOutcome.InProgress)
+            .OrderByDescending(s => s.StartedOn ?? DateOnly.MinValue)
+            .FirstOrDefault();
+        return current is null
+            ? LibraryData.FinishReadingAsync(entry.Id, outcome)
+            : FinishReadSheet.OpenAsync(Dialogs, LibraryData, entry, current, outcome);
+    }
+
     private async Task EditSessionAsync(ReadingSession? existing)
     {
         if (Entry is null)
@@ -266,16 +278,22 @@
         }
 
         var copy = existing is null
-            ? new ReadingSession { LibraryItemId = Entry.Id, Outcome = ReadingOutcome.Finished }
+            ? new ReadingSession
+            {
+                LibraryItemId = Entry.Id,
+                Outcome = ReadingOutcome.InProgress,
+                StartedOn = DateOnly.FromDateTime(DateTime.Today),
+            }
             : Clone(existing);
 
         var parameters = new DialogParameters
         {
             { nameof(ReadingSessionDialog.Session), copy },
             { nameof(ReadingSessionDialog.IsNew), existing is null },
+            { nameof(ReadingSessionDialog.PageCount), Entry.Book.PageCount },
         };
-        var options = await DialogDefaults.EditorAsync(Viewport, MaxWidth.ExtraSmall);
-        var dialog = await Dialogs.ShowAsync<ReadingSessionDialog>(parameters, options);
+        // A bottom sheet like Finished it / Stopped reading: tapping outside closes it without saving.
+        var dialog = await Dialogs.ShowAsync<ReadingSessionDialog>(parameters, DialogDefaults.Sheet());
         var result = await dialog.Result;
         if (result is { Canceled: false, Data: ReadingSession saved })
         {
@@ -315,7 +333,11 @@
         FinishedOn = s.FinishedOn,
         Outcome = s.Outcome,
         Rating = s.Rating,
+        PageLog = [.. s.PageLog],
     };
+
+    private static string PagesLoggedText(ReadingSession s)
+        => s.PageLog.Sum(d => d.Pages) is var pages and > 0 ? $" · {pages} {(pages == 1 ? "page" : "pages")} logged" : "";
 
     private static int Stars(LibraryEntry e) => (int)Math.Round(e.Item.Rating ?? 0, MidpointRounding.AwayFromZero);
 

@@ -304,7 +304,7 @@
     @* Clear (a quarter, left) and Show (the rest), within thumb reach. *@
     <div class="bm-filter-drawer__foot bm-filter-foot">
         <div class="bm-filter-foot__clear">
-            <MudButton Variant="Variant.Outlined" Color="Color.Primary" FullWidth="true" Disabled="@(_view.Filter.ActiveCount == 0)"
+            <MudButton Variant="Variant.Outlined" Color="Color.Error" FullWidth="true" Disabled="@(_view.Filter.ActiveCount == 0)"
                        OnClick="() => SetView(_view.ClearFilters())">Clear</MudButton>
         </div>
         <div class="bm-filter-foot__show">

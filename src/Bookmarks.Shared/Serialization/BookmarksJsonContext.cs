@@ -35,6 +35,7 @@ namespace Bookmarks.Shared.Serialization;
 [JsonSerializable(typeof(List<ShelfPlacement>), TypeInfoPropertyName = "ShelfPlacementList")]
 [JsonSerializable(typeof(Preset))]
 [JsonSerializable(typeof(List<Preset>), TypeInfoPropertyName = "PresetList")]
+[JsonSerializable(typeof(List<DailyPages>), TypeInfoPropertyName = "DailyPagesList")]
 [JsonSerializable(typeof(LibraryBackup))]
 [JsonSerializable(typeof(MeResponse))]
 [JsonSerializable(typeof(CreateSessionRequest))]

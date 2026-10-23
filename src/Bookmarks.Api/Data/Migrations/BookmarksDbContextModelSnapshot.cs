@@ -475,6 +475,10 @@ namespace Bookmarks.Api.Data.Migrations
                         .HasMaxLength(24)
                         .HasColumnType("nvarchar(24)");
 
+                    b.Property<string>("PageLog")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<decimal?>("Rating")
                         .HasPrecision(3, 1)
                         .HasColumnType("decimal(3,1)");

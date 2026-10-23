@@ -1,0 +1,626 @@
+@page "/reading"
+@* Reading log (Phase 7d): what's being read now, the year in numbers, and every finished or stopped read by month.
+   Named ReadingLogPage so it doesn't hide the Core ReadingLog class. *@
+@using System.Globalization
+@using Microsoft.JSInterop
+@implements IDisposable
+@inject LibraryService LibraryData
+@inject UserPreferences Prefs
+@inject IDialogService Dialogs
+@inject IBrowserViewportService Viewport
+
+<PageTitle>Reading log · Bookmarks</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Medium" Class="py-4 px-2 px-sm-4">
+    <MudText Typo="Typo.h5" Class="mb-4">Reading log</MudText>
+
+    @if (!_loaded)
+    {
+        <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+    }
+    else
+    {
+        @* ---------- Reading now ---------- *@
+        <section class="bm-log__section">
+            <h2 class="bm-log__heading">Reading now</h2>
+            @if (_current.Count == 0)
+            {
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                    Nothing on the go. Open a book in the Library and tap “Start reading”.
+                </MudText>
+            }
+            else
+            {
+                <div class="bm-log__current">
+                    @foreach (var read in _current)
+                    {
+                        <div class="bm-log__card" @key="read.Session.Id">
+                            <button type="button" class="bm-log__card-main" @onclick="() => EditAsync(read.Entry, read.Session)"
+                                    aria-label="@EditLabel(read.Entry)">
+                                <span class="bm-log__thumb" style="@ThumbStyle(read.Entry)">
+                                    @if (read.Entry.Book.CoverUrl is { } cover)
+                                    {
+                                        <CoverImage Url="@cover" Size="CoverSize.Medium" Class="bm-log__cover" />
+                                    }
+                                </span>
+                                <span class="bm-log__text">
+                                    <span class="bm-log__title">@read.Entry.Title</span>
+                                    <span class="bm-log__sub">@read.Entry.Author</span>
+                                    <span class="bm-log__sub">@CurrentText(read)</span>
+                                    @if (ProgressText(read) is { } progress)
+                                    {
+                                        <span class="bm-log__sub">@progress</span>
+                                    }
+                                    @if (ProgressPercent(read) is { } percent)
+                                    {
+                                        <span class="bm-log__progress" role="presentation">
+                                            <span class="bm-log__progress-fill" style="@WidthStyle(percent)"></span>
+                                        </span>
+                                    }
+                                </span>
+                            </button>
+                            <div class="bm-log__card-actions">
+                                <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" StartIcon="@Icons.Material.Filled.Check"
+                                           OnClick="() => FinishReadSheet.OpenAsync(Dialogs, LibraryData, read.Entry, read.Session, ReadingOutcome.Finished)">Finished</MudButton>
+                                <MudButton Variant="Variant.Text" Size="Size.Small"
+                                           OnClick="() => FinishReadSheet.OpenAsync(Dialogs, LibraryData, read.Entry, read.Session, ReadingOutcome.Abandoned)">Stopped</MudButton>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </section>
+
+        @* ---------- The year in numbers ---------- *@
+        <section class="bm-log__section">
+            <div class="bm-log__year-head">
+                <h2 class="bm-log__heading">Your year</h2>
+                <div class="bm-log__year-pick">
+                    <MudSelect T="int" Value="_year" ValueChanged="SetYear" Variant="Variant.Outlined" Margin="Margin.Dense"
+                               Dense="true" aria-label="Year">
+                        @foreach (var year in _years)
+                        {
+                            <MudSelectItem Value="year">@year</MudSelectItem>
+                        }
+                    </MudSelect>
+                </div>
+            </div>
+
+            @{ var s = _stats; }
+            @if (s is not null)
+            {
+                <div class="bm-log__tiles">
+                    <div class="bm-log__tile">
+                        <div class="bm-log__tile-value">@s.Reads</div>
+                        <div class="bm-log__tile-label">@FinishedLabel(s)</div>
+                    </div>
+                    <div class="bm-log__tile">
+                        <div class="bm-log__tile-value">@s.PagesRead.ToString("N0", CultureInfo.CurrentCulture)</div>
+                        <div class="bm-log__tile-label">pages read</div>
+                    </div>
+                    <div class="bm-log__tile">
+                        <div class="bm-log__tile-value">@AverageText(s)</div>
+                        <div class="bm-log__tile-label">average rating</div>
+                    </div>
+                    <div class="bm-log__tile">
+                        <div class="bm-log__tile-value">@s.Stopped</div>
+                        <div class="bm-log__tile-label">stopped</div>
+                    </div>
+                </div>
+
+                <figure class="bm-log__chart" aria-label="@ChartSummary(s)">
+                    <MudToggleGroup T="ChartMode" Value="_chart" ValueChanged="SetChartAsync" Size="Size.Small" Color="Color.Primary"
+                                    Outlined="true" Delimiters="true" CheckMark="false" Class="bm-log__chart-toggle">
+                        <MudToggleItem Value="ChartMode.Books" Text="Books / month" />
+                        <MudToggleItem Value="ChartMode.PagesMonth" Text="Pages / month" />
+                        <MudToggleItem Value="ChartMode.PagesDay" Text="Pages / day" />
+                    </MudToggleGroup>
+
+                    @if (_chart == ChartMode.PagesDay)
+                    {
+                        <figcaption class="bm-log__chart-title">@DaySummary()</figcaption>
+                        if (_dayMax == 0)
+                        {
+                            <MudText Typo="Typo.body2" Class="mud-text-secondary bm-log__chart-empty">
+                                No pages logged in @_year yet. Tap a book under Reading now, or log a read, to add pages per day.
+                            </MudText>
+                        }
+                        else
+                        {
+                            @* Weeks newest first in a row-reverse scroller, so it opens on this week and scrolls back in time. *@
+                            <div class="bm-log__weeks" tabindex="0" aria-label="Pages read each day, by week">
+                                @foreach (var week in _weeks)
+                                {
+                                    <div class="bm-log__week" @key="week.Monday">
+                                        <div class="bm-log__week-bars">
+                                            @for (var i = 0; i < 7; i++)
+                                            {
+                                                var day = week.Days[i];
+                                                <div class="bm-log__day-col" title="@DayTitle(day)">
+                                                    <span class="bm-log__day-bar" style="@DayBarStyle(day)"></span>
+                                                    <span class="bm-log__day-label">@DayLetter(i)</span>
+                                                </div>
+                                            }
+                                        </div>
+                                        <div class="bm-log__week-label">@WeekLabel(week)</div>
+                                        <div class="bm-log__week-total">@(week.Total > 0 ? PagesText(week.Total) : "—")</div>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        var values = _chart == ChartMode.Books ? s.PerMonth : s.PagesPerMonth;
+                        var max = values.Max();
+                        <figcaption class="bm-log__chart-title">@(_chart == ChartMode.Books ? "Books finished per month" : "Pages read per month")</figcaption>
+                        <div class="bm-log__bars">
+                            @for (var m = 0; m < 12; m++)
+                            {
+                                var value = values[m];
+                                <div class="bm-log__bar-col" title="@BarTitle(m, value)">
+                                    <span class="bm-log__bar-value">@(value > 0 ? Compact(value) : "")</span>
+                                    <span class="bm-log__bar" style="@BarStyle(value, max)"></span>
+                                    <span class="bm-log__bar-label">@MonthLetter(m)</span>
+                                </div>
+                            }
+                        </div>
+                    }
+                </figure>
+
+                @if (s.Longest is not null || s.TopAuthor is not null)
+                {
+                    <dl class="bm-log__highlights">
+                        @if (s.Longest is { } longest)
+                        {
+                            <dt>Longest</dt>
+                            <dd>@longest.Entry.Title <span class="bm-log__muted">· @Pages(longest)</span></dd>
+                        }
+                        @if (s.Shortest is { } shortest)
+                        {
+                            <dt>Shortest</dt>
+                            <dd>@shortest.Entry.Title <span class="bm-log__muted">· @Pages(shortest)</span></dd>
+                        }
+                        @if (s.TopAuthor is { } author)
+                        {
+                            <dt>Most read</dt>
+                            <dd>@author <span class="bm-log__muted">· @s.TopAuthorReads books</span></dd>
+                        }
+                    </dl>
+                }
+            }
+        </section>
+
+        @* ---------- Timeline: years and months fold; this year's latest month starts open. ---------- *@
+        <section class="bm-log__section">
+            <h2 class="bm-log__heading">Timeline</h2>
+            @if (_timeline.Count == 0)
+            {
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                    Finished books show up here. Mark a book finished from its details, or log a past read there.
+                </MudText>
+            }
+            @foreach (var group in _timelineYears)
+            {
+                var yearKey = YearKey(group.Year);
+                var yearCollapsed = IsCollapsed(yearKey, DefaultYearCollapsed(group.Year));
+                <div class="bm-log__year-group" @key="yearKey">
+                    <button type="button" class="bm-log__toggle bm-log__year" aria-expanded="@Expanded(yearCollapsed)"
+                            @onclick="() => ToggleAsync(yearKey, DefaultYearCollapsed(group.Year))">
+                        <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Small" Class="bm-log__chev" />
+                        <span>@(group.Year?.ToString(CultureInfo.InvariantCulture) ?? "Date not recorded")</span>
+                        <span class="bm-log__count">@ReadsText(group.Count)</span>
+                    </button>
+                    @if (!yearCollapsed)
+                    {
+                        foreach (var month in group.Months)
+                        {
+                            if (month.Year is null)
+                            {
+                                @Rows(month.Reads)
+                            }
+                            else
+                            {
+                                var monthKey = MonthKey(month);
+                                var monthCollapsed = IsCollapsed(monthKey, DefaultMonthCollapsed(month));
+                                <button type="button" class="bm-log__toggle bm-log__month" aria-expanded="@Expanded(monthCollapsed)" @key="monthKey"
+                                        @onclick="() => ToggleAsync(monthKey, DefaultMonthCollapsed(month))">
+                                    <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Small" Class="bm-log__chev" />
+                                    <span>@MonthName(month.Month)</span>
+                                    <span class="bm-log__count">@month.Reads.Count</span>
+                                </button>
+                                if (!monthCollapsed)
+                                {
+                                    @Rows(month.Reads)
+                                }
+                            }
+                        }
+                    }
+                </div>
+            }
+        </section>
+    }
+</MudContainer>
+
+@code {
+    private enum ChartMode { Books, PagesMonth, PagesDay }
+
+    /// <summary>A Monday-to-Sunday week of the daily chart; days outside the year (or after today) are null.</summary>
+    private sealed record ChartWeek(DateOnly Monday, DailyPages?[] Days, int Total);
+
+    private sealed record TimelineYear(int? Year, IReadOnlyList<ReadingMonth> Months)
+    {
+        public int Count => Months.Sum(m => m.Reads.Count);
+    }
+
+    /// <summary>The timeline's open/closed choices that differ from the defaults: key → collapsed.</summary>
+    private const string CollapsePref = "readinglog.collapse";
+    private const string ChartPref = "readinglog.chart";
+
+    private bool _loaded;
+    private int _year = DateTime.Today.Year;
+    private ChartMode _chart = ChartMode.Books;
+    private IReadOnlyList<int> _years = [];
+    private IReadOnlyList<CurrentRead> _current = [];
+    private IReadOnlyList<ReadingMonth> _timeline = [];
+    private IReadOnlyList<TimelineYear> _timelineYears = [];
+    private int? _latestMonthThisYear;
+    private ReadingYearStats? _stats;
+    private IReadOnlyList<DailyPages> _days = [];
+    private IReadOnlyList<ChartWeek> _weeks = [];
+    private int _dayMax;
+    private readonly Dictionary<string, bool> _collapse = new(StringComparer.Ordinal);
+
+    private static DateOnly Today => DateOnly.FromDateTime(DateTime.Today);
+
+    protected override async Task OnInitializedAsync()
+    {
+        LibraryData.Changed += OnLibraryChanged;
+        try
+        {
+            await LibraryData.EnsureLoadedAsync();
+            LoadCollapse(await Prefs.GetStringAsync(CollapsePref));
+            if (Enum.TryParse<ChartMode>(await Prefs.GetStringAsync(ChartPref), out var chart))
+            {
+                _chart = chart;
+            }
+        }
+        catch (JSException)
+        {
+            // Shown empty; the Library page reports storage problems.
+        }
+
+        Recompute();
+        _loaded = true;
+    }
+
+    public void Dispose() => LibraryData.Changed -= OnLibraryChanged;
+
+    private void OnLibraryChanged() => _ = InvokeAsync(() =>
+    {
+        Recompute();
+        StateHasChanged();
+    });
+
+    private void Recompute()
+    {
+        var entries = LibraryData.Entries;
+        var sessions = LibraryData.AllSessions;
+        _current = ReadingLog.Current(entries, sessions, Today);
+        _timeline = ReadingLog.Timeline(entries, sessions);
+        _timelineYears = _timeline.GroupBy(m => m.Year).Select(g => new TimelineYear(g.Key, g.ToList())).ToList();
+        _latestMonthThisYear = _timeline.FirstOrDefault(m => m.Year == Today.Year)?.Month;
+        _years = ReadingLog.Years(entries, sessions, Today);
+        if (!_years.Contains(_year))
+        {
+            _year = _years[0];
+        }
+
+        _stats = ReadingLog.YearStats(entries, sessions, _year);
+        _days = ReadingLog.PagesPerDay(entries, sessions, _year, Today);
+        _dayMax = _days.Count == 0 ? 0 : _days.Max(d => d.Pages);
+        _weeks = Weeks(_days);
+    }
+
+    private void SetYear(int year)
+    {
+        _year = year;
+        Recompute();
+    }
+
+    private async Task SetChartAsync(ChartMode chart)
+    {
+        _chart = chart;
+        await SavePrefAsync(ChartPref, chart.ToString());
+    }
+
+    /// <summary>The days in Monday-to-Sunday weeks, newest week first.</summary>
+    private static List<ChartWeek> Weeks(IReadOnlyList<DailyPages> days)
+    {
+        var weeks = new List<ChartWeek>();
+        if (days.Count == 0)
+        {
+            return weeks;
+        }
+
+        var byDate = days.ToDictionary(d => d.Date);
+        var first = days[0].Date;
+        var monday = first.AddDays(-(((int)first.DayOfWeek + 6) % 7));
+        for (; monday <= days[^1].Date; monday = monday.AddDays(7))
+        {
+            var week = new DailyPages?[7];
+            for (var i = 0; i < 7; i++)
+            {
+                week[i] = byDate.GetValueOrDefault(monday.AddDays(i));
+            }
+
+            weeks.Add(new ChartWeek(monday, week, week.Sum(d => d?.Pages ?? 0)));
+        }
+
+        weeks.Reverse();
+        return weeks;
+    }
+
+    // ---------- Reading now ----------
+
+    /// <summary>Edit a read's dates, outcome and pages (the same dialog as the book details).</summary>
+    private async Task EditAsync(LibraryEntry entry, ReadingSession session)
+    {
+        var copy = new ReadingSession
+        {
+            Id = session.Id,
+            UserId = session.UserId,
+            UpdatedAt = session.UpdatedAt,
+            Version = session.Version,
+            LibraryItemId = session.LibraryItemId,
+            StartedOn = session.StartedOn,
+            FinishedOn = session.FinishedOn,
+            Outcome = session.Outcome,
+            Rating = session.Rating,
+            PageLog = [.. session.PageLog],
+        };
+        var parameters = new DialogParameters
+        {
+            { nameof(ReadingSessionDialog.Session), copy },
+            { nameof(ReadingSessionDialog.IsNew), false },
+            { nameof(ReadingSessionDialog.PageCount), entry.Book.PageCount },
+        };
+        // A bottom sheet like Finished it / Stopped reading: tapping outside closes it without saving.
+        var dialog = await Dialogs.ShowAsync<ReadingSessionDialog>(parameters, DialogDefaults.Sheet());
+        if (await dialog.Result is { Canceled: false, Data: ReadingSession saved })
+        {
+            await LibraryData.SaveSessionAsync(saved);
+        }
+    }
+
+    /// <summary>One month's reads (a template, so the rows keep this page's scoped styles).</summary>
+    private RenderFragment Rows(IReadOnlyList<LoggedRead> reads) =>
+        @<div class="bm-log__list">
+            @foreach (var read in reads)
+            {
+                <button type="button" class="bm-log__row" @key="read.Session.Id" @onclick="() => EditAsync(read.Entry, read.Session)"
+                        aria-label="@EditLabel(read.Entry)">
+                    <span class="bm-log__thumb bm-log__thumb--small" style="@ThumbStyle(read.Entry)">
+                        @if (read.Entry.Book.CoverUrl is { } cover)
+                        {
+                            <CoverImage Url="@cover" Size="CoverSize.Medium" Class="bm-log__cover" />
+                        }
+                    </span>
+                    <span class="bm-log__text">
+                        <span class="bm-log__title">@read.Entry.Title</span>
+                        <span class="bm-log__sub">@read.Entry.Author</span>
+                        <span class="bm-log__meta">
+                            @if (!read.IsFinished)
+                            {
+                                <span class="bm-log__tag">Stopped</span>
+                            }
+                            else if (read.ReadNumber > 1)
+                            {
+                                <span class="bm-log__tag">@Ordinal(read.ReadNumber) read</span>
+                            }
+                            <span>@Dates(read.Session)</span>
+                            @if (read.Session.PageLog.Count > 0)
+                            {
+                                <span>@PagesText(read.Session.PageLog.Sum(d => d.Pages)) logged</span>
+                            }
+                            @if (read.Rating is { } rating)
+                            {
+                                <span>★ @rating.ToString("0.#", CultureInfo.CurrentCulture)</span>
+                            }
+                        </span>
+                    </span>
+                </button>
+            }
+        </div>;
+
+    // ---------- Timeline folding ----------
+
+    private static string YearKey(int? year) => year is { } y ? "y" + y.ToString(CultureInfo.InvariantCulture) : "y-";
+
+    private static string MonthKey(ReadingMonth month)
+        => FormattableString.Invariant($"m{month.Year}-{month.Month}");
+
+    /// <summary>Only the current year starts open.</summary>
+    private static bool DefaultYearCollapsed(int? year) => year != Today.Year;
+
+    /// <summary>Only the current year's latest month with reads starts open.</summary>
+    private bool DefaultMonthCollapsed(ReadingMonth month) => !(month.Year == Today.Year && month.Month == _latestMonthThisYear);
+
+    private bool IsCollapsed(string key, bool byDefault) => _collapse.TryGetValue(key, out var collapsed) ? collapsed : byDefault;
+
+    /// <summary>Flips a year or month and remembers it; a choice back to the default is forgotten, so defaults move on with time.</summary>
+    private async Task ToggleAsync(string key, bool byDefault)
+    {
+        var collapsed = !IsCollapsed(key, byDefault);
+        if (collapsed == byDefault)
+        {
+            _collapse.Remove(key);
+        }
+        else
+        {
+            _collapse[key] = collapsed;
+        }
+
+        var raw = string.Join(",", _collapse.OrderBy(p => p.Key, StringComparer.Ordinal).Select(p => p.Key + ":" + (p.Value ? "1" : "0")));
+        await SavePrefAsync(CollapsePref, raw.Length == 0 ? null : raw);
+    }
+
+    private void LoadCollapse(string? raw)
+    {
+        _collapse.Clear();
+        foreach (var part in (raw ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var colon = part.LastIndexOf(':');
+            if (colon > 0)
+            {
+                _collapse[part[..colon]] = part[(colon + 1)..] == "1";
+            }
+        }
+    }
+
+    private async Task SavePrefAsync(string key, string? value)
+    {
+        try
+        {
+            await Prefs.SetStringAsync(key, value);
+        }
+        catch (JSException)
+        {
+            // Not remembered this time; the page still works.
+        }
+    }
+
+    private static string Expanded(bool collapsed) => collapsed ? "false" : "true";
+
+    // ---------- Text ----------
+
+    private static string EditLabel(LibraryEntry e) => $"Edit this read of {e.Title}";
+
+    private static string ThumbStyle(LibraryEntry e) => "--bm-book-bg:" + e.SpineColor;
+
+    private static string D(DateOnly date) => date.ToString("d MMM yyyy", CultureInfo.CurrentCulture);
+
+    private static string CurrentText(CurrentRead read)
+        => read.Session.StartedOn is { } started
+            ? read.DaysSoFar == 1 ? "Started today" : $"Started {D(started)} · day {read.DaysSoFar}"
+            : "Start date not recorded";
+
+    private static string? ProgressText(CurrentRead read) => (read.PagesLogged, read.Entry.Book.PageCount) switch
+    {
+        (0, _) => null,
+        (var done, { } total and > 0) => $"{done.ToString("N0", CultureInfo.CurrentCulture)} of {total.ToString("N0", CultureInfo.CurrentCulture)} pages",
+        (var done, _) => PagesText(done) + " logged",
+    };
+
+    private static double? ProgressPercent(CurrentRead read)
+        => read.PagesLogged > 0 && read.Entry.Book.PageCount is { } total and > 0
+            ? Math.Min(100.0, 100.0 * read.PagesLogged / total)
+            : null;
+
+    private static string WidthStyle(double percent) => "width:" + percent.ToString("0.#", CultureInfo.InvariantCulture) + "%";
+
+    private static string Dates(ReadingSession s) => (s.StartedOn, s.FinishedOn) switch
+    {
+        ({ } start, { } end) when start.Year == end.Year && start.Month == end.Month && start.Day != end.Day
+            => $"{start.Day}–{D(end)}",
+        ({ } start, { } end) when start != end => $"{D(start)} – {D(end)}",
+        (_, { } end) => (s.Outcome == ReadingOutcome.Abandoned ? "Stopped " : "Finished ") + D(end),
+        _ => "",
+    };
+
+    private static string FinishedLabel(ReadingYearStats s)
+        => (s.Reads == 1 ? "book finished" : "books finished") + (s.Books != s.Reads ? $" ({s.Books} different)" : "");
+
+    private static string AverageText(ReadingYearStats s)
+        => s.AverageRating is { } avg ? "★ " + avg.ToString("0.0", CultureInfo.CurrentCulture) : "—";
+
+    private static string Pages(LoggedRead read) => $"{read.Entry.Book.PageCount} pages";
+
+    private static string PagesText(int pages)
+        => pages == 1 ? "1 page" : pages.ToString("N0", CultureInfo.CurrentCulture) + " pages";
+
+    private static string ReadsText(int reads) => reads == 1 ? "1 read" : $"{reads} reads";
+
+    private static string MonthName(int month) => CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(month);
+
+    private static string MonthLetter(int index)
+        => CultureInfo.CurrentCulture.DateTimeFormat.GetAbbreviatedMonthName(index + 1)[..1];
+
+    /// <summary>Short numbers for the narrow month columns: 950, 1.2k, 12k.</summary>
+    private static string Compact(int value) => value switch
+    {
+        < 1000 => value.ToString(CultureInfo.CurrentCulture),
+        < 10_000 => (value / 1000.0).ToString("0.#", CultureInfo.CurrentCulture) + "k",
+        _ => (value / 1000).ToString(CultureInfo.CurrentCulture) + "k",
+    };
+
+    private string BarTitle(int index, int value)
+        => CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(index + 1) + ": "
+            + (_chart == ChartMode.Books ? (value == 1 ? "1 book" : $"{value} books") : PagesText(value));
+
+    /// <summary>Height as a share of the busiest month; an empty month keeps a 2px baseline tick.</summary>
+    private static string BarStyle(int value, int max)
+    {
+        var percent = max == 0 ? 0 : 100.0 * value / max;
+        return value == 0
+            ? "height:2px;opacity:0.35"
+            : "height:" + percent.ToString("0.#", CultureInfo.InvariantCulture) + "%";
+    }
+
+    private string DayBarStyle(DailyPages? day)
+    {
+        if (day is null)
+        {
+            return "visibility:hidden";
+        }
+
+        if (day.Pages == 0)
+        {
+            return "height:2px;opacity:0.35";
+        }
+
+        var percent = _dayMax == 0 ? 0 : 100.0 * day.Pages / _dayMax;
+        return "height:" + Math.Max(percent, 3).ToString("0.#", CultureInfo.InvariantCulture) + "%";
+    }
+
+    private static string DayTitle(DailyPages? day)
+        => day is null ? "" : day.Date.ToString("ddd d MMM", CultureInfo.CurrentCulture) + ": " + PagesText(day.Pages);
+
+    /// <summary>M T W T F S S in the current language.</summary>
+    private static string DayLetter(int index)
+        => CultureInfo.CurrentCulture.DateTimeFormat.GetShortestDayName((DayOfWeek)((index + 1) % 7))[..1];
+
+    private static string WeekLabel(ChartWeek week) => week.Monday.ToString("d MMM", CultureInfo.CurrentCulture);
+
+    private string DaySummary()
+    {
+        var total = _days.Sum(d => d.Pages);
+        if (total == 0)
+        {
+            return "Pages read per day";
+        }
+
+        var readingDays = _days.Count(d => d.Pages > 0);
+        var best = _days.OrderByDescending(d => d.Pages).ThenByDescending(d => d.Date).First();
+        return $"{PagesText(total)} over {readingDays} {(readingDays == 1 ? "day" : "days")} · best {best.Pages} on {best.Date.ToString("d MMM", CultureInfo.CurrentCulture)}";
+    }
+
+    private string ChartSummary(ReadingYearStats s)
+    {
+        var dtf = CultureInfo.CurrentCulture.DateTimeFormat;
+        return _chart switch
+        {
+            ChartMode.Books => $"Books finished per month in {s.Year}: "
+                + string.Join(", ", s.PerMonth.Select((n, i) => $"{dtf.GetAbbreviatedMonthName(i + 1)} {n}")),
+            ChartMode.PagesMonth => $"Pages read per month in {s.Year}: "
+                + string.Join(", ", s.PagesPerMonth.Select((n, i) => $"{dtf.GetAbbreviatedMonthName(i + 1)} {n}")),
+            _ => $"Pages read per day in {s.Year}. {DaySummary()}",
+        };
+    }
+
+    private static string Ordinal(int n) => (n % 100) switch
+    {
+        11 or 12 or 13 => $"{n}th",
+        _ => (n % 10) switch { 1 => $"{n}st", 2 => $"{n}nd", 3 => $"{n}rd", _ => $"{n}th" },
+    };
+}

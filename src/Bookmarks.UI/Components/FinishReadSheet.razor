@@ -1,0 +1,107 @@
+@* Finished it / Stopped reading: a sheet from the bottom asking for the end day and the pages read that day.
+   Opened with OpenAsync, which saves the result. *@
+@using System.Globalization
+
+<MudDialog Class="bm-sheet">
+    <TitleContent>
+        <MudText Typo="Typo.h6">@(Outcome == ReadingOutcome.Abandoned ? "Stopped reading" : "Finished it")</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary">@BookTitle</MudText>
+    </TitleContent>
+
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudDatePicker Date="_date" DateChanged="SetDate" Label="@(Outcome == ReadingOutcome.Abandoned ? "Stopped on" : "Finished on")"
+                           MinDate="MinDate" MaxDate="DateTime.Today" Variant="Variant.Outlined" Margin="Margin.Dense"
+                           DateFormat="d MMM yyyy" />
+            <MudNumericField T="int?" @bind-Value="_pages" Label="Pages read that day" Min="0" Max="5000" HideSpinButtons="true"
+                             Immediate="true" Variant="Variant.Outlined" Margin="Margin.Dense" HelperText="@SoFarText()" />
+        </MudStack>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton OnClick="() => MudDialog.Cancel()">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="_date is null" OnClick="Save">
+            @(Outcome == ReadingOutcome.Abandoned ? "Stop reading" : "Mark finished")
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter, EditorRequired] public ReadingSession Session { get; set; } = default!;
+
+    [Parameter] public ReadingOutcome Outcome { get; set; } = ReadingOutcome.Finished;
+
+    [Parameter] public string BookTitle { get; set; } = "";
+
+    [Parameter] public int? PageCount { get; set; }
+
+    private DateTime? _date = DateTime.Today;
+    private int? _pages;
+
+    /// <summary>Not before the read started.</summary>
+    private DateTime? MinDate => Session.StartedOn?.ToDateTime(TimeOnly.MinValue);
+
+    protected override void OnInitialized() => _pages = PagesOn(_date);
+
+    /// <summary>A different day shows what's already logged for it.</summary>
+    private void SetDate(DateTime? date)
+    {
+        _date = date;
+        _pages = PagesOn(date);
+    }
+
+    private int? PagesOn(DateTime? date)
+        => date is { } d ? Session.PageLog.FirstOrDefault(p => p.Date == DateOnly.FromDateTime(d))?.Pages : null;
+
+    /// <summary>Pages logged on the other days plus this one, against the book's length.</summary>
+    private string? SoFarText()
+    {
+        var day = _date is { } d ? DateOnly.FromDateTime(d) : (DateOnly?)null;
+        var total = Session.PageLog.Where(p => p.Date != day).Sum(p => p.Pages) + Math.Max(_pages ?? 0, 0);
+        if (total == 0)
+        {
+            return null;
+        }
+
+        return PageCount is { } count and > 0
+            ? $"{total.ToString("N0", CultureInfo.CurrentCulture)} of {count.ToString("N0", CultureInfo.CurrentCulture)} pages logged in all"
+            : $"{total.ToString("N0", CultureInfo.CurrentCulture)} pages logged in all";
+    }
+
+    private void Save()
+    {
+        if (_date is not { } date)
+        {
+            return;
+        }
+
+        MudDialog.Close(DialogResult.Ok(new FinishRead(DateOnly.FromDateTime(date), _pages ?? 0)));
+    }
+
+    private sealed record FinishRead(DateOnly Date, int Pages);
+
+    /// <summary>Asks for the day and pages, then ends the read with that outcome.</summary>
+    public static async Task OpenAsync(
+        IDialogService dialogs, LibraryService library, LibraryEntry entry, ReadingSession session, ReadingOutcome outcome)
+    {
+        ArgumentNullException.ThrowIfNull(dialogs);
+        ArgumentNullException.ThrowIfNull(library);
+        ArgumentNullException.ThrowIfNull(entry);
+        ArgumentNullException.ThrowIfNull(session);
+
+        var parameters = new DialogParameters
+        {
+            { nameof(Session), session },
+            { nameof(Outcome), outcome },
+            { nameof(BookTitle), entry.Title },
+            { nameof(PageCount), entry.Book.PageCount },
+        };
+        var dialog = await dialogs.ShowAsync<FinishReadSheet>(parameters, DialogDefaults.Sheet());
+        if (await dialog.Result is { Canceled: false, Data: FinishRead done })
+        {
+            await library.CloseSessionAsync(session.Id, outcome, done.Date, done.Pages);
+        }
+    }
+}

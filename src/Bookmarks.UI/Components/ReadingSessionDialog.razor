@@ -1,26 +1,73 @@
-@* Log or edit one read of a book. Edits the session passed in (callers pass a copy) and returns it. *@
+@* Log or edit one read of a book. Edits the session passed in (callers pass a copy) and returns it.
+   Still reading: pages per day (the read starts on the day it's logged, or the earliest day with pages).
+   Finished / Didn't finish: the end date and the pages read on that day. *@
+@using System.Globalization
 
-<MudDialog>
+<MudDialog Class="bm-sheet">
     <TitleContent>
         <MudText Typo="Typo.h6">@(IsNew ? "Log a read" : "Edit read")</MudText>
     </TitleContent>
 
     <DialogContent>
         <MudStack Spacing="3">
-            <MudSelect T="ReadingOutcome" @bind-Value="Session.Outcome" Label="Outcome" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true">
-                <MudSelectItem Value="ReadingOutcome.Finished">Finished</MudSelectItem>
+            <MudSelect T="ReadingOutcome" Value="Session.Outcome" ValueChanged="SetOutcome" Label="Outcome"
+                       Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true">
                 <MudSelectItem Value="ReadingOutcome.InProgress">Still reading</MudSelectItem>
+                <MudSelectItem Value="ReadingOutcome.Finished">Finished</MudSelectItem>
                 <MudSelectItem Value="ReadingOutcome.Abandoned">Didn't finish</MudSelectItem>
             </MudSelect>
-            <MudDatePicker @bind-Date="Started" Label="Started" MaxDate="DateTime.Today" Clearable="true"
-                           Variant="Variant.Outlined" Margin="Margin.Dense" DateFormat="d MMM yyyy" />
-            @if (Session.Outcome != ReadingOutcome.InProgress)
+
+            @if (Session.Outcome == ReadingOutcome.InProgress)
+            {
+                if (StartedText() is { } started)
+                {
+                    <MudText Typo="Typo.caption">@started</MudText>
+                }
+
+                @* ---------- Pages per day ---------- *@
+                <div class="bm-pages">
+                    <div class="bm-pages__head">
+                        <MudText Typo="Typo.subtitle2">Pages per day</MudText>
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary">@TotalText()</MudText>
+                    </div>
+                    <div class="bm-pages__add">
+                        <MudDatePicker @bind-Date="_logDate" Label="Day" MaxDate="DateTime.Today" Variant="Variant.Outlined"
+                                       Margin="Margin.Dense" DateFormat="d MMM yyyy" Class="bm-pages__date" />
+                        <MudNumericField T="int?" @bind-Value="_logPages" Label="Pages" Min="1" Max="5000" HideSpinButtons="true"
+                                         Immediate="true" Variant="Variant.Outlined" Margin="Margin.Dense" Class="bm-pages__count" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Add" Color="Color.Primary" Variant="Variant.Filled" Size="Size.Small"
+                                       Class="bm-pages__add-btn" aria-label="Add these pages" Disabled="!CanAddPages" OnClick="AddPages" />
+                    </div>
+                    @if (Session.PageLog.Count > 0)
+                    {
+                        <div class="bm-pages__list">
+                            @foreach (var day in Session.PageLog.OrderByDescending(d => d.Date))
+                            {
+                                <div class="bm-pages__row" @key="day.Date">
+                                    <span class="bm-pages__day">@day.Date.ToString("ddd d MMM yyyy", CultureInfo.CurrentCulture)</span>
+                                    <span class="bm-pages__n">@PagesText(day.Pages)</span>
+                                    <MudIconButton Icon="@Icons.Material.Outlined.Delete" Size="Size.Small" aria-label="@RemoveLabel(day)"
+                                                   OnClick="() => RemovePages(day)" />
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+            else
             {
                 <MudDatePicker @bind-Date="Finished" Label="@(Session.Outcome == ReadingOutcome.Abandoned ? "Stopped" : "Finished")"
                                MaxDate="DateTime.Today" Clearable="true" Variant="Variant.Outlined" Margin="Margin.Dense" DateFormat="d MMM yyyy"
-                               Error="!DatesValid" ErrorText="Must be on or after the start date" />
+                               Error="!DatesValid" ErrorText="@DateError()" />
+                <MudNumericField T="int?" @bind-Value="_endPages" Label="@EndPagesLabel()" Min="1" Max="5000" HideSpinButtons="true"
+                                 Disabled="Session.FinishedOn is null" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                 HelperText="@EndPagesHelp()" />
+                if (StartedText() is { } started)
+                {
+                    <MudText Typo="Typo.caption">@started</MudText>
+                }
+                <MudText Typo="Typo.caption">The date is optional; leave it blank if you don't remember.</MudText>
             }
-            <MudText Typo="Typo.caption">Dates are optional; leave them blank if you don't remember.</MudText>
         </MudStack>
     </DialogContent>
 
@@ -37,16 +84,49 @@
 
     [Parameter] public bool IsNew { get; set; }
 
-    private DateTime? Started
-    {
-        get => Session.StartedOn?.ToDateTime(TimeOnly.MinValue);
-        set => Session.StartedOn = value is { } d ? DateOnly.FromDateTime(d) : null;
-    }
+    /// <summary>The book's page count, when known (shown against the pages logged).</summary>
+    [Parameter] public int? PageCount { get; set; }
+
+    private static DateOnly Today => DateOnly.FromDateTime(DateTime.Today);
+
+    private DateTime? _logDate = DateTime.Today;
+    private int? _logPages;
+
+    /// <summary>Pages read on the end day (Finished / Didn't finish).</summary>
+    private int? _endPages;
+
+    protected override void OnInitialized() => _endPages = EndDayPages();
 
     private DateTime? Finished
     {
         get => Session.FinishedOn?.ToDateTime(TimeOnly.MinValue);
-        set => Session.FinishedOn = value is { } d ? DateOnly.FromDateTime(d) : null;
+        set
+        {
+            Session.FinishedOn = value is { } d ? DateOnly.FromDateTime(d) : null;
+            _endPages = EndDayPages();
+        }
+    }
+
+    private int? EndDayPages()
+        => Session.FinishedOn is { } end ? Session.PageLog.FirstOrDefault(d => d.Date == end)?.Pages : null;
+
+    /// <summary>
+    /// A new read: Still reading starts today (the day it's logged); a finished one has no start date to ask for.
+    /// An existing read keeps the dates it has.
+    /// </summary>
+    private void SetOutcome(ReadingOutcome outcome)
+    {
+        Session.Outcome = outcome;
+        if (IsNew)
+        {
+            Session.StartedOn = outcome == ReadingOutcome.InProgress ? Today : null;
+        }
+
+        if (outcome != ReadingOutcome.InProgress)
+        {
+            Session.FinishedOn ??= Today;
+            _endPages = EndDayPages();
+        }
     }
 
     private bool DatesValid
@@ -55,11 +135,88 @@
             || Session.FinishedOn is not { } f
             || f >= s;
 
+    private string DateError()
+        => Session.StartedOn is { } s ? $"Must be on or after the day it was started ({D(s)})" : "";
+
+    private string? StartedText()
+        => Session.StartedOn is { } s && !(IsNew && Session.Outcome == ReadingOutcome.InProgress && s == Today)
+            ? $"Started {D(s)}"
+            : null;
+
+    private string EndPagesLabel() => Session.Outcome == ReadingOutcome.Abandoned ? "Pages read that day" : "Pages read on the last day";
+
+    private string? EndPagesHelp() => Session.FinishedOn is null ? "Pick the date first" : null;
+
+    private bool CanAddPages => _logPages is > 0 && _logDate is not null;
+
+    private void AddPages()
+    {
+        if (!CanAddPages)
+        {
+            return;
+        }
+
+        Session.PageLog = ReadingLog.AddPages(Session.PageLog, DateOnly.FromDateTime(_logDate!.Value), _logPages!.Value);
+        _logPages = null;
+        UpdateStart();
+    }
+
+    private void RemovePages(DailyPages day)
+    {
+        Session.PageLog = Session.PageLog.Where(d => d.Date != day.Date).ToList();
+        UpdateStart();
+    }
+
+    /// <summary>
+    /// A read starts on the earliest day with pages when that's before its start: for a new read, the earlier of
+    /// today and that day (so removing pages can move it back); an existing read's start only ever moves earlier.
+    /// </summary>
+    private void UpdateStart()
+    {
+        DateOnly? earliest = Session.PageLog.Count == 0 ? null : Session.PageLog.Min(d => d.Date);
+        if (IsNew)
+        {
+            Session.StartedOn = earliest is { } e && e < Today ? e : Today;
+        }
+        else if (earliest is { } first && (Session.StartedOn is null || first < Session.StartedOn))
+        {
+            Session.StartedOn = first;
+        }
+    }
+
+    private string TotalText()
+    {
+        var total = Session.PageLog.Sum(d => d.Pages);
+        return (total, PageCount) switch
+        {
+            (0, _) => "None logged",
+            (_, { } count) => $"{total} of {count} pages",
+            _ => PagesText(total),
+        };
+    }
+
+    private static string D(DateOnly date) => date.ToString("d MMM yyyy", CultureInfo.CurrentCulture);
+
+    private static string PagesText(int pages) => pages == 1 ? "1 page" : $"{pages} pages";
+
+    private static string RemoveLabel(DailyPages day) => $"Remove pages for {day.Date.ToString("d MMM", CultureInfo.CurrentCulture)}";
+
     private void Save()
     {
         if (Session.Outcome == ReadingOutcome.InProgress)
         {
             Session.FinishedOn = null;
+
+            // Pages typed but not added yet are kept rather than lost.
+            if (CanAddPages)
+            {
+                AddPages();
+            }
+        }
+        else if (Session.FinishedOn is { } end)
+        {
+            // The end day's pages are set, not added: the field shows what's there and replaces it.
+            Session.PageLog = ReadingLog.SetPages(Session.PageLog, end, _endPages);
         }
 
         MudDialog.Close(DialogResult.Ok(Session));

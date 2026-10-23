@@ -1,7 +1,10 @@
 using Bookmarks.Api.Auth;
+using System.Text.Json;
 using Bookmarks.Shared.Domain;
+using Bookmarks.Shared.Serialization;
 using Bookmarks.Shared.Sync;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 
 namespace Bookmarks.Api.Data;
 
@@ -137,6 +140,19 @@ public sealed class BookmarksDbContext(DbContextOptions<BookmarksDbContext> opti
         {
             e.Property(x => x.Rating).HasPrecision(3, 1);
             e.HasIndex(x => x.LibraryItemId);
+
+            // Pages per day (Phase 7d): JSON in an nvarchar(max) column, the same JSON as the sync payload.
+            e.Property(x => x.PageLog)
+                .HasConversion(
+                    v => JsonSerializer.Serialize(v, BookmarksJsonContext.Default.DailyPagesList),
+                    v => string.IsNullOrEmpty(v)
+                        ? new List<DailyPages>()
+                        : JsonSerializer.Deserialize(v, BookmarksJsonContext.Default.DailyPagesList) ?? new List<DailyPages>(),
+                    new ValueComparer<List<DailyPages>>(
+                        (a, b) => (a ?? new List<DailyPages>()).SequenceEqual(b ?? new List<DailyPages>()),
+                        v => v.Aggregate(0, (hash, day) => HashCode.Combine(hash, day.GetHashCode())),
+                        v => v.ToList()))
+                .HasColumnType("nvarchar(max)");
         });
 
         ConfigureSyncEntity<Note>(modelBuilder, "Notes", e =>

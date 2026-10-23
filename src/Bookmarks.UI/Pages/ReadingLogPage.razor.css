@@ -1,0 +1,418 @@
+.bm-log__section {
+    margin-bottom: 28px;
+}
+
+.bm-log__heading {
+    margin: 0 0 12px;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 1.15rem;
+    font-weight: 600;
+}
+
+/* ---------- Reading now ---------- */
+
+.bm-log__current {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 12px;
+}
+
+.bm-log__card {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+    border: 1px solid var(--mud-palette-lines-default);
+    border-radius: 10px;
+    background: var(--mud-palette-surface);
+}
+
+.bm-log__card-main,
+.bm-log__row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    width: 100%;
+    padding: 0;
+    border: none;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.bm-log__card-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-left: 56px; /* lines up with the text, past the thumbnail */
+}
+
+/* Book thumbnail: the cover, or the spine colour when there is none. */
+.bm-log__thumb {
+    position: relative;
+    flex: 0 0 44px;
+    width: 44px;
+    height: 66px;
+    border-radius: 2px 3px 3px 2px;
+    overflow: hidden;
+    background: var(--bm-book-bg, #6b5b4b);
+    box-shadow: 1px 1px 3px rgb(0 0 0 / 0.35);
+}
+
+.bm-log__thumb--small {
+    flex-basis: 34px;
+    width: 34px;
+    height: 51px;
+}
+
+.bm-log__thumb ::deep .bm-log__cover {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.bm-log__text {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.bm-log__title {
+    font-weight: 600;
+    line-height: 1.3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.bm-log__sub {
+    font-size: 0.85rem;
+    color: var(--mud-palette-text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Pages logged against the book's length. */
+.bm-log__progress {
+    display: block;
+    height: 4px;
+    margin-top: 4px;
+    border-radius: 2px;
+    background: var(--mud-palette-lines-default);
+    overflow: hidden;
+}
+
+.bm-log__progress-fill {
+    display: block;
+    height: 100%;
+    border-radius: 2px;
+    background: var(--mud-palette-primary);
+}
+
+/* ---------- Your year ---------- */
+
+.bm-log__year-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.bm-log__year-head .bm-log__heading {
+    margin: 0;
+}
+
+.bm-log__year-pick {
+    width: 112px;
+}
+
+/* Stat tiles: two per row on phones, four on wider screens. */
+.bm-log__tiles {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+@media (min-width: 600px) {
+    .bm-log__tiles {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+}
+
+.bm-log__tile {
+    padding: 12px 14px;
+    border: 1px solid var(--mud-palette-lines-default);
+    border-radius: 10px;
+    background: var(--mud-palette-surface);
+}
+
+.bm-log__tile-value {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 1.6rem;
+    font-weight: 600;
+    line-height: 1.2;
+    color: var(--mud-palette-text-primary);
+}
+
+.bm-log__tile-label {
+    font-size: 0.8rem;
+    color: var(--mud-palette-text-secondary);
+}
+
+/* Month bars: one series in the primary colour, 4px rounded tops on the baseline, values above non-empty months. */
+.bm-log__chart {
+    margin: 0 0 16px;
+    padding: 12px 12px 8px;
+    border: 1px solid var(--mud-palette-lines-default);
+    border-radius: 10px;
+    background: var(--mud-palette-surface);
+}
+
+.bm-log__chart ::deep .bm-log__chart-toggle {
+    width: 100%;
+    margin-bottom: 12px;
+}
+
+.bm-log__chart ::deep .bm-log__chart-toggle .mud-toggle-item {
+    min-width: 0;
+    padding-left: 4px;
+    padding-right: 4px;
+    font-size: 0.78rem;
+    white-space: nowrap;
+}
+
+.bm-log__chart-empty {
+    padding: 24px 4px;
+    text-align: center;
+}
+
+.bm-log__chart-title {
+    margin-bottom: 8px;
+    font-size: 0.8rem;
+    color: var(--mud-palette-text-secondary);
+}
+
+.bm-log__bars {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 4px;
+    height: 140px;
+}
+
+.bm-log__bar-col {
+    display: grid;
+    grid-template-rows: 16px 1fr 18px;
+    align-items: end;
+    justify-items: center;
+    min-width: 0;
+    height: 100%;
+}
+
+.bm-log__bar-value {
+    font-size: 0.7rem;
+    line-height: 16px;
+    color: var(--mud-palette-text-secondary);
+}
+
+.bm-log__bar {
+    width: 100%;
+    max-width: 22px;
+    min-height: 2px;
+    border-radius: 4px 4px 0 0;
+    background: var(--mud-palette-primary);
+}
+
+.bm-log__bar-label {
+    font-size: 0.7rem;
+    line-height: 18px;
+    color: var(--mud-palette-text-secondary);
+    border-top: 1px solid var(--mud-palette-lines-default);
+    width: 100%;
+    text-align: center;
+}
+
+/* Pages per day: Monday-to-Sunday blocks in a sideways scroller. row-reverse puts the newest week (first in the
+   markup) at the right and starts the scroll there, so it opens on this week; swipe right to go back in time. */
+.bm-log__weeks {
+    display: flex;
+    flex-direction: row-reverse;
+    gap: 6px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity;
+    padding-bottom: 6px;
+    scrollbar-width: thin;
+}
+
+.bm-log__week {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    padding: 0 6px;
+    border-left: 1px solid var(--mud-palette-lines-default);
+    scroll-snap-align: end;
+}
+
+.bm-log__week-bars {
+    display: grid;
+    grid-template-columns: repeat(7, 14px);
+    gap: 3px;
+    height: 128px;
+}
+
+.bm-log__day-col {
+    display: grid;
+    grid-template-rows: 1fr 16px;
+    align-items: end;
+    justify-items: center;
+    height: 100%;
+}
+
+.bm-log__day-bar {
+    width: 100%;
+    min-height: 2px;
+    border-radius: 3px 3px 0 0;
+    background: var(--mud-palette-primary);
+}
+
+.bm-log__day-label {
+    width: 100%;
+    font-size: 0.65rem;
+    line-height: 16px;
+    text-align: center;
+    color: var(--mud-palette-text-secondary);
+    border-top: 1px solid var(--mud-palette-lines-default);
+}
+
+.bm-log__week-label,
+.bm-log__week-total {
+    font-size: 0.7rem;
+    line-height: 1.4;
+    white-space: nowrap;
+    text-align: center;
+}
+
+.bm-log__week-label {
+    margin-top: 2px;
+    font-weight: 600;
+}
+
+.bm-log__week-total {
+    color: var(--mud-palette-text-secondary);
+}
+
+.bm-log__highlights {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 6px 14px;
+    margin: 0;
+    font-size: 0.9rem;
+}
+
+.bm-log__highlights dt {
+    color: var(--mud-palette-text-secondary);
+}
+
+.bm-log__highlights dd {
+    margin: 0;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.bm-log__muted {
+    color: var(--mud-palette-text-secondary);
+}
+
+/* ---------- Timeline ---------- */
+
+/* Year and month headings are buttons that fold their reads; the chevron turns when open. */
+.bm-log__toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    min-height: 40px;
+    padding: 0 4px 0 0;
+    border: none;
+    background: none;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.bm-log__toggle ::deep .bm-log__chev {
+    flex: 0 0 auto;
+    transition: transform 0.15s ease;
+}
+
+.bm-log__toggle[aria-expanded="true"] ::deep .bm-log__chev {
+    transform: rotate(90deg);
+}
+
+.bm-log__count {
+    margin-left: auto;
+    font-family: system-ui, sans-serif;
+    font-size: 0.75rem;
+    font-weight: 400;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--mud-palette-text-secondary);
+}
+
+.bm-log__year-group + .bm-log__year-group {
+    border-top: 1px solid var(--mud-palette-lines-default);
+}
+
+.bm-log__year {
+    margin-top: 6px;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 1.05rem;
+    font-weight: 600;
+}
+
+.bm-log__month {
+    padding-left: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--mud-palette-text-secondary);
+}
+
+.bm-log__list {
+    display: flex;
+    flex-direction: column;
+    border-top: 1px solid var(--mud-palette-lines-default);
+}
+
+.bm-log__row {
+    padding: 10px 4px;
+    border-bottom: 1px solid var(--mud-palette-lines-default);
+}
+
+.bm-log__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 10px;
+    font-size: 0.8rem;
+    color: var(--mud-palette-text-secondary);
+}
+
+.bm-log__tag {
+    padding: 0 6px;
+    border-radius: 4px;
+    border: 1px solid var(--mud-palette-lines-inputs);
+    font-size: 0.7rem;
+    line-height: 1.5;
+}

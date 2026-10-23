@@ -27,6 +27,7 @@ public sealed class LibraryService(ILocalStore store, IAccountService account)
     private IReadOnlyList<Bookcase> _bookcases = [];
     private IReadOnlyList<Shelf> _shelves = [];
     private ILookup<Guid, ReadingSession> _sessions = Array.Empty<ReadingSession>().ToLookup(s => s.LibraryItemId);
+    private IReadOnlyList<ReadingSession> _allSessions = [];
     private ILookup<Guid, Note> _notes = Array.Empty<Note>().ToLookup(n => n.LibraryItemId);
     private IReadOnlyList<ShelfPlacement> _placements = [];
     private IReadOnlyList<string> _authors = [];
@@ -115,6 +116,7 @@ public sealed class LibraryService(ILocalStore store, IAccountService account)
         var items = await store.GetAllAsync<LibraryItem>(ct: ct);
         var sessions = await store.GetAllAsync<ReadingSession>(ct: ct);
         _sessions = sessions.ToLookup(s => s.LibraryItemId);
+        _allSessions = sessions;
         _notes = (await store.GetAllAsync<Note>(ct: ct)).ToLookup(n => n.LibraryItemId);
 
         _bookcases = (await store.GetAllAsync<Bookcase>(ct: ct))
@@ -492,6 +494,24 @@ public sealed class LibraryService(ILocalStore store, IAccountService account)
         await store.UpsertAsync(session, ct);
         await ReloadAsync(ct);
     }
+
+    /// <summary>Every live reading session (the Reading log); sessions of deleted books are filtered there.</summary>
+    public IReadOnlyList<ReadingSession> AllSessions => _allSessions;
+
+    /// <summary>Ends a read in progress (Reading log: Finished / Stopped), dated today.</summary>
+    /// <param name="finishedOn">The end day; today when not given.</param>
+    /// <param name="pages">Pages read on the end day: replaces that day's page-log entry when given (0 clears it).</param>
+    public Task CloseSessionAsync(Guid sessionId, ReadingOutcome outcome, DateOnly? finishedOn = null, int? pages = null,
+        CancellationToken ct = default)
+        => UpdateAsync<ReadingSession>(sessionId, s =>
+        {
+            s.Outcome = outcome;
+            s.FinishedOn = finishedOn ?? Today;
+            if (pages is not null)
+            {
+                s.PageLog = ReadingLog.SetPages(s.PageLog, s.FinishedOn.Value, pages);
+            }
+        }, ct);
 
     public Task DeleteSessionAsync(Guid sessionId, CancellationToken ct = default)
         => UpdateAsync<ReadingSession>(sessionId, s => s.IsDeleted = true, ct);

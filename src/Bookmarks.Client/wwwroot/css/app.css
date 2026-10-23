@@ -102,3 +102,41 @@ h1:focus {
     right: 0.75rem;
     top: 0.5rem;
 }
+
+/* ---------- Bottom sheet (FinishReadSheet: a dialog at BottomCenter) ---------- */
+
+.mud-dialog.bm-sheet {
+    margin: 0;
+    width: 100%;
+    border-radius: 16px 16px 0 0;
+    padding-bottom: env(safe-area-inset-bottom);
+    animation: bm-sheet-up 0.2s ease-out;
+    /* Grows with its content (e.g. pages-per-day rows); past this the content scrolls and the buttons stay put. */
+    max-height: calc(100dvh - 48px);
+    display: flex;
+    flex-direction: column;
+}
+
+.mud-dialog.bm-sheet .mud-dialog-content {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+@media (min-width: 600px) {
+    .mud-dialog.bm-sheet {
+        margin-bottom: 24px;
+        border-radius: 16px;
+    }
+}
+
+@keyframes bm-sheet-up {
+    from { transform: translateY(40px); opacity: 0; }
+    to { transform: none; opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .mud-dialog.bm-sheet {
+        animation: none;
+    }
+}

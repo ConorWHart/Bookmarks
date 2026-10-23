@@ -1,0 +1,58 @@
+/* Pages per day: an add row (day, pages, +) over the logged days, newest first. */
+.bm-pages {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-top: 12px;
+    border-top: 1px solid var(--mud-palette-lines-default);
+}
+
+.bm-pages__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.bm-pages__add {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.bm-pages__add ::deep .bm-pages__date {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.bm-pages__add ::deep .bm-pages__count {
+    flex: 0 0 92px;
+    width: 92px;
+}
+
+.bm-pages__add ::deep .bm-pages__add-btn {
+    flex: 0 0 auto;
+}
+
+.bm-pages__list {
+    border-top: 1px solid var(--mud-palette-lines-default);
+}
+
+.bm-pages__row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 2px 0 2px 4px;
+    border-bottom: 1px solid var(--mud-palette-lines-default);
+    font-size: 0.9rem;
+}
+
+.bm-pages__day {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.bm-pages__n {
+    color: var(--mud-palette-text-secondary);
+    white-space: nowrap;
+}
