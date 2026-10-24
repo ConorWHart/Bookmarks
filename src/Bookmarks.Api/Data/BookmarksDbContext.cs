@@ -129,7 +129,9 @@ public sealed class BookmarksDbContext(DbContextOptions<BookmarksDbContext> opti
             {
                 a.Property(p => p.SpineColor).HasMaxLength(ColorLength).IsUnicode(false);
                 a.Property(p => p.TextColor).HasMaxLength(ColorLength).IsUnicode(false);
-                a.Property(p => p.SpineImageUrl).HasMaxLength(UrlLength);
+                a.Property(p => p.AccentColor).HasMaxLength(ColorLength).IsUnicode(false);
+                // A small photo of the spine as a data URL (Phase 7e, up to about 48 KB), so no length limit.
+                a.Property(p => p.SpineImageUrl);
             });
 
             e.HasIndex(x => x.BookId);

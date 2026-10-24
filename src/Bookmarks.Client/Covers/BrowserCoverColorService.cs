@@ -24,6 +24,22 @@ public sealed class BrowserCoverColorService(IJSRuntime js) : ICoverColorService
         }
     }
 
+    public async Task<IReadOnlyList<string>> PaletteAsync(string imageUrl, int max = 4, CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(imageUrl);
+        try
+        {
+            _module ??= js.InvokeAsync<IJSObjectReference>("import", "./js/covers.js").AsTask();
+            var module = await _module;
+            return await module.InvokeAsync<string[]?>("palette", ct, new object?[] { imageUrl, max }) ?? [];
+        }
+        catch (JSException)
+        {
+            _module = null;
+            return [];
+        }
+    }
+
     public async ValueTask DisposeAsync()
     {
         if (_module is { IsCompletedSuccessfully: true })

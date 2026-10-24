@@ -1,0 +1,205 @@
+@* Take or choose a photo of a book's spine, or cut one from the book's cover; crop and rotate it.
+   Closes with a SpinePhoto (Phase 7e), or with DesignRequested when the user would rather have a drawn design made
+   from the cover's colours instead of a photo. *@
+@implements IAsyncDisposable
+@inject ISpinePhotoEditor Editor
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">Spine photo</MudText>
+        @if (!string.IsNullOrWhiteSpace(BookTitle))
+        {
+            <MudText Typo="Typo.body2" Class="mud-text-secondary">@BookTitle</MudText>
+        }
+    </TitleContent>
+
+    <DialogContent>
+        @* The inputs are opened by the labels below (no script needed); "capture" asks phones for the camera. *@
+        <input @ref="_cameraInput" id="@_cameraId" type="file" accept="image/*" capture="environment" class="bm-spinephoto__input"
+               @onchange="LoadFromCameraAsync" />
+        <input @ref="_fileInput" id="@_fileId" type="file" accept="image/*" class="bm-spinephoto__input"
+               @onchange="LoadFromFileAsync" />
+
+        @if (!_loaded && !_showStage)
+        {
+            <div class="bm-spinephoto__intro">
+                <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Class="bm-spinephoto__intro-icon" />
+                <MudText Typo="Typo.body2">
+                    Photograph the spine straight on, in good light, filling as much of the picture as you can.
+                    You can crop and turn it next.
+                </MudText>
+                @if (CoverUrl is not null)
+                {
+                    <MudText Typo="Typo.body2">Or make one from the cover: pick the strip of it you'd like on the spine.</MudText>
+                }
+            </div>
+        }
+
+        @* Cropper.js wraps this image with its own elements, so nothing else is rendered inside this box. *@
+        <div class="@StageClass">
+            <img @ref="_image" alt="The photo to crop" class="bm-spinephoto__img" />
+        </div>
+
+        @if (_busy)
+        {
+            <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mt-2" />
+        }
+
+        @if (_error is not null)
+        {
+            <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-3">@_error</MudAlert>
+        }
+
+        @if (_loaded)
+        {
+            <div class="bm-spinephoto__tools">
+                <MudIconButton Icon="@Icons.Material.Filled.RotateLeft" aria-label="Turn left" OnClick="() => Editor.RotateAsync(-90)" />
+                <MudIconButton Icon="@Icons.Material.Filled.RotateRight" aria-label="Turn right" OnClick="() => Editor.RotateAsync(90)" />
+                @if (Aspect > 0)
+                {
+                    <MudSwitch T="bool" Value="_matchShape" ValueChanged="SetMatchShapeAsync" Color="Color.Primary" Label="Book's shape" />
+                }
+            </div>
+        }
+
+        @* Where the picture comes from: a centred stack of full-width buttons to start with, a compact row once loaded. *@
+        <div class="@SourcesClass">
+            <MudButton HtmlTag="label" for="@_cameraId" Variant="@(_loaded ? Variant.Text : Variant.Filled)" Color="Color.Primary"
+                       Size="Size.Small" StartIcon="@Icons.Material.Filled.PhotoCamera">@(_loaded ? "Retake" : "Take photo")</MudButton>
+            <MudButton HtmlTag="label" for="@_fileId" Variant="@(_loaded ? Variant.Text : Variant.Outlined)" Color="Color.Primary"
+                       Size="Size.Small" StartIcon="@Icons.Material.Filled.PhotoLibrary">@(_loaded ? "Another" : "Choose photo")</MudButton>
+            @if (CoverUrl is not null && !_fromCover)
+            {
+                <MudButton Variant="@(_loaded ? Variant.Text : Variant.Outlined)" Color="Color.Primary" Size="Size.Small"
+                           StartIcon="@Icons.Material.Filled.Image" OnClick="LoadCoverAsync">Use the cover</MudButton>
+            }
+            @if (OfferDesign)
+            {
+                <MudButton Variant="@(_loaded ? Variant.Text : Variant.Outlined)" Color="Color.Primary" Size="Size.Small"
+                           StartIcon="@Icons.Material.Filled.AutoAwesome" OnClick="RequestDesign">Design from cover</MudButton>
+            }
+        </div>
+
+        @if (_loaded)
+        {
+            <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                Drag the photo to move it, pinch or scroll to zoom, and drag the box's corners to fit the spine.
+            </MudText>
+        }
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton OnClick="() => MudDialog.Cancel()">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(!_loaded || _busy)" OnClick="UseAsync">Use photo</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    /// <summary>The spine's width ÷ height on the shelf, so the crop matches it; 0 for a free crop.</summary>
+    [Parameter] public double Aspect { get; set; }
+
+    [Parameter] public string? BookTitle { get; set; }
+
+    /// <summary>The book's cover, offered as a picture to cut a spine from.</summary>
+    [Parameter] public string? CoverUrl { get; set; }
+
+    /// <summary>Offer "Design from cover": closes with <see cref="DesignRequested"/> for the editor to make one.</summary>
+    [Parameter] public bool OfferDesign { get; set; }
+
+    /// <summary>The result when "Design from cover" was chosen instead of a photo.</summary>
+    public sealed record DesignRequested;
+
+    private void RequestDesign() => MudDialog.Close(DialogResult.Ok(new DesignRequested()));
+
+    /// <summary>The cover is what's loaded (so "Use the cover" isn't offered again).</summary>
+    private bool _fromCover;
+
+    private readonly string _cameraId = "bm-spine-camera-" + Guid.NewGuid().ToString("N")[..8];
+    private readonly string _fileId = "bm-spine-file-" + Guid.NewGuid().ToString("N")[..8];
+    private ElementReference _cameraInput;
+    private ElementReference _fileInput;
+    private ElementReference _image;
+    private bool _loaded;
+    private bool _busy;
+    private bool _matchShape = true;
+    private string? _error;
+
+    /// <summary>The crop area has its size before Cropper.js starts in it, which sizes itself from it.</summary>
+    private bool _showStage;
+
+    private string SourcesClass => _loaded || _showStage ? "bm-spinephoto__sources" : "bm-spinephoto__sources bm-spinephoto__sources--start";
+
+    private string StageClass => _loaded || _showStage ? "bm-spinephoto__stage" : "bm-spinephoto__stage bm-spinephoto__stage--empty";
+
+    private Task LoadFromCameraAsync() => LoadAsync(_cameraInput);
+
+    private Task LoadFromFileAsync() => LoadAsync(_fileInput);
+
+    private Task LoadAsync(ElementReference input)
+        => LoadAsync(() => Editor.LoadAsync(input, _image, _matchShape ? Aspect : 0), fromCover: false);
+
+    private Task LoadCoverAsync()
+        => LoadAsync(() => Editor.LoadUrlAsync(CoverUrl!, _image, _matchShape ? Aspect : 0), fromCover: true);
+
+    private async Task LoadAsync(Func<Task<string?>> load, bool fromCover)
+    {
+        _busy = true;
+        _error = null;
+        _showStage = true;
+        StateHasChanged();
+        await Task.Yield(); // render the crop area at full size first
+
+        var error = await load();
+        _busy = false;
+        if (error is null)
+        {
+            _fromCover = fromCover;
+        }
+
+        if (error == "nofile")
+        {
+            _showStage = _loaded;
+            return; // the picker was closed without a photo
+        }
+
+        _loaded = error is null;
+        _showStage = _loaded;
+        _error = error is null ? null : Message(error);
+    }
+
+    private async Task SetMatchShapeAsync(bool value)
+    {
+        _matchShape = value;
+        await Editor.SetAspectAsync(value ? Aspect : 0);
+    }
+
+    private async Task UseAsync()
+    {
+        _busy = true;
+        _error = null;
+        StateHasChanged();
+        var photo = await Editor.ExportAsync();
+        _busy = false;
+        if (photo is null)
+        {
+            _error = "Couldn't make the photo small enough to keep. Try cropping closer to the spine.";
+            return;
+        }
+
+        MudDialog.Close(DialogResult.Ok(photo));
+    }
+
+    private static string Message(string error) => error switch
+    {
+        "notimage" => "That file isn't a picture. Choose a photo instead.",
+        "unreadable" => "This browser can't open that photo's format. Take a new photo, or choose a JPEG or PNG.",
+        "blocked" => "That cover's website doesn't let apps reuse its pictures. Take or choose a photo instead.",
+        "nocropper" => "The photo editor couldn't be loaded. If you're offline, connect once so it can download.",
+        "unsupported" => "Photos can't be edited here.",
+        _ => "Couldn't open that photo. Try another.",
+    };
+
+    public async ValueTask DisposeAsync() => await Editor.CloseAsync();
+}

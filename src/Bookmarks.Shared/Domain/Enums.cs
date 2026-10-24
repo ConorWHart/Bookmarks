@@ -63,4 +63,18 @@ public enum SpineStyle
     Banded = 1,
     Minimal = 2,
     Ornate = 3,
+
+    // Designs made from a cover's colours (Phase 7e); each uses SpineAppearance.AccentColor.
+
+    /// <summary>Accent blocks at head and tail, the title on the band between (like the old Penguin paperbacks).</summary>
+    Penguin = 4,
+
+    /// <summary>Stepped Art Deco bands at head and tail; gilt lettering on dark spines.</summary>
+    Deco = 5,
+
+    /// <summary>A bold band and a fine rule across the lower spine.</summary>
+    Stripe = 6,
+
+    /// <summary>The accent colour fading into the spine colour from the top.</summary>
+    TwoTone = 7,
 }

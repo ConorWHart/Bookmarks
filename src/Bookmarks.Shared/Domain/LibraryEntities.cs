@@ -55,6 +55,9 @@ public sealed class SpineAppearance
 
     public string? TextColor { get; set; }
 
+    /// <summary>Second colour of the accent styles (Penguin, Deco, Stripe, Two-tone; Phase 7e), #RRGGBB.</summary>
+    public string? AccentColor { get; set; }
+
     public SpineStyle? Style { get; set; }
 
     public string? SpineImageUrl { get; set; }

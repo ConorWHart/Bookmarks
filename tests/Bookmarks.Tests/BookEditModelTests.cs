@@ -140,6 +140,42 @@ public class BookEditModelTests
     }
 
     [Fact]
+    public void A_spine_photo_survives_an_edit_and_can_be_removed()
+    {
+        const string photo = "data:image/webp;base64,UklGRg==";
+        var book = new Book { Title = "Dune" };
+        var item = new LibraryItem { BookId = book.Id, Appearance = { SpineImageUrl = photo } };
+        var model = BookEditModel.FromEntry(LibraryEntry.Create(item, book, Array.Empty<ReadingSession>()));
+
+        model.ApplyTo(book, item);
+        Assert.Equal(photo, item.Appearance.SpineImageUrl);
+
+        model.SpineImageUrl = null;
+        model.ApplyTo(book, item);
+        Assert.Null(item.Appearance.SpineImageUrl);
+    }
+
+    [Fact]
+    public void A_generated_design_is_stored_with_its_accent_and_dropped_for_plain_styles()
+    {
+        var book = new Book { Title = "Dune" };
+        var item = new LibraryItem { BookId = book.Id };
+        var model = BookEditModel.FromEntry(LibraryEntry.Create(item, book, Array.Empty<ReadingSession>()));
+
+        model.ApplyDesign(new SpineDesign(SpineStyle.Penguin, "#d9822b", "#2B3A55", "#1A1A1A"));
+        model.ApplyTo(book, item);
+
+        Assert.Equal(SpineStyle.Penguin, item.Appearance.Style);
+        Assert.Equal("#D9822B", item.Appearance.SpineColor);
+        Assert.Equal("#2B3A55", item.Appearance.AccentColor);
+        Assert.Equal(SpineStyleChoice.Penguin, BookEditModel.FromEntry(LibraryEntry.Create(item, book, Array.Empty<ReadingSession>())).Style);
+
+        model.Style = SpineStyleChoice.Classic;
+        model.ApplyTo(book, item);
+        Assert.Null(item.Appearance.AccentColor);
+    }
+
+    [Fact]
     public void ForNew_picks_a_palette_color()
         => Assert.Contains(BookEditModel.ForNew(random: new Random(1)).SpineColor!, BookEditModel.SpinePalette);
 }

@@ -401,3 +401,171 @@
             inset -2px 0 0 rgb(0 0 0 / 0.2);
     }
 }
+
+/* ---------- Spine photos (Phase 7e) ----------
+   The photo fills the spine; a light version of the drawn spine's shading on top keeps it looking round and lit
+   like its neighbours. Doubled class so it wins over the plain and touch-device spine rules above. */
+.bm-spine.bm-spine--photo {
+    padding: 0;
+    background-image: none;
+}
+
+.bm-spine__photo {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.bm-spine.bm-spine--photo::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+        linear-gradient(90deg,
+            rgb(0 0 0 / 0.32) 0%,
+            rgb(0 0 0 / 0.04) 8%,
+            rgb(255 255 255 / 0.12) 20%,
+            rgb(0 0 0 / 0) 50%,
+            rgb(0 0 0 / 0.08) 84%,
+            rgb(0 0 0 / 0.34) 100%),
+        linear-gradient(180deg,
+            rgb(255 255 255 / 0.1) 0,
+            transparent 6%,
+            transparent 92%,
+            rgb(0 0 0 / 0.22) 100%);
+}
+
+/* ---------- Designs from the cover's colours (Phase 7e) ----------
+   Drawn with ::before / ::after in the accent colour (--bm-book-accent) over the spine colour, so the usual spine
+   shading underneath (and its cheaper touch-device version) stays as it is. Each accent shape carries its own
+   left-to-right curvature so it looks part of the same rounded spine. The title and author sit above (z-index 1). */
+.bm-spine--penguin,
+.bm-spine--deco,
+.bm-spine--stripe,
+.bm-spine--twotone {
+    --bm-spine-curve: linear-gradient(90deg,
+        rgb(0 0 0 / 0.32) 0%,
+        rgb(255 255 255 / 0.14) 18%,
+        rgb(0 0 0 / 0) 50%,
+        rgb(0 0 0 / 0.1) 82%,
+        rgb(0 0 0 / 0.36) 100%);
+}
+
+.bm-spine--penguin::before,
+.bm-spine--penguin::after,
+.bm-spine--deco::before,
+.bm-spine--deco::after,
+.bm-spine--stripe::before,
+.bm-spine--stripe::after,
+.bm-spine--twotone::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    pointer-events: none;
+}
+
+/* Penguin: accent blocks at head and tail with a pale rule, title and author on the band between. */
+.bm-spine--penguin {
+    justify-content: center;
+}
+
+.bm-spine--penguin .bm-spine__title {
+    max-height: 48%;
+}
+
+.bm-spine--penguin .bm-spine__author {
+    max-height: 16%;
+}
+
+.bm-spine--penguin::before,
+.bm-spine--penguin::after {
+    height: 21%;
+    background: var(--bm-spine-curve), var(--bm-book-accent);
+}
+
+.bm-spine--penguin::before {
+    top: 0;
+    box-shadow: 0 2px 0 rgb(255 255 255 / 0.55);
+}
+
+.bm-spine--penguin::after {
+    bottom: 0;
+    box-shadow: 0 -2px 0 rgb(255 255 255 / 0.55);
+}
+
+/* Deco: stepped bands at head and tail, mirrored. */
+.bm-spine--deco {
+    justify-content: center;
+}
+
+.bm-spine--deco .bm-spine__title {
+    max-height: 56%;
+}
+
+.bm-spine--deco .bm-spine__author {
+    max-height: 14%;
+}
+
+.bm-spine--deco::before,
+.bm-spine--deco::after {
+    height: 17%;
+}
+
+.bm-spine--deco::before {
+    top: 0;
+    background:
+        var(--bm-spine-curve),
+        linear-gradient(180deg,
+            var(--bm-book-accent) 0 40%,
+            transparent 40% 52%,
+            var(--bm-book-accent) 52% 66%,
+            transparent 66% 78%,
+            var(--bm-book-accent) 78% 85%,
+            transparent 85%);
+}
+
+.bm-spine--deco::after {
+    bottom: 0;
+    background:
+        var(--bm-spine-curve),
+        linear-gradient(0deg,
+            var(--bm-book-accent) 0 40%,
+            transparent 40% 52%,
+            var(--bm-book-accent) 52% 66%,
+            transparent 66% 78%,
+            var(--bm-book-accent) 78% 85%,
+            transparent 85%);
+}
+
+/* Stripe: a bold band and a fine rule across the lower spine; the author sits below them. */
+.bm-spine--stripe .bm-spine__title {
+    max-height: 56%;
+}
+
+.bm-spine--stripe .bm-spine__author {
+    max-height: 18%;
+}
+
+.bm-spine--stripe::before {
+    top: 64%;
+    height: 11%;
+    background: var(--bm-spine-curve), var(--bm-book-accent);
+}
+
+.bm-spine--stripe::after {
+    top: 77.5%;
+    height: 1.5%;
+    min-height: 2px;
+    background: var(--bm-book-accent);
+}
+
+/* Two-tone: the accent at the head fading into the spine colour. */
+.bm-spine--twotone::before {
+    top: 0;
+    bottom: 0;
+    background: linear-gradient(180deg, var(--bm-book-accent) 0%, var(--bm-book-accent) 30%, transparent 72%);
+}

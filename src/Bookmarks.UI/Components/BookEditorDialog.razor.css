@@ -209,3 +209,21 @@
     gap: 8px;
 }
 
+
+/* Spine photo thumbnail in "Look on the shelf" (Phase 7e): tall and thin, like the spine. */
+.bm-look__photo-row {
+    margin-bottom: 4px;
+}
+
+.bm-look__photo {
+    display: block;
+    width: 28px;
+    height: 96px;
+    object-fit: cover;
+    border-radius: 2px;
+    box-shadow: 1px 1px 3px rgb(0 0 0 / 0.35);
+}
+
+.bm-look__design-row {
+    margin-bottom: 8px;
+}

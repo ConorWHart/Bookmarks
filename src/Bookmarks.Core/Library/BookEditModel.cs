@@ -19,6 +19,10 @@ public enum SpineStyleChoice
     Banded,
     Minimal,
     Ornate,
+    Penguin,
+    Deco,
+    Stripe,
+    TwoTone,
 }
 
 /// <summary>
@@ -119,6 +123,15 @@ public sealed class BookEditModel
 
     public SpineStyleChoice Style { get; set; }
 
+    /// <summary>Second colour for the accent styles (Penguin, Deco, Stripe, Two-tone).</summary>
+    public string? AccentColor { get; set; }
+
+    /// <summary>The chosen style draws with <see cref="AccentColor"/>.</summary>
+    public bool UsesAccent => Style is SpineStyleChoice.Penguin or SpineStyleChoice.Deco or SpineStyleChoice.Stripe or SpineStyleChoice.TwoTone;
+
+    /// <summary>A photo of this copy's spine (Phase 7e): a small image data URL drawn instead of the made-up spine.</summary>
+    public string? SpineImageUrl { get; set; }
+
     public bool FaceOut { get; set; }
 
     /// <summary>This copy's paper (with the page count, how thick the spine looks); null = automatic.</summary>
@@ -174,10 +187,12 @@ public sealed class BookEditModel
             SpineColor = entry.SpineColor,
             SpineColorFollowsCover = item.Appearance.SpineColor is null,
             TextColor = item.Appearance.TextColor,
+            AccentColor = item.Appearance.AccentColor,
             Style = ToChoice(item.Appearance.Style),
             FaceOut = item.Appearance.FaceOut,
             PaperThickness = item.Appearance.PaperThickness,
             HeightOverrideMm = item.Appearance.HeightMmOverride,
+            SpineImageUrl = item.Appearance.SpineImageUrl,
             _originalRating = item.Rating,
             _originalStars = stars,
         };
@@ -223,9 +238,11 @@ public sealed class BookEditModel
         item.Appearance.SpineColor = string.Equals(color, book.DominantColor, StringComparison.OrdinalIgnoreCase) ? null : color;
         item.Appearance.TextColor = Clean(TextColor)?.ToUpperInvariant();
         item.Appearance.Style = ToStyle(Style);
+        item.Appearance.AccentColor = UsesAccent ? Clean(AccentColor)?.ToUpperInvariant() : null;
         item.Appearance.FaceOut = FaceOut;
         item.Appearance.PaperThickness = PaperThickness;
         item.Appearance.HeightMmOverride = HeightOverrideMm is > 0 ? HeightOverrideMm : null;
+        item.Appearance.SpineImageUrl = string.IsNullOrWhiteSpace(SpineImageUrl) ? null : SpineImageUrl;
     }
 
     /// <summary>
@@ -269,12 +286,26 @@ public sealed class BookEditModel
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
+    /// <summary>Takes a generated spine design (<see cref="SpineDesigner"/>): its style and all three colours.</summary>
+    public void ApplyDesign(SpineDesign design)
+    {
+        ArgumentNullException.ThrowIfNull(design);
+        Style = ToChoice(design.Style);
+        SpineColor = design.SpineColor; // also stops it following the cover colour
+        AccentColor = design.AccentColor;
+        TextColor = design.TextColor;
+    }
+
     private static SpineStyleChoice ToChoice(SpineStyle? style) => style switch
     {
         SpineStyle.Classic => SpineStyleChoice.Classic,
         SpineStyle.Banded => SpineStyleChoice.Banded,
         SpineStyle.Minimal => SpineStyleChoice.Minimal,
         SpineStyle.Ornate => SpineStyleChoice.Ornate,
+        SpineStyle.Penguin => SpineStyleChoice.Penguin,
+        SpineStyle.Deco => SpineStyleChoice.Deco,
+        SpineStyle.Stripe => SpineStyleChoice.Stripe,
+        SpineStyle.TwoTone => SpineStyleChoice.TwoTone,
         _ => SpineStyleChoice.Automatic,
     };
 
@@ -284,6 +315,10 @@ public sealed class BookEditModel
         SpineStyleChoice.Banded => SpineStyle.Banded,
         SpineStyleChoice.Minimal => SpineStyle.Minimal,
         SpineStyleChoice.Ornate => SpineStyle.Ornate,
+        SpineStyleChoice.Penguin => SpineStyle.Penguin,
+        SpineStyleChoice.Deco => SpineStyle.Deco,
+        SpineStyleChoice.Stripe => SpineStyle.Stripe,
+        SpineStyleChoice.TwoTone => SpineStyle.TwoTone,
         _ => null,
     };
 

@@ -160,16 +160,60 @@
                                           HelperText="Filled in by Open Library, or paste a link to another image." />
                         </div>
 
-                        @* Spine *@
-                        <div class="bm-look__group">
+                        @* Spine (focusable so "Edit spine" under the preview can scroll here) *@
+                        <div class="bm-look__group" tabindex="-1" @ref="_spineGroup">
                             <div class="bm-look__label">Spine</div>
+
+                            @* A photo of the real spine (Phase 7e) replaces the drawn one; style and lettering then don't apply. *@
+                            <div class="bm-look__row bm-look__photo-row">
+                                @if (_model.SpineImageUrl is { } spinePhoto)
+                                {
+                                    <img class="bm-look__photo" src="@spinePhoto" alt="Spine photo" />
+                                    <MudButton Variant="Variant.Outlined" Size="Size.Small" StartIcon="@Icons.Material.Filled.PhotoCamera"
+                                               OnClick="TakeSpinePhotoAsync">Change photo</MudButton>
+                                    <MudButton Variant="Variant.Text" Size="Size.Small" StartIcon="@Icons.Material.Filled.HideImage"
+                                               OnClick="RemoveSpinePhoto">Remove photo</MudButton>
+                                }
+                                else
+                                {
+                                    <MudButton Variant="Variant.Outlined" Size="Size.Small" StartIcon="@Icons.Material.Filled.AddAPhoto"
+                                               OnClick="TakeSpinePhotoAsync">Edit spine photo</MudButton>
+                                    <MudText Typo="Typo.caption" Class="mud-text-secondary">Show a photo of the real spine instead of a drawn one.</MudText>
+                                }
+                            </div>
+                            @if (_model.SpineImageUrl is not null)
+                            {
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                    The color below is used for this book in lists. Style and lettering come back if you remove the photo.
+                                </MudText>
+                            }
+
+                            @if (_model.SpineImageUrl is null)
+                            {
+                            @* Designs from the cover's colours (Phase 7e): style, spine, accent and lettering in one go. *@
+                            <div class="bm-look__row bm-look__design-row">
+                                <MudTooltip Text="@DesignTooltip">
+                                    <MudButton Variant="Variant.Outlined" Size="Size.Small" StartIcon="@Icons.Material.Filled.AutoAwesome"
+                                               OnClick="() => DesignAsync(next: false)" Disabled="_designing">Design from cover</MudButton>
+                                </MudTooltip>
+                                @if (_designVariant >= 0 && _model.UsesAccent)
+                                {
+                                    <MudButton Variant="Variant.Text" Size="Size.Small" StartIcon="@Icons.Material.Filled.Shuffle"
+                                               OnClick="() => DesignAsync(next: true)" Disabled="_designing">Shuffle</MudButton>
+                                }
+                            </div>
                             <MudSelect T="SpineStyleChoice" @bind-Value="_model.Style" Label="Style" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true">
                                 <MudSelectItem Value="SpineStyleChoice.Automatic">Automatic (by format)</MudSelectItem>
                                 <MudSelectItem Value="SpineStyleChoice.Classic">Classic</MudSelectItem>
                                 <MudSelectItem Value="SpineStyleChoice.Banded">Banded</MudSelectItem>
                                 <MudSelectItem Value="SpineStyleChoice.Ornate">Ornate</MudSelectItem>
                                 <MudSelectItem Value="SpineStyleChoice.Minimal">Minimal</MudSelectItem>
+                                <MudSelectItem Value="SpineStyleChoice.Penguin">Penguin (two colours)</MudSelectItem>
+                                <MudSelectItem Value="SpineStyleChoice.Deco">Deco (two colours)</MudSelectItem>
+                                <MudSelectItem Value="SpineStyleChoice.Stripe">Stripe (two colours)</MudSelectItem>
+                                <MudSelectItem Value="SpineStyleChoice.TwoTone">Two-tone (two colours)</MudSelectItem>
                             </MudSelect>
+                            }
 
                             <div class="bm-look__colors">
                                 <div>
@@ -184,11 +228,21 @@
                                     </div>
                                     <SpineColorPicker @bind-Value="_model.SpineColor" />
                                 </div>
-                                <div>
-                                    <div class="bm-look__sub"><span>Lettering @TextColorNote</span></div>
-                                    <SpineColorPicker @bind-Value="_model.TextColor" Palette="BookEditModel.TextPalette" AllowAutomatic="true"
-                                                      Label="Text color" FallbackColor="#FFFFFF" />
-                                </div>
+                                @if (_model.SpineImageUrl is null && _model.UsesAccent)
+                                {
+                                    <div>
+                                        <div class="bm-look__sub"><span>Accent</span></div>
+                                        <SpineColorPicker Value="@AccentOrDefault" ValueChanged="v => _model.AccentColor = v" Label="Accent color" />
+                                    </div>
+                                }
+                                @if (_model.SpineImageUrl is null)
+                                {
+                                    <div>
+                                        <div class="bm-look__sub"><span>Lettering @TextColorNote</span></div>
+                                        <SpineColorPicker @bind-Value="_model.TextColor" Palette="BookEditModel.TextPalette" AllowAutomatic="true"
+                                                          Label="Text color" FallbackColor="#FFFFFF" />
+                                    </div>
+                                }
                             </div>
                         </div>
 
@@ -262,6 +316,8 @@
                 <div class="bm-editor__cover-actions">
                     <MudButton Variant="Variant.Text" Size="Size.Small" StartIcon="@Icons.Material.Filled.Edit"
                                OnClick="EditCoverAsync">Edit cover</MudButton>
+                    <MudButton Variant="Variant.Text" Size="Size.Small" StartIcon="@Icons.Material.Filled.Edit"
+                               OnClick="EditSpineAsync">Edit spine</MudButton>
                 </div>
             </div>
         </div>
@@ -353,13 +409,14 @@
             await RefreshCoverColorAsync();
         }
 
-        if (_scrollToCover)
+        if (_scrollToCover || _scrollToSpine)
         {
-            _scrollToCover = false;
+            var target = _scrollToCover ? _coverGroup : _spineGroup;
+            _scrollToCover = _scrollToSpine = false;
             try
             {
-                // Focusing scrolls the dialog to the Cover controls; no JS needed.
-                await _coverGroup.FocusAsync(preventScroll: false);
+                // Focusing scrolls the dialog to the Cover or Spine controls; no JS needed.
+                await target.FocusAsync(preventScroll: false);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -370,6 +427,16 @@
 
     private ElementReference _coverGroup;
     private bool _scrollToCover;
+    private ElementReference _spineGroup;
+    private bool _scrollToSpine;
+
+    /// <summary>"Edit spine" under the preview: open "Look on the shelf" and bring its Spine controls into view.</summary>
+    private async Task EditSpineAsync()
+    {
+        await SetSectionAsync(LookKey, true);
+        _scrollToSpine = true;
+        StateHasChanged();
+    }
 
     /// <summary>"Edit cover" under the preview: open "Look on the shelf" and bring its Cover controls into view.</summary>
     private async Task EditCoverAsync()
@@ -536,6 +603,102 @@
         await RefreshCoverColorAsync();
     }
 
+    /// <summary>
+    /// Take or choose a photo of the spine (Phase 7e). The crop keeps the spine's shape on the shelf; the photo's color
+    /// becomes the spine color, which lists and the reading log use for this book.
+    /// </summary>
+    private async Task TakeSpinePhotoAsync()
+    {
+        var spine = PreviewAs(false);
+        var aspect = spine.WidthMm > 0 && spine.HeightMm > 0 ? (double)spine.WidthMm / spine.HeightMm : 0;
+        var parameters = new DialogParameters
+        {
+            { nameof(SpinePhotoDialog.Aspect), aspect },
+            { nameof(SpinePhotoDialog.BookTitle), _model.Title },
+            { nameof(SpinePhotoDialog.CoverUrl), _model.CoverUrl },
+            { nameof(SpinePhotoDialog.OfferDesign), true },
+        };
+        var options = await DialogDefaults.EditorAsync(Viewport, MaxWidth.Small);
+        var dialog = await Dialogs.ShowAsync<SpinePhotoDialog>(null, parameters, options);
+        var result = await dialog.Result;
+        if (result is { Canceled: false, Data: SpinePhotoDialog.DesignRequested })
+        {
+            // A drawn design instead of a photo: drop any photo, then design as the Spine section's button does.
+            _model.SpineImageUrl = null;
+            await DesignAsync(next: false);
+            StateHasChanged();
+            return;
+        }
+
+        if (result is not { Canceled: false, Data: SpinePhoto photo })
+        {
+            return;
+        }
+
+        _model.SpineImageUrl = photo.DataUrl;
+        if (photo.Color is { } color)
+        {
+            _model.SpineColor = color;
+            _model.EnsureReadableText();
+        }
+
+        StateHasChanged();
+    }
+
+    private void RemoveSpinePhoto() => _model.SpineImageUrl = null;
+
+    // ---------- Designs from the cover's colours (Phase 7e) ----------
+
+    private IReadOnlyList<string>? _palette;
+    private string? _paletteFor;
+    private int _designVariant = -1;
+    private bool _designing;
+
+    /// <summary>Seeds a new book's first design (an existing one uses its id).</summary>
+    private readonly Guid _newBookSeed = Guid.NewGuid();
+
+    private string DesignTooltip => _model.CoverUrl is null
+        ? "Makes a two-colour spine from the spine color (add a cover to use its colours)"
+        : "Makes a two-colour spine from the cover's colours; Shuffle tries others";
+
+    private string AccentOrDefault => _model.AccentColor ?? ColorUtil.Shade(_model.SpineColor, -0.35) ?? "#333333";
+
+    /// <summary>
+    /// "Design from cover" starts on this book's own design; "Shuffle" steps to the next. The cover's colours are read
+    /// once per cover; without a cover (or offline) the spine colour is used on its own.
+    /// </summary>
+    private async Task DesignAsync(bool next)
+    {
+        _designing = true;
+        try
+        {
+            if (_palette is null || !string.Equals(_paletteFor, _model.CoverUrl, StringComparison.Ordinal))
+            {
+                _paletteFor = _model.CoverUrl;
+                _palette = _model.CoverUrl is { } cover ? await CoverColors.PaletteAsync(cover) : [];
+                if (_palette.Count == 0)
+                {
+                    _palette = new[] { _model.DominantColor, _model.SpineColor }
+                        .Where(c => c is not null)
+                        .Select(c => c!)
+                        .ToList();
+                }
+
+                _designVariant = -1; // new colours: start again
+            }
+
+            var count = SpineDesigner.VariantCount(_palette);
+            _designVariant = next && _designVariant >= 0
+                ? (_designVariant + 1) % count
+                : SpineDesigner.StartVariant(_entry?.Id ?? _newBookSeed, count);
+            _model.ApplyDesign(SpineDesigner.Design(_palette, _designVariant));
+        }
+        finally
+        {
+            _designing = false;
+        }
+    }
+
     private void UseCoverColorForSpine()
     {
         _model.SpineColor = _model.DominantColor;
@@ -659,7 +822,13 @@
     {
         get
         {
-            var parts = new List<string> { _model.Style == SpineStyleChoice.Automatic ? "Automatic style" : $"{_model.Style} spine" };
+            var parts = new List<string>
+            {
+                _model.SpineImageUrl is not null ? "Spine photo"
+                    : _model.Style == SpineStyleChoice.Automatic ? "Automatic style"
+                    : _model.Style == SpineStyleChoice.TwoTone ? "Two-tone spine"
+                    : $"{_model.Style} spine",
+            };
             if (BookSizes.WithHeight(_model.HeightOverrideMm) is { } size)
             {
                 parts.Add(size.Name);

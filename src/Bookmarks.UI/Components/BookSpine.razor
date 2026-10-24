@@ -1,4 +1,5 @@
-@* A single book on a shelf: a spine (pure CSS), or a face-out cover (the real cover image when there is one). *@
+@* A single book on a shelf: a spine (pure CSS, or the user's photo of it), or a face-out cover (the real cover image
+   when there is one). *@
 
 <button type="button"
         data-item-id="@Book.Entry.Id"
@@ -15,6 +16,11 @@
         {
             <CoverImage Url="@cover" Size="CoverSize.Medium" Class="bm-cover__img" />
         }
+    }
+    else if (SpinePhoto is { } photo)
+    {
+        @* The photo has the title on it; it fills the spine's size from the book's metrics, so shelves stay aligned. *@
+        <img class="bm-spine__photo" src="@photo" alt="" decoding="async" />
     }
     else
     {
@@ -41,6 +47,13 @@
 
     private string Background => Book.Entry.SpineColor;
 
+    /// <summary>Second colour of the accent styles; a deeper shade of the spine when none was chosen.</summary>
+    private string Accent => Book.Entry.Item.Appearance.AccentColor ?? ColorUtil.Shade(Background, -0.35) ?? Background;
+
+    private string? SpinePhoto => Bookmarks.UI.Services.SpinePhoto.IsUsable(Book.Entry.Item.Appearance.SpineImageUrl)
+        ? Book.Entry.Item.Appearance.SpineImageUrl
+        : null;
+
     private SpineStyle ResolvedStyle => Book.Entry.Item.Appearance.Style ?? DefaultStyle;
 
     /// <summary>User override, else gilt lettering on dark ornate (leather) spines, else black/white by contrast.</summary>
@@ -48,7 +61,7 @@
     {
         get
         {
-            return ColorUtil.SpineTextColor(Background, Book.Entry.Item.Appearance.TextColor, ResolvedStyle == SpineStyle.Ornate);
+            return ColorUtil.SpineTextColor(Background, Book.Entry.Item.Appearance.TextColor, ResolvedStyle is SpineStyle.Ornate or SpineStyle.Deco);
         }
     }
 
@@ -60,7 +73,8 @@
     {
         get
         {
-            var cls = !Book.FaceOut ? $"bm-book bm-spine bm-spine--{ResolvedStyle.ToString().ToLowerInvariant()}"
+            var cls = !Book.FaceOut && SpinePhoto is not null ? "bm-book bm-spine bm-spine--photo"
+                : !Book.FaceOut ? $"bm-book bm-spine bm-spine--{ResolvedStyle.ToString().ToLowerInvariant()}"
                 : Book.Entry.Book.CoverUrl is null ? "bm-book bm-cover"
                 : "bm-book bm-cover bm-cover--image";
             return Dimmed ? cls + " bm-book--dimmed" : cls;
@@ -80,7 +94,7 @@
         {
             var w = (Book.WidthMm * Scale).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture);
             var h = (Book.HeightMm * Scale).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture);
-            return $"width:{w}px;height:{h}px;--bm-book-bg:{Background};--bm-book-fg:{TextColor};--bm-book-emboss:{ColorUtil.EmbossShadow(TextColor)};";
+            return $"width:{w}px;height:{h}px;--bm-book-bg:{Background};--bm-book-fg:{TextColor};--bm-book-emboss:{ColorUtil.EmbossShadow(TextColor)};--bm-book-accent:{Accent};";
         }
     }
 }

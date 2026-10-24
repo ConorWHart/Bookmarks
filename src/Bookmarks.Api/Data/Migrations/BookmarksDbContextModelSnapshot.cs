@@ -327,6 +327,11 @@ namespace Bookmarks.Api.Data.Migrations
                         {
                             b1.IsRequired();
 
+                            b1.Property<string>("AccentColor")
+                                .HasMaxLength(9)
+                                .IsUnicode(false)
+                                .HasColumnType("varchar(9)");
+
                             b1.Property<bool>("FaceOut")
                                 .HasColumnType("bit");
 
@@ -343,8 +348,7 @@ namespace Bookmarks.Api.Data.Migrations
                                 .HasColumnType("varchar(9)");
 
                             b1.Property<string>("SpineImageUrl")
-                                .HasMaxLength(2048)
-                                .HasColumnType("nvarchar(2048)");
+                                .HasColumnType("nvarchar(max)");
 
                             b1.Property<string>("Style")
                                 .HasMaxLength(24)

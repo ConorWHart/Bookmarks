@@ -65,6 +65,9 @@ builder.Services.AddScoped<ICoverColorService, BrowserCoverColorService>();
 // Barcode scanning (Phase 5): BarcodeDetector where the browser has it, else ZXing (js/scanner.js).
 builder.Services.AddScoped<IBarcodeScanner, BrowserBarcodeScanner>();
 
+// Spine photos (Phase 7e): cropped and shrunk in the browser (js/spinePhoto.js, Cropper.js).
+builder.Services.AddScoped<ISpinePhotoEditor, BrowserSpinePhotoEditor>();
+
 builder.Services.AddScoped(sp => new BookmarksApiClient(
     new HttpClient { BaseAddress = apiBaseAddress, Timeout = apiTimeout },
     sp.GetRequiredService<BrowserAccountService>()));
