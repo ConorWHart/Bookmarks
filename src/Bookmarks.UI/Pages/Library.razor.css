@@ -59,6 +59,61 @@
     border-top: none;
 }
 
+/* Space after the last row so the floating buttons (bottom right) don't cover it: one button on phones,
+   two stacked in the Books view on wider screens. */
+.bm-fab-clearance {
+    height: calc(88px + env(safe-area-inset-bottom));
+}
+
+@media (min-width: 960px) {
+    .bm-fab-clearance--books {
+        height: calc(150px + env(safe-area-inset-bottom));
+    }
+}
+
+/* Phones, Books view: the + opens Add a book / Scan a stack above it, over a light scrim (Phase 8a, A2). */
+.bm-add-menu__scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 1099;
+    background: rgb(0 0 0 / 0.28);
+    animation: bm-add-menu-fade 120ms ease-out;
+}
+
+.bm-add-menu__actions {
+    position: fixed;
+    right: calc(24px + env(safe-area-inset-right));
+    bottom: calc(24px + 56px + 16px + env(safe-area-inset-bottom));
+    z-index: 1101;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 12px;
+    animation: bm-add-menu-in 140ms ease-out;
+}
+
+.bm-add-menu__actions ::deep .mud-button-root {
+    min-height: 44px;
+    padding: 0 20px;
+    border-radius: 22px;
+    box-shadow: var(--mud-elevation-6);
+}
+
+@keyframes bm-add-menu-fade {
+    from { opacity: 0; }
+}
+
+@keyframes bm-add-menu-in {
+    from { opacity: 0; transform: translateY(12px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .bm-add-menu__scrim,
+    .bm-add-menu__actions {
+        animation: none;
+    }
+}
+
 /* Books view: "Scan a stack" sits above the main "Add new book" button (both fixed, bottom right). */
 .bm-fabs ::deep .bm-fab-scan.mud-fab {
     position: fixed;

@@ -494,7 +494,9 @@
 
     private async Task ApplyLookupAsync(BookLookupResult result)
     {
-        var mode = LookupMerge.ModeFor(_bookIsbn, result);
+        // A new book takes everything from the lookup (another pick or scan replaces the last one completely);
+        // only editing an existing book fills blanks first and offers "Replace all fields".
+        var mode = IsNew ? LookupApplyMode.ReplaceBook : LookupMerge.ModeFor(_bookIsbn, result);
         _lastLookup = result;
         _replaced = mode == LookupApplyMode.ReplaceBook; // nothing more to replace
         var changed = LookupMerge.Apply(_model, result, mode, IsNew);
@@ -503,7 +505,9 @@
             _bookIsbn = isbn;
         }
 
-        _lookupSummary = mode == LookupApplyMode.ReplaceBook
+        _lookupSummary = IsNew
+            ? $"Filled in “{result.Title}” from Open Library."
+            : mode == LookupApplyMode.ReplaceBook
             ? $"Replaced the book details with “{result.Title}” from Open Library."
             : changed.Count == 0
                 ? "Open Library had nothing new to add."

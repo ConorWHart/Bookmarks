@@ -135,6 +135,21 @@ h1:focus {
     to { transform: none; opacity: 1; }
 }
 
+/* Touch screens (Phase 8a, A4): small icon buttons get a 40px hit area (padding, the icon stays the same size)
+   and small chips the standard 32px height; not inside text fields and selects, which would grow. */
+@media (pointer: coarse) {
+    .mud-icon-button.mud-icon-button-size-small:not(.mud-input-control *) {
+        padding: 10px;
+    }
+
+    .mud-chip.mud-chip-size-small {
+        height: 32px;
+        padding-left: 12px;
+        padding-right: 12px;
+        border-radius: 16px;
+    }
+}
+
 @media (prefers-reduced-motion: reduce) {
     .mud-dialog.bm-sheet {
         animation: none;

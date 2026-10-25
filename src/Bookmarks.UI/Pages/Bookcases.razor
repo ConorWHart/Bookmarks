@@ -13,10 +13,20 @@
     <div class="d-flex align-center flex-wrap gap-2 mb-4">
         <div class="flex-grow-1">
             <MudText Typo="Typo.h5">Manage bookcases</MudText>
-            <MudText Typo="Typo.body2">
-                Set up your bookcases: the real ones at home, or any set you like (Favorites, Want to buy). A book can stand in
-                several bookcases. Widths let each shelf show how full it is; the eye hides a bookcase from the library.
-            </MudText>
+            @* One line, the rest behind (i) (Phase 8a, G1). *@
+            <div class="d-flex align-center gap-1">
+                <MudText Typo="Typo.body2">The real bookcases at home, or any set you like.</MudText>
+                <MudIconButton Icon="@Icons.Material.Outlined.Info" Size="Size.Small" Color="Color.Primary"
+                               OnClick="() => _introOpen = !_introOpen" aria-label="More about bookcases"
+                               aria-expanded="@(_introOpen ? "true" : "false")" />
+            </div>
+            @if (_introOpen)
+            {
+                <MudText Typo="Typo.body2" Class="mt-1">
+                    Make one for each real bookcase, or for sets like Favorites or Want to buy: a book can stand in several
+                    bookcases. Widths let each shelf show how full it is; the eye hides a bookcase from the library.
+                </MudText>
+            }
         </div>
         <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
                    OnClick="AddBookcaseAsync" Disabled="!_loaded">Create New Bookcase</MudButton>
@@ -163,6 +173,7 @@
 
 @code {
     private bool _loaded;
+    private bool _introOpen;
 
     // ---------- Custom colour (Phase 6d) ----------
 

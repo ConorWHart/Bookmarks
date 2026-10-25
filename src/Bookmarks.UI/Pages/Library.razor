@@ -272,14 +272,18 @@
                 <MudText Typo="Typo.caption" Class="d-block mt-2">@HiddenBookcasesText</MudText>
             }
         }
+
+        @* Room below the last row so the floating buttons never cover it (Phase 8a, A2). *@
+        <div class="@(IsBooks ? "bm-fab-clearance bm-fab-clearance--books" : "bm-fab-clearance")" aria-hidden="true"></div>
     }
 </MudContainer>
 
 @* Back (Android button/gesture, browser Back) closes these drawers instead of leaving the page. *@
 <CloseOnBack Key="details" Open="_detailsOpen" OnClose="() => _detailsOpen = false" />
 <CloseOnBack Key="filters" Open="_filtersOpen" OnClose="() => _filtersOpen = false" />
+<CloseOnBack Key="add-menu" Open="_addMenuOpen" OnClose="() => _addMenuOpen = false" />
 
-<MudDrawer @bind-Open="_detailsOpen" Anchor="Anchor.End" Variant="DrawerVariant.Temporary" Width="400px" Elevation="2">
+<MudDrawer @bind-Open="_detailsOpen" Anchor="Anchor.End" Variant="DrawerVariant.Temporary" Width="min(400px, 100vw)" Elevation="2">
     <BookDetails Entry="_selected" OnEdit="OpenEditorAsync" OnDelete="DeleteAsync" OnClose="() => _detailsOpen = false" />
 </MudDrawer>
 
@@ -319,7 +323,25 @@
 {
     @if (IsBooks)
     {
-        <div class="bm-fabs">
+        @* Phones (Phase 8a, A2): one + that opens Add a book / Scan a stack above it. *@
+        <div class="bm-add-menu d-md-none">
+            @if (_addMenuOpen)
+            {
+                <div class="bm-add-menu__scrim" @onclick="() => _addMenuOpen = false"></div>
+                <div class="bm-add-menu__actions">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.DocumentScanner"
+                               OnClick="() => FromAddMenuAsync(ScanStackAsync)">Scan a stack</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                               OnClick="() => FromAddMenuAsync(() => OpenEditorAsync(null))">Add a book</MudButton>
+                </div>
+            }
+            <MudFab Class="bm-fab" Color="Color.Primary" StartIcon="@(_addMenuOpen ? Icons.Material.Filled.Close : Icons.Material.Filled.Add)"
+                    OnClick="() => _addMenuOpen = !_addMenuOpen" aria-label="@(_addMenuOpen ? "Close" : "Add books")"
+                    aria-expanded="@(_addMenuOpen ? "true" : "false")" />
+        </div>
+
+        @* Wider screens: both buttons, with labels. *@
+        <div class="bm-fabs d-none d-md-block">
             <MudFab Class="bm-fab-scan" Color="Color.Primary" Size="Size.Medium" StartIcon="@Icons.Material.Filled.DocumentScanner" Label="Scan a stack"
                     OnClick="ScanStackAsync" aria-label="Scan several books' barcodes in a row" />
             <MudFab Class="bm-fab" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" Label="Add new book"
@@ -370,6 +392,15 @@
     private LibraryEntry? _selected;
     private bool _detailsOpen;
 
+    /// <summary>The phones' + menu in the Books view (Add a book / Scan a stack).</summary>
+    private bool _addMenuOpen;
+
+    private Task FromAddMenuAsync(Func<Task> action)
+    {
+        _addMenuOpen = false;
+        return action();
+    }
+
     protected override async Task OnInitializedAsync()
     {
         LibraryData.Changed += OnLibraryChanged;
@@ -399,7 +430,7 @@
             var window = await Viewport.GetCurrentBrowserWindowSizeAsync();
             return window.Width switch
             {
-                < 600 => 0.4,
+                < 600 => 0.5,
                 < 960 => 0.45,
                 < 1280 => 0.5,
                 _ => 0.55,

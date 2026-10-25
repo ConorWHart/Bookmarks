@@ -147,20 +147,26 @@
     opacity: 0.9;
 }
 
-.bm-grid__badge {
+/* Wishlist: a small heart over the top-right corner, clear of the title (Phase 8a, A3). */
+.bm-grid__wish {
     position: absolute;
     z-index: 4;
-    top: 8px;
-    right: -6px;
-    font-family: system-ui, sans-serif;
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
+    top: -6px;
+    right: -8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
     text-shadow: none;
-    padding: 3px 7px;
     background: var(--mud-palette-secondary);
     color: var(--mud-palette-secondary-text);
-    border-radius: 2px;
-    box-shadow: 0 2px 4px rgb(0 0 0 / 0.3);
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.35);
+}
+
+.bm-grid__wish ::deep .mud-icon-root {
+    font-size: 15px;
+    width: 15px;
+    height: 15px;
 }

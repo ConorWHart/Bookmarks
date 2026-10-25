@@ -32,7 +32,9 @@
                             }
                             @if (entry.Item.Status == OwnershipStatus.Wishlist)
                             {
-                                <span class="bm-grid__badge">Wishlist</span>
+                                <span class="bm-grid__wish" role="img" aria-label="On your wishlist" title="On your wishlist">
+                                    <MudIcon Icon="@Icons.Material.Filled.Favorite" />
+                                </span>
                             }
                         </button>
                     }
@@ -44,8 +46,12 @@
 
 @code {
     // Matches the CSS: tiles at least 108px wide, 16px between columns, 22px between rows, 4px padding each side.
+    // Phones (narrower than 600px) allow 96px tiles 12px apart, so even a 375px phone gets 3 columns (Phase 8a, H1).
     private const double MinTileWidth = 108;
-    private const double ColumnGap = 16;
+    private const int ColumnGap = 16;
+    private const double PhoneWidth = 600;
+    private const double PhoneMinTileWidth = 96;
+    private const int PhoneColumnGap = 12;
     private const double RowGap = 22;
     private const double SidePadding = 8;
 
@@ -64,6 +70,7 @@
     private DotNetObjectReference<CoverGrid>? _ref;
 
     private int _columns;
+    private int _gap = ColumnGap;
     private float _rowHeight = 184;
     private string _gridStyle = "";
     private List<Row> _rows = [];
@@ -103,18 +110,27 @@
     /// <summary>Works out the columns for this width; true when the layout changed.</summary>
     private bool SetWidth(double width)
     {
-        var inner = Math.Max(MinTileWidth, width - SidePadding);
-        var columns = Math.Max(1, (int)Math.Floor((inner + ColumnGap) / (MinTileWidth + ColumnGap)));
-        var tile = (inner - (ColumnGap * (columns - 1))) / columns;
+        var phone = width < PhoneWidth;
+        var minTile = phone ? PhoneMinTileWidth : MinTileWidth;
+        var gap = phone ? PhoneColumnGap : ColumnGap;
+
+        var inner = Math.Max(minTile, width - SidePadding);
+        var columns = Math.Max(1, (int)Math.Floor((inner + gap) / (minTile + gap)));
+        var tile = (inner - (gap * (columns - 1))) / columns;
         var rowHeight = (float)Math.Round((tile * 1.5) + RowGap);
 
-        var changed = columns != _columns || Math.Abs(rowHeight - _rowHeight) >= 1;
+        var changed = columns != _columns || gap != _gap || Math.Abs(rowHeight - _rowHeight) >= 1;
         _rowHeight = rowHeight;
-        if (columns != _columns)
+        if (columns != _columns || gap != _gap)
         {
+            var rebuild = columns != _columns;
             _columns = columns;
-            _gridStyle = $"grid-template-columns:repeat({columns},minmax(0,1fr))";
-            BuildRows();
+            _gap = gap;
+            _gridStyle = $"grid-template-columns:repeat({columns},minmax(0,1fr));column-gap:{gap}px";
+            if (rebuild)
+            {
+                BuildRows();
+            }
         }
 
         return changed;

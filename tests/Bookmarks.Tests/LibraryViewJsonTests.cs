@@ -18,7 +18,6 @@ public class LibraryViewJsonTests
                 Statuses = new HashSet<OwnershipStatus> { OwnershipStatus.Wishlist, OwnershipStatus.Owned },
                 Formats = new HashSet<BookFormat> { BookFormat.Hardcover },
                 ReadState = ReadState.Unread,
-                WantToReread = true,
                 MinRating = 3.5m,
                 MinReadCount = 2,
                 BookcaseId = LibraryFilter.Unshelved,

@@ -66,7 +66,6 @@ public static class LibraryViewJson
             Statuses = Sorted(f.Statuses),
             Formats = Sorted(f.Formats),
             ReadState = f.ReadState,
-            WantToReread = f.WantToReread,
             MinRating = f.MinRating,
             MinReadCount = f.MinReadCount,
             ShelfId = f.ShelfId,
@@ -92,7 +91,6 @@ public static class LibraryViewJson
                 Statuses = SetOf(d.Statuses),
                 Formats = SetOf(d.Formats),
                 ReadState = d.ReadState,
-                WantToReread = d.WantToReread,
                 MinRating = d.MinRating,
                 MinReadCount = d.MinReadCount,
                 ShelfId = d.ShelfId,
@@ -144,8 +142,6 @@ internal sealed class LibraryViewDto
     public List<BookFormat>? Formats { get; set; }
 
     public ReadState ReadState { get; set; }
-
-    public bool? WantToReread { get; set; }
 
     public decimal? MinRating { get; set; }
 

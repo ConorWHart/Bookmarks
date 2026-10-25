@@ -62,12 +62,6 @@ public static class LibraryQueryEngine
             return false;
         }
 
-
-        if (f.WantToReread is { } reread && e.Item.WantToReread != reread)
-        {
-            return false;
-        }
-
         if (f.MinRating is { } min && (e.Item.Rating ?? 0) < min)
         {
             return false;
@@ -123,7 +117,7 @@ public static class LibraryQueryEngine
             ReadState.Read => e.IsRead,
             ReadState.Unread => !e.IsRead,
             ReadState.Reading => e.IsReading,
-            ReadState.ToRead => !e.IsRead && !e.IsReading && e.Item.Status != OwnershipStatus.Wishlist,
+            ReadState.ToRead => (!e.IsRead || e.Item.WantToReread) && !e.IsReading && e.Item.Status != OwnershipStatus.Wishlist,
             _ => true,
         };
         if (!readOk)

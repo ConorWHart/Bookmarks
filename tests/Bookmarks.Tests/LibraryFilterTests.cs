@@ -42,7 +42,7 @@ public class LibraryFilterTests
     }
 
     [Fact]
-    public void To_read_is_owned_unfinished_and_not_in_progress()
+    public void To_read_is_owned_unfinished_or_wanted_again_and_not_in_progress()
     {
         var reading = Entry("Reading");
         reading = LibraryEntry.Create(reading.Item, reading.Book, new[]
@@ -50,11 +50,17 @@ public class LibraryFilterTests
             new ReadingSession { LibraryItemId = reading.Item.Id, Outcome = ReadingOutcome.InProgress },
         });
         var filter = new LibraryFilter { ReadState = ReadState.ToRead };
+        var again = Entry("Again", reads: 1);
+        again.Item.WantToReread = true;
+        var wantedAgain = Entry("Wanted again", status: OwnershipStatus.Wishlist, reads: 1);
+        wantedAgain.Item.WantToReread = true;
 
         Assert.True(Matches(Entry("Pile"), filter));
         Assert.True(Matches(Entry("Lent", status: OwnershipStatus.LentOut), filter));
         Assert.False(Matches(Entry("Wanted", status: OwnershipStatus.Wishlist), filter));
         Assert.False(Matches(Entry("Done", reads: 1), filter));
+        Assert.True(Matches(again, filter));          // finished, marked "Want to re-read"
+        Assert.False(Matches(wantedAgain, filter));   // still not on the wishlist
         Assert.False(Matches(reading, filter));
     }
 

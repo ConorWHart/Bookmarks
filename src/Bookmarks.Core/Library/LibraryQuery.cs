@@ -9,7 +9,10 @@ public enum ReadState
     Unread = 2,
     Reading = 3,
 
-    /// <summary>Owned or lent out, never finished and not being read: the "to be read" pile.</summary>
+    /// <summary>
+    /// Owned or lent out and not being read: never finished, or finished and marked "Want to re-read".
+    /// The "to be read" pile.
+    /// </summary>
     ToRead = 4,
 }
 
@@ -126,8 +129,6 @@ public sealed record LibraryFilter
 
     public ReadState ReadState { get; init; }
 
-    public bool? WantToReread { get; init; }
-
     public decimal? MinRating { get; init; }
 
     /// <summary>Finished at least this many times.</summary>
@@ -160,7 +161,6 @@ public sealed record LibraryFilter
         (Statuses is { Count: > 0 } ? 1 : 0)
         + (Formats is { Count: > 0 } ? 1 : 0)
         + (ReadState != ReadState.Any ? 1 : 0)
-        + (WantToReread is not null ? 1 : 0)
         + (MinRating is not null ? 1 : 0)
         + (MinReadCount is not null ? 1 : 0)
         + (ShelfId is not null ? 1 : 0)

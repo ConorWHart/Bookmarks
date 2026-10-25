@@ -1,20 +1,11 @@
 @* Every setting of a library view in one panel. The phone's Filters sheet shows the layout section
-   (show, sort and group for Books, size for Bookcases) too; wider screens keep those in the toolbar. *@
+   (sort and group for Books) too; wider screens keep those in the toolbar. Bookcases / Books is the
+   toggle on the page (dropped from the sheet in Phase 8a, F1). *@
 @inject LibraryService LibraryData
 
 <div class="bm-filters">
     @if (ShowLayout)
     {
-        <section>
-            <div class="bm-filters__label">Show</div>
-            <MudChipSet T="LibraryDisplay" SelectionMode="SelectionMode.SingleSelection" CheckMark="true"
-                        SelectedValue="View.Display" SelectedValueChanged="v => Set(View with { Display = v })"
-                        Color="Color.Primary" Variant="Variant.Outlined" Size="Size.Small">
-                <MudChip Value="LibraryDisplay.Bookcases" Text="Bookcases" />
-                <MudChip Value="LibraryDisplay.Books" Text="Books" />
-            </MudChipSet>
-        </section>
-
         @if (View.Display == LibraryDisplay.Books)
         {
             <section class="bm-filters__row">
@@ -75,8 +66,6 @@
                 <MudSelectItem T="int?" Value="2">2+ times</MudSelectItem>
                 <MudSelectItem T="int?" Value="3">3+ times</MudSelectItem>
             </MudSelect>
-            <MudCheckBox T="bool" Value="Filter.WantToReread == true" ValueChanged="v => SetFilter(Filter with { WantToReread = v ? true : null })"
-                         Label="Want to re-read" Color="Color.Primary" Dense="true" />
         </div>
     </section>
 
