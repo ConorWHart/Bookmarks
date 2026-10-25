@@ -371,6 +371,7 @@
 
     private static string SessionDates(ReadingSession s) => (s.StartedOn, s.FinishedOn) switch
     {
+        ({ } start, { } end) when start == end => $"{end:d MMM yyyy}", // started and finished the same day
         ({ } start, { } end) => $"{start:d MMM yyyy} – {end:d MMM yyyy}",
         ({ } start, null) => $"Started {start:d MMM yyyy}",
         (null, { } end) => $"Finished {end:d MMM yyyy}",
