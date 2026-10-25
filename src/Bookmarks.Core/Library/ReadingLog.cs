@@ -177,7 +177,8 @@ public static class ReadingLog
         IEnumerable<LibraryEntry> entries, IEnumerable<ReadingSession> sessions, int year, DateOnly today)
     {
         var first = new DateOnly(year, 1, 1);
-        var last = year == today.Year ? today : new DateOnly(year, 12, 31);
+        var endOfYear = new DateOnly(year, 12, 31);
+        var last = today < endOfYear ? today : endOfYear; // never past today, so a later year is empty
         if (last < first)
         {
             return [];
