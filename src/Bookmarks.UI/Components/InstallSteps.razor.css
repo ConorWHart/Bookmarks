@@ -1,0 +1,10 @@
+.bm-install-steps {
+    margin: 0;
+    padding-left: 22px;
+    font-size: 0.9rem;
+    line-height: 1.45;
+}
+
+.bm-install-steps li + li {
+    margin-top: 6px;
+}

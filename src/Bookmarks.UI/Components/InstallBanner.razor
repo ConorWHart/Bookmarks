@@ -1,0 +1,112 @@
+@* On a phone or tablet in the browser (not the installed app): a card at the top of every page that asks to install
+   Bookmarks, with the browser's own Install prompt where there is one (Chrome, Edge, Samsung Internet) or the steps
+   (Firefox, Safari). "Not now" hides it on this device for two weeks; Settings → Install the app always has the steps.
+   (A browser tab can't tell whether the app is already installed on the phone, so it can always be put off.) *@
+@implements IDisposable
+@inject IAppStatusService AppStatus
+@inject UserPreferences Prefs
+
+@if (Visible)
+{
+    <section class="bm-install" aria-label="Install Bookmarks">
+        @if (AppStatus.JustInstalled)
+        {
+            <div class="bm-install__row">
+                <img class="bm-install__icon" src="icon-192.png" alt="" width="40" height="40" />
+                <div class="bm-install__text">
+                    <strong>Bookmarks is installed</strong>
+                    <span>Open it from its icon on your home screen from now on. You can close this browser tab.</span>
+                </div>
+            </div>
+            <div class="bm-install__actions">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="() => HideAsync(TimeSpan.FromDays(365))">OK</MudButton>
+            </div>
+        }
+        else
+        {
+            <div class="bm-install__row">
+                <img class="bm-install__icon" src="icon-192.png" alt="" width="40" height="40" />
+                <div class="bm-install__text">
+                    <strong>Install Bookmarks on this @DeviceWord</strong>
+                    <span>It opens from your home screen like any other app, works offline and keeps itself up to date.</span>
+                </div>
+            </div>
+            @if (_showSteps)
+            {
+                <div class="bm-install__steps">
+                    <InstallSteps Platform="AppStatus.Platform" />
+                </div>
+            }
+            <div class="bm-install__actions">
+                <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="() => HideAsync(TimeSpan.FromDays(14))">Not now</MudButton>
+                @if (AppStatus.CanPromptInstall)
+                {
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.InstallMobile"
+                               OnClick="InstallAsync">Install</MudButton>
+                }
+                else
+                {
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="() => _showSteps = !_showSteps">
+                        @(_showSteps ? "Hide the steps" : "Show me how")
+                    </MudButton>
+                }
+            </div>
+        }
+    </section>
+}
+
+@code {
+    private bool _loaded;
+    private bool _hidden;
+    private bool _showSteps;
+
+    private bool Visible => _loaded && !_hidden && !AppStatus.IsInstalled && AppStatus.Platform.IsMobile();
+
+    private string DeviceWord => AppStatus.Platform is InstallPlatform.IosSafari or InstallPlatform.IosOther ? "device" : "phone";
+
+    protected override async Task OnInitializedAsync()
+    {
+        AppStatus.Changed += OnChanged;
+        try
+        {
+            var until = await Prefs.GetStringAsync(UserPreferences.InstallPromptHiddenUntil);
+            _hidden = DateTimeOffset.TryParse(until, System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.RoundtripKind, out var date)
+                && date > DateTimeOffset.UtcNow;
+        }
+        catch (Exception)
+        {
+            // Storage unavailable: show the card; "Not now" then only lasts for this visit.
+        }
+
+        _loaded = true;
+    }
+
+    public void Dispose() => AppStatus.Changed -= OnChanged;
+
+    private void OnChanged() => _ = InvokeAsync(StateHasChanged);
+
+    private async Task InstallAsync()
+    {
+        // Accepted: the browser fires "appinstalled" and the card turns into "Bookmarks is installed".
+        // Dismissed: Chrome may not offer its prompt again for a while, so the steps take over.
+        if (!await AppStatus.PromptInstallAsync())
+        {
+            _showSteps = true;
+        }
+    }
+
+    private async Task HideAsync(TimeSpan duration)
+    {
+        _hidden = true;
+        try
+        {
+            await Prefs.SetStringAsync(UserPreferences.InstallPromptHiddenUntil,
+                DateTimeOffset.UtcNow.Add(duration).ToString("O", System.Globalization.CultureInfo.InvariantCulture));
+        }
+        catch (Exception)
+        {
+            // Hidden for this visit only.
+        }
+    }
+}

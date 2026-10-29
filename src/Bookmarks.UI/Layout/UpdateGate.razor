@@ -1,0 +1,116 @@
+@* A new version must be installed for the app to work properly, so it can't be skipped (Phase 8b):
+   - found as the app starts or comes back to the screen, with no dialog open: it's applied straight away ("Updating…");
+   - found while the app is in use: a full-screen "Reload now" covers everything, but only once no dialog (an editor,
+     a sheet) is open, so nothing being typed is lost. Until then nothing shows; it appears when the last one closes.
+   Settings → About keeps its own Reload button too. Renders nothing while there's no update. *@
+@implements IDisposable
+@inject IAppStatusService AppStatus
+@inject IDialogService DialogService
+
+@if (_applying)
+{
+    <div class="bm-update" role="alertdialog" aria-modal="true" aria-live="assertive" aria-label="Updating Bookmarks">
+        <div class="bm-update__card">
+            <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+            <h2 class="bm-update__title">Updating Bookmarks…</h2>
+        </div>
+    </div>
+}
+else if (_blocking)
+{
+    <div class="bm-update" role="alertdialog" aria-modal="true" aria-labelledby="bm-update-title" aria-describedby="bm-update-text">
+        <div class="bm-update__card">
+            <div class="bm-update__icon"><MudIcon Icon="@Icons.Material.Filled.Update" /></div>
+            <h2 id="bm-update-title" class="bm-update__title">A new version of Bookmarks is ready</h2>
+            <p id="bm-update-text" class="bm-update__text">
+                Reload to finish updating. It only takes a moment, and everything in your library stays as it is.
+            </p>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Large" FullWidth="true"
+                       StartIcon="@Icons.Material.Filled.Refresh" OnClick="ApplyAsync">Reload now</MudButton>
+        </div>
+    </div>
+}
+
+@code {
+    private int _openDialogs;
+    private bool _blocking;
+    private bool _applying;
+
+    protected override void OnInitialized()
+    {
+        AppStatus.Changed += OnStatusChanged;
+        DialogService.DialogInstanceAddedAsync += OnDialogAddedAsync;
+    }
+
+    public void Dispose()
+    {
+        AppStatus.Changed -= OnStatusChanged;
+        DialogService.DialogInstanceAddedAsync -= OnDialogAddedAsync;
+    }
+
+    private void OnStatusChanged() => _ = InvokeAsync(EvaluateAsync);
+
+    private Task OnDialogAddedAsync(IDialogReference dialog)
+    {
+        _openDialogs++;
+        _ = WatchAsync(dialog);
+        return Task.CompletedTask;
+    }
+
+    private async Task WatchAsync(IDialogReference dialog)
+    {
+        try
+        {
+            await dialog.Result;
+        }
+        catch (Exception)
+        {
+            // A dialog torn down without a result still counts as closed.
+        }
+        finally
+        {
+            _openDialogs = Math.Max(0, _openDialogs - 1);
+            await InvokeAsync(EvaluateAsync);
+        }
+    }
+
+    private async Task EvaluateAsync()
+    {
+        if (!AppStatus.UpdateAvailable || _applying)
+        {
+            return;
+        }
+
+        if (_openDialogs > 0)
+        {
+            // Let the dialog finish; the gate shows when it closes.
+            if (_blocking)
+            {
+                _blocking = false;
+                StateHasChanged();
+            }
+
+            return;
+        }
+
+        if (AppStatus.UpdateIsFresh)
+        {
+            await ApplyAsync();
+            return;
+        }
+
+        if (!_blocking)
+        {
+            _blocking = true;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ApplyAsync()
+    {
+        _applying = true;
+        StateHasChanged();
+        await Task.Yield(); // show "Updating…" before the page goes
+        await AppStatus.ApplyUpdateAsync();
+    }
+}

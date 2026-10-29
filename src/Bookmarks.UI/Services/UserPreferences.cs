@@ -24,6 +24,9 @@ public sealed class UserPreferences(ILocalStore store)
     /// <see cref="Theme"/> once and removes it.</summary>
     public const string DarkMode = "ui.dark";
 
+    /// <summary>The install card stays hidden until this time (ISO 8601, UTC): "Not now" (Phase 8b).</summary>
+    public const string InstallPromptHiddenUntil = "install.hiddenUntil";
+
     private const string Prefix = "pref:";
 
     public async Task<double?> GetDoubleAsync(string key, CancellationToken ct = default)

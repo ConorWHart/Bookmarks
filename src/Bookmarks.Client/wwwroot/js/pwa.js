@@ -17,11 +17,16 @@
 const UpdateCheckIntervalMs = 60 * 60 * 1000;
 // Coming back to the screen checks at most this often.
 const VisibleCheckMinMs = 60 * 1000;
+// An update found this soon after the app starts or comes back to the screen is "fresh": nothing is in progress yet,
+// so the app applies it straight away (Phase 8b; MainLayout's UpdateGate decides).
+const FreshWindowMs = 8 * 1000;
 
 let dotnet = null;
 let waitingWorker = null;
 let timer = null;
 let lastCheck = 0;
+let activatedAt = Date.now();
+let installedNow = false;
 const tracked = new WeakSet();
 
 export function start(dotnetRef) {
@@ -29,6 +34,9 @@ export function start(dotnetRef) {
     window.addEventListener('online', reportOnline);
     window.addEventListener('offline', reportOnline);
     document.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('bm-installprompt', reportInstall);
+    window.addEventListener('appinstalled', onAppInstalled);
+    activatedAt = Date.now();
     reportOnline();
     watchForUpdates();
     setTimeout(verifyStyles, 1500);
@@ -38,6 +46,8 @@ export function stop() {
     window.removeEventListener('online', reportOnline);
     window.removeEventListener('offline', reportOnline);
     document.removeEventListener('visibilitychange', onVisibilityChange);
+    window.removeEventListener('bm-installprompt', reportInstall);
+    window.removeEventListener('appinstalled', onAppInstalled);
     if (timer) {
         clearInterval(timer);
     }
@@ -113,6 +123,12 @@ function onVisibilityChange() {
     }
 
     setTimeout(verifyStyles, 1000);
+    activatedAt = Date.now();
+    if (waitingWorker) {
+        // Back on screen with a version still waiting: offer it again as fresh (applied unless a dialog is open).
+        announce(waitingWorker);
+    }
+
     if (Date.now() - lastCheck > VisibleCheckMinMs) {
         checkForUpdate();
     }
@@ -240,5 +256,72 @@ export async function checkNow() {
 
 function announce(worker) {
     waitingWorker = worker;
-    dotnet?.invokeMethodAsync('OnUpdateAvailable');
+    dotnet?.invokeMethodAsync('OnUpdateAvailable', Date.now() - activatedAt < FreshWindowMs);
+}
+
+// ---------- Install (Phase 8b) ----------
+// index.html keeps the browser's install prompt (beforeinstallprompt: Chrome, Edge, Samsung Internet) in
+// window.bmInstallPrompt, since it can fire before Blazor starts, and raises 'bm-installprompt'.
+
+/** Installed or in a browser tab, whether the browser's own prompt is available, and which browser/device. */
+export function installInfo() {
+    return {
+        installed: isInstalled(),
+        canPrompt: !!window.bmInstallPrompt,
+        installedNow,
+        platform: platform(),
+    };
+}
+
+/** Shows the browser's install prompt: 'accepted', 'dismissed' or 'unavailable'. */
+export async function promptInstall() {
+    const prompt = window.bmInstallPrompt;
+    if (!prompt) {
+        return 'unavailable';
+    }
+
+    window.bmInstallPrompt = null; // each prompt event can be used once
+    try {
+        await prompt.prompt();
+        const choice = await prompt.userChoice;
+        return choice?.outcome ?? 'dismissed';
+    } catch {
+        return 'unavailable';
+    }
+}
+
+function isInstalled() {
+    return ['standalone', 'fullscreen', 'minimal-ui'].some(mode => matchMedia(`(display-mode: ${mode})`).matches)
+        || navigator.standalone === true; // iOS home-screen app
+}
+
+function platform() {
+    const ua = navigator.userAgent;
+    const ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+    if (ios) {
+        return /CriOS|FxiOS|EdgiOS/.test(ua) ? 'ios-other' : 'ios-safari';
+    }
+
+    const firefox = /Firefox\//.test(ua);
+    const chromium = /Chrome\/|Chromium\/|Edg\//.test(ua);
+    if (/Android/.test(ua)) {
+        if (firefox) return 'android-firefox';
+        if (/SamsungBrowser/.test(ua)) return 'android-samsung';
+        return chromium ? 'android-chrome' : 'android-other';
+    }
+
+    if (firefox) return 'desktop-firefox';
+    if (chromium) return 'desktop-chromium';
+    if (/Safari\//.test(ua)) return 'desktop-safari';
+    return 'other';
+}
+
+function reportInstall() {
+    dotnet?.invokeMethodAsync('OnInstallChanged');
+}
+
+function onAppInstalled() {
+    installedNow = true;
+    window.bmInstallPrompt = null;
+    reportInstall();
 }

@@ -30,6 +30,24 @@ public interface IAppStatusService
     /// <summary>A newer version has been downloaded and is waiting to take over.</summary>
     bool UpdateAvailable { get; }
 
+    /// <summary>
+    /// The waiting version was found just as the app started or came back to the screen, so nothing is in progress
+    /// and it can be applied straight away (Phase 8b).
+    /// </summary>
+    bool UpdateIsFresh { get; }
+
+    /// <summary>Running as the installed app (from the home screen or its own window), not in a browser tab.</summary>
+    bool IsInstalled { get; }
+
+    /// <summary>The browser can show its own install prompt (Chrome, Edge, Samsung Internet): see <see cref="PromptInstallAsync"/>.</summary>
+    bool CanPromptInstall { get; }
+
+    /// <summary>Installed from this browser tab just now (the tab itself is still a browser tab).</summary>
+    bool JustInstalled { get; }
+
+    /// <summary>The browser and device, for the install steps.</summary>
+    InstallPlatform Platform { get; }
+
     event Action? Changed;
 
     /// <summary>Begins watching. Safe to call more than once.</summary>
@@ -43,6 +61,9 @@ public interface IAppStatusService
 
     /// <summary>Restarts the app (Settings → Reload app; the installed app has no browser reload).</summary>
     Task ReloadAsync();
+
+    /// <summary>Shows the browser's install prompt; true when the user installed.</summary>
+    Task<bool> PromptInstallAsync();
 }
 
 public sealed class NullAppStatusService : IAppStatusService
@@ -50,6 +71,17 @@ public sealed class NullAppStatusService : IAppStatusService
     public bool IsOnline => true;
 
     public bool UpdateAvailable => false;
+
+    public bool UpdateIsFresh => false;
+
+    // Hosts without a browser (MAUI, tests) count as installed: no install prompt.
+    public bool IsInstalled => true;
+
+    public bool CanPromptInstall => false;
+
+    public bool JustInstalled => false;
+
+    public InstallPlatform Platform => InstallPlatform.Unknown;
 
     public event Action? Changed
     {
@@ -64,4 +96,6 @@ public sealed class NullAppStatusService : IAppStatusService
     public Task<UpdateCheckResult> CheckForUpdateAsync() => Task.FromResult(UpdateCheckResult.Unsupported);
 
     public Task ReloadAsync() => Task.CompletedTask;
+
+    public Task<bool> PromptInstallAsync() => Task.FromResult(false);
 }

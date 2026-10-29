@@ -1,3 +1,8 @@
+/* Phone bottom bar height (Phase 8b, Layout/BottomNav), without the safe-area inset it adds below. */
+:root {
+    --bm-bottomnav-h: 64px;
+}
+
 html, body {
     margin: 0;
     padding: 0;
@@ -133,6 +138,18 @@ h1:focus {
 @keyframes bm-sheet-up {
     from { transform: translateY(40px); opacity: 0; }
     to { transform: none; opacity: 1; }
+}
+
+/* Below md (960px) the bottom bar is showing (Phase 8b): the page scrolls clear of it, and the floating buttons
+   (bm-fab, from bookmarks.css; this file loads later and "body" outranks it) sit above it. */
+@media (max-width: 959.98px) {
+    .mud-main-content {
+        padding-bottom: calc(var(--bm-bottomnav-h) + env(safe-area-inset-bottom));
+    }
+
+    body .bm-fab.mud-fab {
+        bottom: calc(16px + var(--bm-bottomnav-h) + env(safe-area-inset-bottom));
+    }
 }
 
 /* Touch screens (Phase 8a, A4): small icon buttons get a 40px hit area (padding, the icon stays the same size)

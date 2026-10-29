@@ -39,6 +39,15 @@
     <script src="_framework/blazor.webassembly.js"></script>
     <script src="_content/MudBlazor/MudBlazor.min.js"></script>
     <script>
+        // The browser's own install prompt (Chrome, Edge, Samsung Internet) can fire before Blazor starts: keep it for
+        // the app's Install button (js/pwa.js) instead of the browser's mini-infobar.
+        window.bmInstallPrompt = null;
+        window.addEventListener('beforeinstallprompt', e => {
+            e.preventDefault();
+            window.bmInstallPrompt = e;
+            window.dispatchEvent(new Event('bm-installprompt'));
+        });
+
         if ('serviceWorker' in navigator) {
             // Kept on window so js/pwa.js can watch for new versions once Blazor has started.
             window.bmSwRegistration = navigator.serviceWorker

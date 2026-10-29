@@ -208,6 +208,41 @@
             </MudPaper>
         }
 
+        @* ---------- Install the app (Phase 8b) ---------- *@
+        @if (AppStatus.Platform != InstallPlatform.Unknown || !AppStatus.IsInstalled)
+        {
+            <MudPaper Outlined="true" Class="pa-4">
+                <MudText Typo="Typo.h6" Class="mb-3">Install the app</MudText>
+                @if (AppStatus.IsInstalled)
+                {
+                    <MudText Typo="Typo.body2">
+                        You're using the installed app. Open Bookmarks from its icon on your home screen (or Start menu or
+                        Dock) rather than from the browser.
+                    </MudText>
+                }
+                else if (AppStatus.JustInstalled)
+                {
+                    <MudText Typo="Typo.body2">
+                        Bookmarks is installed. Open it from its icon from now on; you can close this browser tab.
+                    </MudText>
+                }
+                else
+                {
+                    <MudText Typo="Typo.body2" Class="mb-3">
+                        You're using Bookmarks in the browser. Installed, it opens from your home screen (or Start menu or
+                        Dock) like any other app, works offline and keeps itself up to date.
+                    </MudText>
+                    @if (AppStatus.CanPromptInstall)
+                    {
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.InstallMobile"
+                                   Class="mb-3" OnClick="InstallAppAsync">Install Bookmarks</MudButton>
+                        <MudText Typo="Typo.subtitle2" Class="mb-1">Or by hand</MudText>
+                    }
+                    <InstallSteps Platform="AppStatus.Platform" />
+                }
+            </MudPaper>
+        }
+
         @* ---------- About ---------- *@
         <MudPaper Outlined="true" Class="pa-4">
             <MudText Typo="Typo.h6" Class="mb-3">About</MudText>
@@ -289,6 +324,9 @@
             }
         }
     }
+
+    /// <summary>The browser's own install prompt (Chrome, Edge, Samsung Internet).</summary>
+    private Task InstallAppAsync() => AppStatus.PromptInstallAsync();
 
     protected override async Task OnInitializedAsync()
     {

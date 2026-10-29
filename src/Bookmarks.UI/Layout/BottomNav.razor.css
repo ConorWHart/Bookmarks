@@ -1,0 +1,75 @@
+/* Phone bottom bar (Phase 8b). Its height is --bm-bottomnav-h (app.css), which also pads the page and lifts the
+   floating buttons above it. Below the drawers (z-index 1100+) and the floating buttons (1100). */
+.bm-bottomnav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1000;
+    display: flex;
+    height: calc(var(--bm-bottomnav-h) + env(safe-area-inset-bottom));
+    padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    background: var(--mud-palette-surface);
+    border-top: 1px solid var(--mud-palette-lines-default);
+    box-shadow: 0 -2px 8px rgb(0 0 0 / 0.08);
+}
+
+.bm-bottomnav ::deep .bm-bottomnav__item {
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding: 6px 4px;
+    color: var(--mud-palette-text-secondary);
+    text-decoration: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* The pill behind the icon marks the current page (Material 3 style). */
+.bm-bottomnav ::deep .bm-bottomnav__icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 60px;
+    height: 30px;
+    border-radius: 15px;
+    transition: background-color 150ms ease;
+}
+
+.bm-bottomnav ::deep .bm-bottomnav__label {
+    max-width: 100%;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.2;
+}
+
+.bm-bottomnav ::deep .bm-bottomnav__item--active {
+    color: var(--mud-palette-primary);
+}
+
+.bm-bottomnav ::deep .bm-bottomnav__item--active .bm-bottomnav__icon {
+    background: color-mix(in srgb, var(--mud-palette-primary) 16%, transparent);
+}
+
+.bm-bottomnav ::deep .bm-bottomnav__item--active .bm-bottomnav__label {
+    font-weight: 700;
+}
+
+.bm-bottomnav ::deep .bm-bottomnav__item:focus-visible {
+    outline: 2px solid var(--mud-palette-primary);
+    outline-offset: -4px;
+    border-radius: 8px;
+}
+
+/* Typing on a touch screen: the keyboard pushes the bar up over the page, so it steps aside until you're done. */
+@media (pointer: coarse) {
+    body:has(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):focus, textarea:focus) .bm-bottomnav {
+        display: none;
+    }
+}

@@ -3,7 +3,6 @@
 @implements IDisposable
 @inject IAppStatusService AppStatus
 @inject ISyncService Sync
-@inject ISnackbar Snackbar
 @inject ThemeService ThemeState
 @inject IBrowserViewportService Viewport
 
@@ -46,9 +45,16 @@
     </MudDrawer>
 
     <MudMainContent>
+        @* Phones in the browser: "Install Bookmarks" (Phase 8b). *@
+        <InstallBanner />
         @Body
     </MudMainContent>
+
+    <BottomNav />
 </MudLayout>
+
+@* A waiting new version can't be skipped (Phase 8b): applied on start/resume, otherwise a full-screen Reload. *@
+<UpdateGate />
 
 @code {
     private bool _drawerOpen;
@@ -73,7 +79,6 @@
         _drawerOpen = !_drawerOpen;
     }
     private MudThemeProvider? _themeProvider;
-    private bool _updateAnnounced;
 
     protected override void OnInitialized() => ThemeState.Changed += OnThemeChanged;
 
@@ -127,20 +132,6 @@
 
     private void OnThemeChanged() => _ = InvokeAsync(StateHasChanged);
 
-    private void OnAppStatusChanged() => _ = InvokeAsync(() =>
-    {
-        if (AppStatus.UpdateAvailable && !_updateAnnounced)
-        {
-            _updateAnnounced = true;
-            Snackbar.Add("A new version of Bookmarks is ready.", Severity.Info, o =>
-            {
-                o.RequireInteraction = true;
-                o.Action = "Reload";
-                o.ActionColor = Color.Inherit;
-                o.OnClick = _ => AppStatus.ApplyUpdateAsync();
-            });
-        }
-
-        StateHasChanged();
-    });
+    // A new version is handled by UpdateGate; this keeps the Offline pill current.
+    private void OnAppStatusChanged() => _ = InvokeAsync(StateHasChanged);
 }

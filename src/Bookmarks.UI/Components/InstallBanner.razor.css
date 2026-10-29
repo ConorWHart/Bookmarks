@@ -1,0 +1,45 @@
+/* Install card at the top of the page (phones in the browser only), in the page's flow so it covers nothing. */
+.bm-install {
+    margin: 12px 8px 0;
+    padding: 14px 14px 10px;
+    border: 1px solid color-mix(in srgb, var(--mud-palette-primary) 35%, var(--mud-palette-lines-default));
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--mud-palette-primary) 7%, var(--mud-palette-surface));
+}
+
+.bm-install__row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.bm-install__icon {
+    flex: 0 0 auto;
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+}
+
+.bm-install__text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    font-size: 0.9rem;
+    line-height: 1.4;
+}
+
+.bm-install__text strong {
+    font-size: 1rem;
+}
+
+.bm-install__steps {
+    margin: 12px 0 0 52px;
+}
+
+.bm-install__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 8px;
+}

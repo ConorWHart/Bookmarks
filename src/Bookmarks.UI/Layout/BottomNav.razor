@@ -1,0 +1,17 @@
+@* Phones and small tablets (below md, 960px): the main places at the bottom, within thumb reach (Phase 8b).
+   The ☰ menu stays on every screen size and keeps everything else (Reading log, Settings). *@
+
+<nav class="bm-bottomnav d-md-none" aria-label="Main">
+    <NavLink class="bm-bottomnav__item" ActiveClass="bm-bottomnav__item--active" href="" Match="NavLinkMatch.All">
+        <span class="bm-bottomnav__icon"><MudIcon Icon="@Icons.Material.Filled.LocalLibrary" /></span>
+        <span class="bm-bottomnav__label">Library</span>
+    </NavLink>
+    <NavLink class="bm-bottomnav__item" ActiveClass="bm-bottomnav__item--active" href="wishlist">
+        <span class="bm-bottomnav__icon"><MudIcon Icon="@Icons.Material.Filled.FavoriteBorder" /></span>
+        <span class="bm-bottomnav__label">Wishlist</span>
+    </NavLink>
+    <NavLink class="bm-bottomnav__item" ActiveClass="bm-bottomnav__item--active" href="bookcases">
+        <span class="bm-bottomnav__icon"><MudIcon Icon="@Icons.Material.Filled.ViewWeek" /></span>
+        <span class="bm-bottomnav__label">Manage bookcases</span>
+    </NavLink>
+</nav>
