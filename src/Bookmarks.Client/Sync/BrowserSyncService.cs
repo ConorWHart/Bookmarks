@@ -15,7 +15,11 @@ namespace Bookmarks.Client.Sync;
 /// <remarks>
 /// <list type="bullet">
 /// <item>Triggers: startup, a few seconds after each local edit, coming back online, the tab becoming visible again,
-/// every few minutes while open, and Sync now.</item>
+/// every few minutes while open and in use, and Sync now.</item>
+/// <item>The regular pass only runs while the page is on screen and has been used in the last
+/// <see cref="IdleAfter"/>: a tab left open in the background (or a screen nobody's touching) would otherwise wake
+/// the serverless database every few minutes and keep it from pausing. Edits still sync; touching the page again
+/// (or showing the tab) catches up straight away.</item>
 /// <item>Never blocks the UI: passes run in the background and edits keep working (they queue in the outbox).</item>
 /// <item>One pass at a time across tabs (Web Locks, <c>js/sync.js</c>); after a pull that changed the library the other
 /// tabs are told to reload.</item>
@@ -44,6 +48,9 @@ public sealed class BrowserSyncService(
     private static readonly TimeSpan PassTimeout = TimeSpan.FromMinutes(3);
     private static readonly TimeSpan StaleAfter = TimeSpan.FromMinutes(1);
 
+    /// <summary>No input (tap, key, scroll) for this long counts as idle: the regular pass waits for activity.</summary>
+    private static readonly TimeSpan IdleAfter = TimeSpan.FromMinutes(10);
+
     /// <summary>A pass running longer than this is shown as "waking up the server".</summary>
     private static readonly TimeSpan SlowAfter = TimeSpan.FromSeconds(5);
 
@@ -65,6 +72,9 @@ public sealed class BrowserSyncService(
     private TimeSpan _retryDelay = FirstRetryDelay;
     private int _passNumber;
     private bool _slow;
+
+    /// <summary>The regular pass was skipped because the page was hidden or idle; activity resumes it.</summary>
+    private bool _resting;
 
     public bool IsEnabled => accounts.IsSignInSupported && !accounts.Current.IsGuest;
 
@@ -138,7 +148,7 @@ public sealed class BrowserSyncService(
         {
             _module = await js.InvokeAsync<IJSObjectReference>("import", "./js/sync.js");
             _self = DotNetObjectReference.Create(this);
-            await _module.InvokeVoidAsync("start", _self, store.DatabaseName);
+            await _module.InvokeVoidAsync("start", _self, store.DatabaseName, (int)IdleAfter.TotalMilliseconds);
         }
         catch (JSException ex)
         {
@@ -221,11 +231,13 @@ public sealed class BrowserSyncService(
         }
     }
 
+    /// <summary>The tab became visible again, or the page was used again after being idle.</summary>
     [JSInvokable]
     public void OnBecameVisible()
     {
-        if (LastSyncedAt is null || DateTimeOffset.UtcNow - LastSyncedAt > StaleAfter)
+        if (_resting || LastSyncedAt is null || DateTimeOffset.UtcNow - LastSyncedAt > StaleAfter)
         {
+            _resting = false;
             Schedule(StartupDelay);
         }
     }
@@ -272,6 +284,13 @@ public sealed class BrowserSyncService(
         _dueAt = DateTimeOffset.MaxValue;
         try
         {
+            // Nothing to send and nobody looking: don't wake the server just to check for changes.
+            if (PendingChanges == 0 && !await IsInUseAsync())
+            {
+                _resting = true;
+                return;
+            }
+
             await TrySyncAsync(waitForOtherTabs: false);
         }
         catch (Exception ex)
@@ -371,6 +390,24 @@ public sealed class BrowserSyncService(
         {
             _slow = true;
             Changed?.Invoke();
+        }
+    }
+
+    /// <summary>On screen and used within <see cref="IdleAfter"/> (true when that can't be told).</summary>
+    private async Task<bool> IsInUseAsync()
+    {
+        if (_module is null)
+        {
+            return true;
+        }
+
+        try
+        {
+            return await _module.InvokeAsync<bool>("isInUse");
+        }
+        catch (JSException)
+        {
+            return true;
         }
     }
 

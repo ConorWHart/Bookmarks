@@ -85,6 +85,8 @@ jobs:
       RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history: "Check for schema changes" compares with the deployed commit
 
       - uses: actions/setup-dotnet@v4
         with:
@@ -126,7 +128,34 @@ jobs:
           done
           echo "$outputs" | jq -r 'to_entries[] | "\(.key)=\(.value.value)"' >> "$GITHUB_OUTPUT"
 
+      # The database steps below run only when the schema changed since the commit the live API was built from
+      # (/api/version, which doesn't touch the database). That keeps deploys working while the database is paused
+      # (e.g. its free monthly allowance ran out) and avoids waking it on every push. When the deployed commit
+      # can't be found, they run, to be safe.
+      - name: Check for schema changes
+        id: schema
+        run: |
+          set -uo pipefail
+          changed=true
+          version=$(curl -fsS --retry 3 --retry-delay 10 --max-time 90 \
+            "${{ steps.infra.outputs.apiUrl }}/api/version" | jq -r '.version // empty') || version=""
+          deployed="${version##*+}"
+          if [ -n "$version" ] && [ "$deployed" != "$version" ] \
+            && git rev-parse --verify --quiet "${deployed}^{commit}" > /dev/null; then
+            if git diff --quiet "$deployed" HEAD -- src/Bookmarks.Api/Data/Migrations; then
+              changed=false
+              echo "No schema changes since the deployed commit $deployed: skipping the database steps."
+            else
+              echo "Schema changed since the deployed commit $deployed:"
+              git diff --name-only "$deployed" HEAD -- src/Bookmarks.Api/Data/Migrations
+            fi
+          else
+            echo "Couldn't tell which commit is deployed (version: '${version}'): applying the schema to be safe."
+          fi
+          echo "changed=$changed" >> "$GITHUB_OUTPUT"
+
       - name: Generate the database script
+        if: steps.schema.outputs.changed == 'true'
         run: |
           set -euo pipefail
           # Fresh checkout: the EF tool builds the project, so it needs a restore first.
@@ -140,6 +169,7 @@ jobs:
 
       # Azure SQL only accepts listed addresses; the rule is removed again below.
       - name: Open the SQL firewall for this runner
+        if: steps.schema.outputs.changed == 'true'
         run: |
           set -euo pipefail
           ip=$(curl -fsS https://api.ipify.org)
@@ -151,6 +181,7 @@ jobs:
 
       # Runs as the deploy identity, which is in the "Bookmarks SQL Admins" group (the server's Entra admin).
       - name: Apply the schema and grant the API access
+        if: steps.schema.outputs.changed == 'true'
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -182,7 +213,7 @@ jobs:
           }
 
       - name: Close the SQL firewall
-        if: always()
+        if: always() && steps.schema.outputs.changed == 'true'
         run: |
           az sql server firewall-rule delete \
             --resource-group "$RESOURCE_GROUP" \

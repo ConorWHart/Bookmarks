@@ -2,6 +2,8 @@
 //  - one sync at a time across tabs (Web Locks API), per account database
 //  - tells the other tabs to reload after a pull changed the library (BroadcastChannel)
 //  - reports when the tab becomes visible again, so a phone PWA catches up when reopened
+//  - tells whether the page is in use (visible, and touched/typed/scrolled recently): the regular pass skips idle
+//    or background pages so they don't keep the serverless database awake; using the page again catches up
 //
 // Every API is optional: without Web Locks the pass just runs; without BroadcastChannel other tabs
 // catch up on their own next pass.
@@ -9,10 +11,18 @@
 let dotnet = null;
 let channel = null;
 let lockName = null;
+let idleMs = 10 * 60 * 1000;
+let lastActivity = Date.now();
+const ActivityEvents = ['pointerdown', 'keydown', 'wheel', 'touchstart', 'scroll'];
 
-export function start(dotnetRef, databaseName) {
+export function start(dotnetRef, databaseName, idleAfterMs) {
     dotnet = dotnetRef;
     lockName = `bookmarks-sync:${databaseName}`;
+    idleMs = idleAfterMs || idleMs;
+    lastActivity = Date.now();
+    for (const name of ActivityEvents) {
+        window.addEventListener(name, onActivity, { passive: true, capture: true });
+    }
 
     if ('BroadcastChannel' in window) {
         channel = new BroadcastChannel(lockName);
@@ -28,6 +38,10 @@ export function start(dotnetRef, databaseName) {
 
 export function stop() {
     document.removeEventListener('visibilitychange', onVisibilityChange);
+    for (const name of ActivityEvents) {
+        window.removeEventListener(name, onActivity, { capture: true });
+    }
+
     channel?.close();
     channel = null;
     dotnet = null;
@@ -70,6 +84,22 @@ export async function withSyncLock(databaseName, dotnetRef, method) {
 
 function onVisibilityChange() {
     if (document.visibilityState === 'visible') {
+        lastActivity = Date.now();
+        dotnet?.invokeMethodAsync('OnBecameVisible');
+    }
+}
+
+/** On screen and used (tap, key, wheel, scroll) within the idle time. */
+export function isInUse() {
+    return document.visibilityState === 'visible' && Date.now() - lastActivity < idleMs;
+}
+
+function onActivity() {
+    const now = Date.now();
+    const wasIdle = now - lastActivity >= idleMs;
+    lastActivity = now;
+    if (wasIdle && document.visibilityState === 'visible') {
+        // Back from idle: .NET catches up if it skipped a pass meanwhile.
         dotnet?.invokeMethodAsync('OnBecameVisible');
     }
 }
