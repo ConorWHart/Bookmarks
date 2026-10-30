@@ -8,17 +8,93 @@
     background: var(--mud-palette-drawer-background, var(--mud-palette-surface));
 }
 
+/* Cover: 110px wide (Phase 8c, was 84px); the drawn one is the same size, in the book's colours. */
 .bm-details__cover {
     flex: 0 0 auto;
+    width: 110px;
     margin-right: 16px;
 }
 
 .bm-details__cover ::deep .bm-details__cover-img {
     display: block;
-    width: 84px;
+    width: 110px;
     height: auto;
     border-radius: 2px 4px 4px 2px;
     box-shadow: 0 3px 10px rgb(0 0 0 / 0.3);
+}
+
+.bm-details__drawn {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    width: 110px;
+    aspect-ratio: 2 / 3;
+    padding: 14px 8px 10px 12px;
+    border-radius: 2px 5px 5px 2px;
+    text-align: center;
+    font-family: Georgia, serif;
+    color: var(--bm-book-fg);
+    text-shadow: var(--bm-book-emboss);
+    background-color: var(--bm-book-bg);
+    background-image:
+        linear-gradient(115deg, rgb(255 255 255 / 0.22) 0%, rgb(255 255 255 / 0) 40%),
+        linear-gradient(90deg,
+            rgb(0 0 0 / 0.35) 0 4px,
+            rgb(255 255 255 / 0.18) 4px 6px,
+            rgb(0 0 0 / 0.16) 6px 8px,
+            transparent 8px);
+    box-shadow: 0 3px 10px rgb(0 0 0 / 0.3);
+    overflow: hidden;
+}
+
+.bm-details__drawn::after {
+    content: "";
+    position: absolute;
+    inset: 6px 5px 6px 11px;
+    border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
+    pointer-events: none;
+}
+
+.bm-details__drawn-title {
+    font-weight: 700;
+    font-size: 12px;
+    line-height: 1.15;
+    overflow-wrap: anywhere;
+    display: -webkit-box;
+    -webkit-line-clamp: 5;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.bm-details__drawn-author {
+    font-size: 10px;
+    font-style: italic;
+    opacity: 0.9;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+}
+
+/* Bottom sheet (phones): the grab handle stays at the top while the details scroll; swiping down on it closes. */
+.bm-details__grab {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    display: flex;
+    justify-content: center;
+    padding: 10px 0 12px;
+    touch-action: none;
+    background: var(--mud-palette-drawer-background, var(--mud-palette-surface));
+}
+
+.bm-details__grab-bar {
+    width: 40px;
+    height: 5px;
+    border-radius: 3px;
+    background: var(--mud-palette-lines-inputs, rgb(128 128 128 / 0.5));
 }
 
 .bm-details__row {

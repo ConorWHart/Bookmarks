@@ -1,0 +1,187 @@
+@* One bookcase's settings in a sheet (Phase 8d): name, colour, show in the library, shelves, delete. Opened from
+   Manage bookcases (tap a row) and from a bookcase's name plate in the Library. Changes save as you go, like the
+   rest of the app; Done just closes. Shelves move with big up/down buttons (no drag grips here). *@
+@implements IDisposable
+@inject LibraryService LibraryData
+@inject IDialogService Dialogs
+
+<MudDialog Class="bm-sheet">
+    <TitleContent>
+        <MudText Typo="Typo.h6">@(Current?.Name ?? "Bookcase")</MudText>
+    </TitleContent>
+
+    <DialogContent>
+        @if (Current is not { } bookcase)
+        {
+            <MudText Typo="Typo.body1">This bookcase has been deleted.</MudText>
+        }
+        else
+        {
+            var shelves = LibraryData.ShelvesIn(bookcase.Id);
+            <div class="bm-bcs">
+                <MudTextField T="string" @bind-Value="_name" @bind-Value:after="SaveNameAsync" Label="Name"
+                              Immediate="true" DebounceInterval="500" AutoFocus="IsNew"
+                              Variant="Variant.Outlined" Margin="Margin.Dense" />
+
+                <div class="bm-bcs__label">Colour</div>
+                <div class="bm-bcs__finishes" role="radiogroup" aria-label="Colour">
+                    @foreach (var (key, label) in LibraryService.Themes)
+                    {
+                        var on = bookcase.CustomColor is null && bookcase.Theme == key;
+                        <button type="button" role="radio" aria-checked="@(on ? "true" : "false")"
+                                class="@(on ? "bm-bcs__finish bm-bcs__finish--on" : "bm-bcs__finish")"
+                                @onclick="() => LibraryData.SetBookcaseThemeAsync(bookcase.Id, key)">
+                            <FinishSwatch Theme="@key" Large="true" />
+                            <span class="bm-bcs__finish-label">@label</span>
+                        </button>
+                    }
+                    @* Any colour, through the browser's colour picker (the invisible input covers the sample). *@
+                    <label class="@(bookcase.CustomColor is null ? "bm-bcs__finish bm-bcs__finish--custom" : "bm-bcs__finish bm-bcs__finish--custom bm-bcs__finish--on")">
+                        <FinishSwatch CustomColor="@bookcase.CustomColor" Rainbow="@(bookcase.CustomColor is null)" Large="true" />
+                        <span class="bm-bcs__finish-label">Custom</span>
+                        <input type="color" class="bm-bcs__color-input" value="@(bookcase.CustomColor?.ToLowerInvariant() ?? "#6b8a72")"
+                               @onchange="e => LibraryData.SetBookcaseColorAsync(bookcase.Id, e.Value?.ToString())"
+                               aria-label="A colour of your own" />
+                    </label>
+                </div>
+
+                <MudSwitch T="bool" Value="!bookcase.IsHidden" ValueChanged="(bool v) => LibraryData.SetBookcaseHiddenAsync(bookcase.Id, !v)"
+                           Label="Show in the library" Color="Color.Primary" Class="mt-3" />
+
+                <div class="bm-bcs__label">
+                    Shelves <span class="bm-bcs__label-note">top to bottom · width lets each shelf show how full it is</span>
+                </div>
+                @for (var j = 0; j < shelves.Count; j++)
+                {
+                    var shelf = shelves[j];
+                    var shelfIndex = j;
+                    var (count, usedMm) = LibraryData.ShelfUsage(shelf.Id);
+                    var percent = shelf.WidthMm is > 0 ? (int)Math.Round(100.0 * usedMm / shelf.WidthMm.Value) : (int?)null;
+
+                    <div class="bm-bcs__shelf" @key="shelf.Id">
+                        <div class="bm-bcs__shelf-top">
+                            <span class="bm-bcs__shelf-name">Shelf @(shelfIndex + 1)</span>
+                            <span class="bm-bcs__shelf-count">@ShelfText(count, percent)</span>
+                            <MudIconButton Icon="@Icons.Material.Filled.ArrowUpward" Size="Size.Small" Disabled="shelfIndex == 0"
+                                           OnClick="() => LibraryData.MoveShelfAsync(shelf.Id, -1)" aria-label="@($"Move shelf {shelfIndex + 1} up")" />
+                            <MudIconButton Icon="@Icons.Material.Filled.ArrowDownward" Size="Size.Small" Disabled="shelfIndex == shelves.Count - 1"
+                                           OnClick="() => LibraryData.MoveShelfAsync(shelf.Id, 1)" aria-label="@($"Move shelf {shelfIndex + 1} down")" />
+                            <MudIconButton Icon="@Icons.Material.Outlined.Delete" Size="Size.Small"
+                                           OnClick="() => DeleteShelfAsync(shelf, count)" aria-label="@($"Delete shelf {shelfIndex + 1}")" />
+                        </div>
+                        <div class="bm-bcs__shelf-bottom">
+                            <div class="bm-bcs__width">
+                                <MudNumericField T="int?" Value="shelf.WidthMm" ValueChanged="(int? v) => LibraryData.SetShelfWidthAsync(shelf.Id, v)"
+                                                 Label="Width" Adornment="Adornment.End" AdornmentText="mm" HideSpinButtons="true"
+                                                 Min="LibraryService.MinShelfWidthMm" Max="LibraryService.MaxShelfWidthMm"
+                                                 Variant="Variant.Outlined" Margin="Margin.Dense" />
+                            </div>
+                            @if (percent is { } p)
+                            {
+                                <div class="bm-bcs__fill" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="@Math.Min(p, 100)"
+                                     aria-label="How full the shelf is">
+                                    <span class="@(p > 100 ? "bm-bcs__fill-bar bm-bcs__fill-bar--over" : "bm-bcs__fill-bar")" style="@FillStyle(p)"></span>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" FullWidth="true" Class="mt-2"
+                           OnClick="() => LibraryData.AddShelfAsync(bookcase.Id)">Add a shelf</MudButton>
+            </div>
+        }
+    </DialogContent>
+
+    <DialogActions>
+        @if (Current is { } current)
+        {
+            <MudButton Variant="Variant.Text" Color="Color.Error" StartIcon="@Icons.Material.Outlined.Delete"
+                       OnClick="() => DeleteBookcaseAsync(current)">Delete</MudButton>
+        }
+        <MudSpacer />
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="DoneAsync">Done</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter, EditorRequired] public Guid BookcaseId { get; set; }
+
+    /// <summary>Just created: the name field gets the focus, ready to type.</summary>
+    [Parameter] public bool IsNew { get; set; }
+
+    private string? _name;
+
+    private Bookcase? Current => LibraryData.FindBookcase(BookcaseId);
+
+    /// <summary>Opens the sheet for a bookcase. Everything saves as it changes, so there's no result.</summary>
+    public static async Task OpenAsync(IDialogService dialogs, Guid bookcaseId, bool isNew = false)
+    {
+        ArgumentNullException.ThrowIfNull(dialogs);
+        var parameters = new DialogParameters
+        {
+            { nameof(BookcaseId), bookcaseId },
+            { nameof(IsNew), isNew },
+        };
+        var dialog = await dialogs.ShowAsync<BookcaseSheet>(parameters, DialogDefaults.Sheet());
+        await dialog.Result;
+    }
+
+    protected override void OnInitialized()
+    {
+        _name = Current?.Name;
+        LibraryData.Changed += OnLibraryChanged;
+    }
+
+    public void Dispose() => LibraryData.Changed -= OnLibraryChanged;
+
+    private void OnLibraryChanged() => _ = InvokeAsync(StateHasChanged);
+
+    // A blank name isn't saved (the bookcase keeps its last one).
+    private Task SaveNameAsync() => LibraryData.RenameBookcaseAsync(BookcaseId, _name);
+
+    private async Task DoneAsync()
+    {
+        await SaveNameAsync(); // in case the last keystrokes are still inside the debounce
+        MudDialog.Close();
+    }
+
+    private static string ShelfText(int count, int? percent)
+        => (count == 1 ? "1 book" : $"{count} books") + (percent is { } p ? $" · {p}% full" : "");
+
+    private static string FillStyle(int percent)
+        => $"width:{Math.Min(percent, 100).ToString(System.Globalization.CultureInfo.InvariantCulture)}%";
+
+    private async Task DeleteShelfAsync(Shelf shelf, int bookCount)
+    {
+        if (bookCount > 0)
+        {
+            var message = $"The {Plural(bookCount, "book", "books")} on {LibraryData.ShelfLabel(shelf)} will be taken off it. They stay in your library.";
+            if (await Dialogs.ShowMessageBoxAsync("Delete shelf?", message, yesText: "Delete", cancelText: "Cancel") != true)
+            {
+                return;
+            }
+        }
+
+        await LibraryData.DeleteShelfAsync(shelf.Id);
+    }
+
+    private async Task DeleteBookcaseAsync(Bookcase bookcase)
+    {
+        var shelves = LibraryData.ShelvesIn(bookcase.Id);
+        var books = shelves.Sum(s => LibraryData.ShelfUsage(s.Id).Count);
+        var message = books == 0
+            ? $"“{bookcase.Name}” and its {Plural(shelves.Count, "shelf", "shelves")} will be removed."
+            : $"“{bookcase.Name}” and its {Plural(shelves.Count, "shelf", "shelves")} will be removed. "
+              + $"The {Plural(books, "book", "books")} on it stay in your library (and in any other bookcase they're in).";
+
+        if (await Dialogs.ShowMessageBoxAsync("Delete bookcase?", message, yesText: "Delete", cancelText: "Cancel") == true)
+        {
+            await LibraryData.DeleteBookcaseAsync(bookcase.Id);
+            MudDialog.Close();
+        }
+    }
+
+    private static string Plural(int n, string one, string many) => n == 1 ? $"1 {one}" : $"{n} {many}";
+}

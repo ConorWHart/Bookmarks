@@ -1,0 +1,25 @@
+@* A little sample of a bookcase's finish (oak, walnut, white, dark, or a colour of the user's own), for Manage
+   bookcases and its edit sheet (Phase 8d). Rainbow = "pick a colour" (no custom colour yet). *@
+
+<span class="@CssClass" style="@Style" aria-hidden="true"></span>
+
+@code {
+    /// <summary>oak | walnut | white | dark</summary>
+    [Parameter] public string Theme { get; set; } = "oak";
+
+    /// <summary>A colour of the user's own; replaces the finish.</summary>
+    [Parameter] public string? CustomColor { get; set; }
+
+    /// <summary>Show the rainbow "pick a colour" sample instead.</summary>
+    [Parameter] public bool Rainbow { get; set; }
+
+    [Parameter] public bool Large { get; set; }
+
+    private string Kind => Rainbow ? "rainbow" : CustomColor is not null ? "custom" : Theme;
+
+    private string CssClass => Large ? $"bm-swatch bm-swatch--{Kind} bm-swatch--large" : $"bm-swatch bm-swatch--{Kind}";
+
+    private string? Style => !Rainbow && ColorUtil.BookcasePaletteFor(CustomColor) is { } p
+        ? $"--chip-hi:{p.Highlight};--chip-lo:{p.Shadow}"
+        : null;
+}

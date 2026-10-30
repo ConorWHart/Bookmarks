@@ -2,18 +2,31 @@
 // when a book is dropped, the DOM is put back exactly as it was and .NET is told where it went, so
 // Blazor stays the one owner of the page and re-draws the shelves from the saved order.
 //
-// Mouse: press and drag. Touch: press and hold (~0.45 s) to pick a book up; a quick swipe still scrolls.
+// Mouse: press and drag, always. Touch screens (Phase 8f): dragging is only wired while the Library's Arrange mode is
+// on (.NET calls sync only then, dispose otherwise), so swipes over the shelves always scroll and no drag listeners
+// sit on the books; in Arrange mode a short press (holdMs) picks a book up and a quick swipe still scrolls.
 import Sortable from '../lib/sortable/sortable.esm.min.js';
 
 const instances = new Map(); // shelf element -> Sortable
 let dotnet = null;
 let origin = null;           // where the dragged book started: { parent, next }
 
-const HoldMs = 450;
+let holdMs = 450;
 
-/** Wire up every shelf under root (call after each render; new shelves are picked up, removed ones dropped). */
-export function sync(root, dotnetRef) {
+/** A touch screen (phone, tablet): the Library offers Arrange mode instead of always-on dragging. */
+export function isTouchScreen() {
+    return matchMedia('(pointer: coarse)').matches;
+}
+
+/**
+ * Wire up every shelf under root (call after each render; new shelves are picked up, removed ones dropped).
+ * touchHoldMs: how long a finger must rest on a book before it's picked up (shelves wired earlier keep theirs).
+ */
+export function sync(root, dotnetRef, touchHoldMs) {
     dotnet = dotnetRef;
+    if (typeof touchHoldMs === 'number') {
+        holdMs = touchHoldMs;
+    }
 
     for (const [el, sortable] of instances) {
         if (!el.isConnected || !root.contains(el)) {
@@ -49,7 +62,7 @@ function create(el) {
         animation: 150,
 
         // Touch: hold to pick up, so swiping along a shelf (or down the page) still scrolls.
-        delay: HoldMs,
+        delay: holdMs,
         delayOnTouchOnly: true,
         touchStartThreshold: 6,
 

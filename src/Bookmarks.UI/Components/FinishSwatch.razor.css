@@ -1,0 +1,26 @@
+.bm-swatch {
+    display: inline-block;
+    flex: 0 0 auto;
+    width: 40px;
+    height: 26px;
+    border-radius: 5px;
+    box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.25), 0 1px 2px rgb(0 0 0 / 0.2);
+    background:
+        repeating-linear-gradient(8deg, rgb(0 0 0 / 0.08) 0 1px, transparent 1px 5px),
+        linear-gradient(180deg, var(--chip-hi), var(--chip-lo));
+}
+
+.bm-swatch--large {
+    width: 56px;
+    height: 38px;
+    border-radius: 7px;
+}
+
+.bm-swatch--oak { --chip-hi: #d4a56f; --chip-lo: #8a5a2e; }
+.bm-swatch--walnut { --chip-hi: #8a5a3a; --chip-lo: #3a2314; }
+.bm-swatch--white { --chip-hi: #ffffff; --chip-lo: #d6cfc3; }
+.bm-swatch--dark { --chip-hi: #4a4540; --chip-lo: #171513; }
+
+.bm-swatch--rainbow {
+    background: conic-gradient(from 200deg, #c0504d, #d9a441, #8db255, #4f8fc0, #8a64b8, #c0504d);
+}

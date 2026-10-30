@@ -4,13 +4,28 @@
     @if (!string.IsNullOrEmpty(Title))
     {
         <header class="bm-case__title">
-            <span class="bm-case__plate">
-                <span class="bm-case__name">@Title</span>
-                @if (!string.IsNullOrEmpty(Subtitle))
-                {
-                    <span class="bm-case__count">@Subtitle</span>
-                }
-            </span>
+            @if (OnTitleClick.HasDelegate)
+            {
+                @* Phase 8d: the name plate opens this bookcase's settings (BookcaseSheet). *@
+                <button type="button" class="bm-case__plate bm-case__plate--button" @onclick="OnTitleClick"
+                        title="Change this bookcase" aria-label="@($"Change bookcase {Title}")">
+                    <span class="bm-case__name">@Title</span>
+                    @if (!string.IsNullOrEmpty(Subtitle))
+                    {
+                        <span class="bm-case__count">@Subtitle</span>
+                    }
+                </button>
+            }
+            else
+            {
+                <span class="bm-case__plate">
+                    <span class="bm-case__name">@Title</span>
+                    @if (!string.IsNullOrEmpty(Subtitle))
+                    {
+                        <span class="bm-case__count">@Subtitle</span>
+                    }
+                </span>
+            }
         </header>
     }
     <div class="bm-case__body">
@@ -35,4 +50,7 @@
         : null;
 
     [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>When set, the name plate is a button (Phase 8d: opens the bookcase's settings).</summary>
+    [Parameter] public EventCallback OnTitleClick { get; set; }
 }

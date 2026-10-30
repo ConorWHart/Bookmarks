@@ -7,17 +7,31 @@
 @inject IDialogService Dialogs
 @inject IBrowserViewportService Viewport
 
+@* Rendered once the scanner check is done, so the search field's autofocus knows whether Scan leads. *@
+@if (_ready)
+{
 <div class="bm-finder">
+    @if (LeadsWithScan)
+    {
+        @* Adding a book (Phase 8e): scanning the barcode is the quickest way, so it comes first and big. *@
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Large" FullWidth="true"
+                   StartIcon="@Icons.Material.Filled.QrCodeScanner" Disabled="_busy" OnClick="ScanAsync"
+                   Class="bm-finder__scan">Scan the barcode</MudButton>
+        <div class="bm-finder__or">or search</div>
+    }
     <div class="bm-finder__bar" @onkeydown="OnKeyDownAsync">
         <MudTextField T="string" @bind-Value="_query" Label="Find on Open Library" Placeholder="ISBN, title or author"
-                      Variant="Variant.Outlined" Margin="Margin.Dense" Immediate="true" AutoFocus="AutoFocus"
+                      Variant="Variant.Outlined" Margin="Margin.Dense" Immediate="true" AutoFocus="@(AutoFocus && !LeadsWithScan)"
                       Disabled="@(!AppStatus.IsOnline)" HelperText="@Helper"
                       Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Search"
                       OnAdornmentClick="RunAsync" AdornmentAriaLabel="Search" Class="flex-grow-1" />
-        <MudTooltip Text="@ScanTooltip">
-            <MudIconButton Icon="@Icons.Material.Filled.QrCodeScanner" Disabled="@(!_canScan || _busy)"
-                           OnClick="ScanAsync" aria-label="Scan a barcode" />
-        </MudTooltip>
+        @if (!LeadsWithScan)
+        {
+            <MudTooltip Text="@ScanTooltip">
+                <MudIconButton Icon="@Icons.Material.Filled.QrCodeScanner" Disabled="@(!_canScan || _busy)"
+                               OnClick="ScanAsync" aria-label="Scan a barcode" />
+            </MudTooltip>
+        }
     </div>
 
     @if (_busy)
@@ -55,6 +69,7 @@
         </div>
     }
 </div>
+}
 
 @code {
     /// <summary>Pre-filled query, e.g. the ISBN or title of a book being edited.</summary>
@@ -71,7 +86,13 @@
     /// <summary>A barcode was scanned (before it's looked up), so the editor can keep the ISBN even offline.</summary>
     [Parameter] public EventCallback<string> OnScanned { get; set; }
 
+    /// <summary>Adding a new book: a big "Scan the barcode" button comes before the search (when there's a camera).</summary>
+    [Parameter] public bool LeadWithScan { get; set; }
+
     private bool _canScan;
+    private bool _ready;
+
+    private bool LeadsWithScan => LeadWithScan && _canScan;
 
     private string ScanTooltip => _canScan
         ? "Scan a barcode"
@@ -90,7 +111,14 @@
 
     protected override async Task OnInitializedAsync()
     {
-        _canScan = await Scanner.IsSupportedAsync();
+        try
+        {
+            _canScan = await Scanner.IsSupportedAsync();
+        }
+        finally
+        {
+            _ready = true;
+        }
     }
 
     protected override void OnInitialized()

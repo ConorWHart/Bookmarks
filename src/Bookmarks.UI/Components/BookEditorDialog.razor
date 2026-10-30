@@ -12,7 +12,7 @@
     </TitleContent>
 
     <DialogContent>
-        <div class="bm-editor">
+        <div class="@EditorClass">
             <div class="bm-editor__form">
 
                 @if (!string.IsNullOrEmpty(Notice))
@@ -21,7 +21,7 @@
                 }
 
                 @* ---------- Find on Open Library ---------- *@
-                <BookFinder @ref="_finder" InitialQuery="@_initialQuery" AutoFocus="IsNew" OnFound="ApplyLookupAsync" OnIsbnNotFound="KeepIsbn" OnScanned="UseScannedIsbn" />
+                <BookFinder @ref="_finder" InitialQuery="@_initialQuery" AutoFocus="IsNew" LeadWithScan="@(IsNew && InitialIsbn is null)" OnFound="ApplyLookupAsync" OnIsbnNotFound="KeepIsbn" OnScanned="UseScannedIsbn" />
                 @if (_lookupSummary is not null)
                 {
                     <MudAlert Severity="Severity.Success" Dense="true" Class="mt-2" ShowCloseIcon="true" CloseIconClicked="() => _lookupSummary = null">
@@ -349,6 +349,11 @@
     [Parameter] public string? Notice { get; set; }
 
     private BookEditModel _model = BookEditModel.ForNew();
+
+    /// <summary>Phones (Phase 8e): a new book shows its previews below the form, and only once it has a title.</summary>
+    private string EditorClass => !IsNew ? "bm-editor"
+        : string.IsNullOrWhiteSpace(_model.Title) ? "bm-editor bm-editor--new bm-editor--blank"
+        : "bm-editor bm-editor--new";
 
     private LibraryEntry? _entry;
     private bool _saving;

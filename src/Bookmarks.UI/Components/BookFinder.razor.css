@@ -1,3 +1,15 @@
+/* Adding a book (Phase 8e): the big Scan button, then "or search". */
+.bm-finder__scan {
+    min-height: 52px;
+}
+
+.bm-finder__or {
+    margin: 10px 0 6px;
+    font-size: 0.8rem;
+    text-align: center;
+    color: var(--mud-palette-text-secondary);
+}
+
 .bm-finder__bar {
     display: flex;
     align-items: flex-start;

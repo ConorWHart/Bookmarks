@@ -13,6 +13,39 @@
     margin-bottom: 4px;
 }
 
+/* "More filters" (Phase 8e): a full-width row button with the count of the ones set. */
+.bm-filters__more {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-height: 44px;
+    padding: 6px 4px;
+    border: 0;
+    border-top: 1px solid var(--mud-palette-lines-default);
+    border-bottom: 1px solid var(--mud-palette-lines-default);
+    background: none;
+    color: var(--mud-palette-primary);
+    font: inherit;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+}
+
+.bm-filters__more-text {
+    flex: 1 1 auto;
+}
+
+.bm-filters__more-count {
+    min-width: 22px;
+    padding: 1px 7px;
+    border-radius: 11px;
+    font-size: 0.75rem;
+    text-align: center;
+    color: var(--mud-palette-primary-text);
+    background: var(--mud-palette-primary);
+}
+
 .bm-filters__row {
     display: flex;
     align-items: center;

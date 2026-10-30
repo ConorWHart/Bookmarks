@@ -18,9 +18,12 @@ h1:focus {
 
 /* Panels that scroll (book details and filter drawers, the nav drawer, dialogs) keep the scroll to themselves:
    reaching the end doesn't carry on scrolling the library behind them. */
-/* (Whichever element scrolls: MudBlazor scrolls the drawer itself, some drawers scroll an inner body.) */
+/* Only the elements that actually scroll: MudBlazor scrolls the drawer itself (or .mud-drawer-content); the filters
+   sheet scrolls .bm-filter-drawer__body (bookmarks.css). Not every element inside a drawer: buttons, chips and
+   toggles (overflow: hidden for their ripple) and text fields are scroll containers too, and with "contain" a swipe
+   that started on one of them couldn't scroll the panel at all (fixed 2026-10-29). */
 .mud-drawer,
-.mud-drawer *,
+.mud-drawer-content,
 .mud-dialog-content,
 .mud-popover {
     overscroll-behavior: contain;
@@ -138,6 +141,11 @@ h1:focus {
 @keyframes bm-sheet-up {
     from { transform: translateY(40px); opacity: 0; }
     to { transform: none; opacity: 1; }
+}
+
+/* Book details on phones: a bottom sheet with a rounded top (Phase 8c; Library page, BookDetails). */
+.mud-drawer.bm-details-drawer--sheet {
+    border-radius: 16px 16px 0 0;
 }
 
 /* Below md (960px) the bottom bar is showing (Phase 8b): the page scrolls clear of it, and the floating buttons

@@ -156,6 +156,26 @@
         0 1px 2px rgb(0 0 0 / 0.45);
 }
 
+/* The plate as a button (Phase 8d): no button chrome, a little lift to show it can be tapped. */
+.bm-case__plate--button {
+    border: 0;
+    margin: 0;
+    line-height: inherit;
+    font-style: normal;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.bm-case__plate--button:hover,
+.bm-case__plate--button:active {
+    filter: brightness(1.06);
+}
+
+.bm-case__plate--button:focus-visible {
+    outline: 2px solid var(--mud-palette-primary);
+    outline-offset: 2px;
+}
+
 .bm-case__body {
     display: flex;
     flex-direction: column;

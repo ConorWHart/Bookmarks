@@ -24,6 +24,106 @@
     min-width: 72px;
 }
 
+/* Phones (Phase 8e): the toolbar sticks under the app bar (48px, dense) and slides up behind it while scrolling
+   down (js/scrollHide.js adds --hidden); any scroll up brings it back. The negative margin + padding cover the
+   container's 8px side padding, so the books scroll under a solid bar. */
+.bm-phonebar {
+    position: sticky;
+    top: 48px;
+    z-index: 20; /* over the books, under the app bar and drawers */
+    margin: -8px -8px 0;
+    padding: 8px 8px 6px;
+    background: var(--mud-palette-background);
+    transition: transform 200ms ease;
+}
+
+/* 600–959px: the container's side padding is 16px. */
+@media (min-width: 600px) {
+    .bm-phonebar {
+        margin: -8px -16px 0;
+        padding: 8px 16px 6px;
+    }
+}
+
+.bm-phonebar--hidden {
+    transform: translateY(calc(-100% - 2px));
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .bm-phonebar {
+        transition: none;
+    }
+}
+
+/* ---------- Arrange mode (touch screens, Phase 8f) ---------- */
+/* The books show they can be picked up: a faint dashed outline (cheap to draw, unlike shadows). */
+.bm-room--arranging ::deep [data-item-id] {
+    outline: 1px dashed rgb(255 255 255 / 0.55);
+    outline-offset: -2px;
+    cursor: grab;
+}
+
+/* In place of the Add button: what to do, and Done. Above the bottom bar on phones. */
+.bm-arrange-bar {
+    position: fixed;
+    left: calc(12px + env(safe-area-inset-left));
+    right: calc(12px + env(safe-area-inset-right));
+    bottom: calc(12px + var(--bm-bottomnav-h) + env(safe-area-inset-bottom));
+    z-index: 1100;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 8px 8px 14px;
+    border-radius: 14px;
+    background: var(--mud-palette-primary);
+    color: var(--mud-palette-primary-text);
+    box-shadow: 0 6px 20px rgb(0 0 0 / 0.35);
+}
+
+.bm-arrange-bar__text {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 0.875rem;
+    line-height: 1.3;
+}
+
+.bm-arrange-bar__done {
+    flex: 0 0 auto;
+    min-width: 72px;
+    min-height: 44px;
+    padding: 0 16px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--mud-palette-surface);
+    color: var(--mud-palette-primary);
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+/* No bottom bar from 960px (touch tablets in landscape). */
+@media (min-width: 960px) {
+    .bm-arrange-bar {
+        left: auto;
+        right: 24px;
+        bottom: 24px;
+        max-width: 520px;
+    }
+}
+
+/* Shelf size at the top of the phones' View sheet (Phase 8e). */
+.bm-sheet-size {
+    margin-bottom: 8px;
+}
+
+.bm-sheet-size__label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--mud-palette-text-secondary);
+}
+
 /* Filters footer: Clear takes a quarter (left), Show the remaining three quarters. */
 .bm-filter-foot {
     display: flex;

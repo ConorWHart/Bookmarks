@@ -1,0 +1,132 @@
+.bm-bcs {
+    display: flex;
+    flex-direction: column;
+    padding-top: 4px;
+}
+
+.bm-bcs__label {
+    margin: 18px 0 8px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--mud-palette-text-secondary);
+}
+
+.bm-bcs__label-note {
+    margin-left: 4px;
+    font-weight: 400;
+    letter-spacing: 0;
+    text-transform: none;
+}
+
+/* ---------- Colour: big, easy-to-tap samples ---------- */
+.bm-bcs__finishes {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 6px;
+}
+
+.bm-bcs__finish {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    min-height: 72px;
+    padding: 8px 2px 6px;
+    border: 2px solid transparent;
+    border-radius: 12px;
+    background: none;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.bm-bcs__finish:focus-visible,
+.bm-bcs__finish--custom:focus-within {
+    outline: 2px solid var(--mud-palette-primary);
+    outline-offset: 1px;
+}
+
+.bm-bcs__finish--on {
+    border-color: var(--mud-palette-primary);
+    background-color: color-mix(in srgb, var(--mud-palette-primary) 10%, transparent);
+}
+
+.bm-bcs__finish-label {
+    font-size: 0.78rem;
+    line-height: 1.1;
+}
+
+/* The native colour input covers the sample, invisible, so a tap opens the phone's colour picker. */
+.bm-bcs__color-input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+}
+
+/* ---------- Shelves ---------- */
+.bm-bcs__shelf {
+    padding: 6px 0 10px;
+    border-top: 1px solid var(--mud-palette-lines-default);
+}
+
+.bm-bcs__shelf-top {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.bm-bcs__shelf-name {
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.bm-bcs__shelf-count {
+    flex: 1 1 auto;
+    min-width: 0;
+    margin-left: 8px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-size: 0.82rem;
+    color: var(--mud-palette-text-secondary);
+}
+
+.bm-bcs__shelf-bottom {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.bm-bcs__width {
+    flex: 0 0 130px;
+}
+
+.bm-bcs__width ::deep .mud-input-control {
+    margin: 0;
+}
+
+.bm-bcs__fill {
+    flex: 1 1 auto;
+    height: 8px;
+    border-radius: 4px;
+    overflow: hidden;
+    background-color: var(--mud-palette-lines-default);
+}
+
+.bm-bcs__fill-bar {
+    display: block;
+    height: 100%;
+    border-radius: 4px;
+    background-color: var(--mud-palette-primary);
+}
+
+.bm-bcs__fill-bar--over {
+    background-color: var(--mud-palette-error);
+}

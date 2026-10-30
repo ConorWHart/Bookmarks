@@ -20,9 +20,6 @@
                 <MudText Typo="Typo.caption" Class="bm-wishlist__count">@CountText</MudText>
             }
         </div>
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="AddAsync">
-            Add a book
-        </MudButton>
     </div>
 
     @if (!_loaded)
@@ -51,16 +48,18 @@
             <div class="bm-wishlist__search">
                 <MudTextField T="string" @bind-Value="_search" @bind-Value:after="Recompute" Placeholder="Search the wishlist"
                               Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" Immediate="true"
-                              DebounceInterval="200" Clearable="true" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                              DebounceInterval="200" Clearable="true" Variant="Variant.Outlined" Margin="Margin.Dense" FullWidth="true" />
             </div>
+            @* Phase 8e: sort is an icon with a menu beside the search (one row on phones); the count line says which. *@
             <div class="bm-wishlist__sort">
-                <MudSelect T="WishlistSort" Value="_sort" ValueChanged="SetSortAsync" Label="Sort" Variant="Variant.Outlined"
-                           Margin="Margin.Dense" Dense="true">
-                    <MudSelectItem Value="WishlistSort.Priority">Priority</MudSelectItem>
-                    <MudSelectItem Value="WishlistSort.DateAdded">Date added</MudSelectItem>
-                    <MudSelectItem Value="WishlistSort.Title">Title</MudSelectItem>
-                    <MudSelectItem Value="WishlistSort.Author">Author</MudSelectItem>
-                </MudSelect>
+                <MudMenu Icon="@Icons.Material.Filled.Sort" Color="Color.Primary" Variant="Variant.Outlined"
+                         AriaLabel="Sort the wishlist" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
+                    @foreach (var (sort, label) in SortOptions)
+                    {
+                        @* The current one is ticked (and named in the count line). *@
+                        <MudMenuItem OnClick="() => SetSortAsync(sort)" Icon="@(sort == _sort ? Icons.Material.Filled.Check : null)">@label</MudMenuItem>
+                    }
+                </MudMenu>
             </div>
         </div>
 
@@ -104,8 +103,18 @@
                 </div>
             }
         </div>
+
+        @* Room so the floating button never covers the last wish. *@
+        <div class="bm-wishlist__clearance" aria-hidden="true"></div>
     }
 </MudContainer>
+
+@* Phase 8e: "Add a book" floats bottom right, like the Library's. *@
+@if (_loaded && _all.Count > 0)
+{
+    <MudFab Class="bm-fab" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" Label="Add a book"
+            OnClick="AddAsync" aria-label="Add a book to your wishlist" />
+}
 
 @code {
     private const string SortPref = "wishlist.sort";
@@ -216,7 +225,17 @@
         }
     }
 
-    private string CountText => _all.Count == 1 ? "1 book" : $"{_all.Count} books";
+    private static readonly (WishlistSort Sort, string Label)[] SortOptions =
+    [
+        (WishlistSort.Priority, "Priority"),
+        (WishlistSort.DateAdded, "Date added"),
+        (WishlistSort.Title, "Title"),
+        (WishlistSort.Author, "Author"),
+    ];
+
+    private string CountText
+        => (_all.Count == 1 ? "1 book" : $"{_all.Count} books")
+           + " · by " + SortOptions.First(o => o.Sort == _sort).Label.ToLowerInvariant();
 
     private static string Byline(LibraryEntry e)
     {

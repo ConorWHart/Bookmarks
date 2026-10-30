@@ -180,15 +180,18 @@
             </MudGrid>
         </MudPaper>
 
-        @* ---------- Toolbar: phones get the toggle, search and a Filters sheet ---------- *@
-        <div class="bm-display d-flex d-md-none mb-2">
+        @* ---------- Toolbar: phones get the toggle, search and a Filters sheet ----------
+           Phase 8e: one sticky bar that slides away while scrolling down and returns on scroll up (js/scrollHide.js);
+           the shelf size moved into the View sheet. *@
+        <div class="bm-phonebar d-md-none" @ref="_phoneBar">
+        <div class="bm-display d-flex mb-2">
             <MudToggleGroup T="LibraryDisplay" Value="_view.Display" ValueChanged="v => SetView(_view with { Display = v })"
                             Color="Color.Primary" Outlined="true" Class="bm-display-toggle">
                 <MudToggleItem Value="LibraryDisplay.Bookcases" Text="Bookcases" />
                 <MudToggleItem Value="LibraryDisplay.Books" Text="Books" />
             </MudToggleGroup>
         </div>
-        <div class="d-flex d-md-none align-center gap-2 mb-1">
+        <div class="d-flex align-center gap-2 mb-1">
             <div class="flex-grow-1">
                 <MudTextField T="string" @bind-Value="_search" @bind-Value:after="OnSearchChanged"
                               Placeholder="Search" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
@@ -202,30 +205,24 @@
             @if (!IsBooks)
             {
                 <ShelfVisibility IconOnly="true" />
+                if (_isTouch == true)
+                {
+                    @* Phase 8f: on touch screens books only drag in Arrange mode, so swipes over the shelves always scroll. *@
+                    <MudIconButton Icon="@Icons.Material.Filled.OpenWith" Variant="@(Arranging ? Variant.Filled : Variant.Outlined)"
+                                   Color="Color.Primary" OnClick="ToggleArrange"
+                                   aria-pressed="@(Arranging ? "true" : "false")" aria-label="Arrange books on the shelves" />
+                }
             }
         </div>
-        @if (!IsBooks)
-        {
-            @* Phones: shelf size right under the search (desktop has it in the toolbar). *@
-            <div class="bm-size d-flex d-md-none align-center gap-3 px-1">
-                <MudText Typo="Typo.caption">Size</MudText>
-                <div class="flex-grow-1">
-                    <MudSlider T="double" @bind-Value="_scale" @bind-Value:after="SaveScale" Min="FilterPanel.MinScale" Max="FilterPanel.MaxScale"
-                               Step="0.05" Size="Size.Small" aria-label="Shelf size" />
-                </div>
-            </div>
-        }
         @if (IsBooks)
         {
-            <div class="d-flex d-md-none align-center justify-space-between gap-2 mb-3">
+            <div class="d-flex align-center justify-space-between gap-2 mt-1">
                 <MudText Typo="Typo.caption">@MatchCountText</MudText>
                 @LayoutToggle
             </div>
         }
-        else
-        {
-            <div class="d-block d-md-none mb-3"></div>
-        }
+        </div>
+        <div class="d-block d-md-none mb-3"></div>
 
         @* ---------- Library ---------- *@
         if (IsBooks)
@@ -254,10 +251,11 @@
         }
         else
         {
-            <div class="bm-room" @ref="_room">
+            <div class="@(Arranging ? "bm-room bm-room--arranging" : "bm-room")" @ref="_room">
             @foreach (var bookcase in LibraryData.Bookcases.Where(b => !b.IsHidden))
             {
-                <BookcaseFrame @key="bookcase.Id" Title="@bookcase.Name" Subtitle="@BookCountText(bookcase)" Theme="@bookcase.Theme" CustomColor="@bookcase.CustomColor">
+                <BookcaseFrame @key="bookcase.Id" Title="@bookcase.Name" Subtitle="@BookCountText(bookcase)" Theme="@bookcase.Theme" CustomColor="@bookcase.CustomColor"
+                               OnTitleClick="() => BookcaseSheet.OpenAsync(Dialogs, bookcase.Id)">
                     @foreach (var shelf in LibraryData.ShelvesIn(bookcase.Id))
                     {
                         <ShelfRowView @key="shelf.Id" ShelfId="shelf.Id" Books="PlaceOnShelf(shelf.Id)" Label="@LibraryData.ShelfLabel(shelf)"
@@ -283,8 +281,10 @@
 <CloseOnBack Key="filters" Open="_filtersOpen" OnClose="() => _filtersOpen = false" />
 <CloseOnBack Key="add-menu" Open="_addMenuOpen" OnClose="() => _addMenuOpen = false" />
 
-<MudDrawer @bind-Open="_detailsOpen" Anchor="Anchor.End" Variant="DrawerVariant.Temporary" Width="min(400px, 100vw)" Elevation="2">
-    <BookDetails Entry="_selected" OnEdit="OpenEditorAsync" OnDelete="DeleteAsync" OnClose="() => _detailsOpen = false" />
+@* Book details: a side panel on wider screens, a bottom sheet on phones (Phase 8c), like the filters. *@
+<MudDrawer @bind-Open="_detailsOpen" Anchor="_detailsAnchor" Variant="DrawerVariant.Temporary" Elevation="2"
+           Width="@DetailsWidth" Height="@DetailsHeight" Class="@DetailsClass">
+    <BookDetails Entry="_selected" IsOpen="_detailsOpen" IsSheet="DetailsIsSheet" OnEdit="OpenEditorAsync" OnDelete="DeleteAsync" OnClose="() => _detailsOpen = false" />
 </MudDrawer>
 
 <MudDrawer @bind-Open="_filtersOpen" Anchor="_filtersAnchor" Variant="DrawerVariant.Temporary" Elevation="2"
@@ -295,6 +295,15 @@
         <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" OnClick="() => _filtersOpen = false" aria-label="Close" />
     </div>
     <div class="bm-filter-drawer__body">
+        @if (IsSheet && !IsBooks)
+        {
+            @* Phones: the shelf size lives here (Phase 8e), not on the page. *@
+            <div class="bm-sheet-size">
+                <div class="bm-sheet-size__label">Shelf size</div>
+                <MudSlider T="double" @bind-Value="_scale" @bind-Value:after="SaveScale" Min="FilterPanel.MinScale" Max="FilterPanel.MaxScale"
+                           Step="0.05" aria-label="Shelf size" />
+            </div>
+        }
         <FilterPanel View="_view" ViewChanged="SetView" ShowLayout="IsSheet" />
         @if (IsSheet)
         {
@@ -348,6 +357,15 @@
                     OnClick="() => OpenEditorAsync(null)" aria-label="Add a new book to your library" />
         </div>
     }
+    else if (Arranging)
+    {
+        @* Arrange mode (touch screens, Phase 8f): how it works, and the way out, in place of the Add button. *@
+        <div class="bm-arrange-bar" role="status">
+            <MudIcon Icon="@Icons.Material.Filled.OpenWith" />
+            <span class="bm-arrange-bar__text">Press a book briefly, then drag it along its shelf or onto another.</span>
+            <button type="button" class="bm-arrange-bar__done" @onclick="ToggleArrange">Done</button>
+        </div>
+    }
     else
     {
         <MudFab Class="bm-fab" Color="Color.Primary" StartIcon="@Icons.Material.Filled.LibraryAdd" Label="Add book to shelf"
@@ -391,6 +409,15 @@
 
     private LibraryEntry? _selected;
     private bool _detailsOpen;
+    private Anchor _detailsAnchor = Anchor.End;
+
+    private bool DetailsIsSheet => _detailsAnchor == Anchor.Bottom;
+
+    private string? DetailsWidth => DetailsIsSheet ? null : "min(400px, 100vw)";
+
+    private string? DetailsHeight => DetailsIsSheet ? "92dvh" : null;
+
+    private string? DetailsClass => DetailsIsSheet ? "bm-details-drawer--sheet" : null;
 
     /// <summary>The phones' + menu in the Books view (Add a book / Scan a stack).</summary>
     private bool _addMenuOpen;
@@ -449,8 +476,46 @@
     private DotNetObjectReference<Library>? _dragRef;
     private bool _dragWired;
 
+    // ---------- Phones: the toolbar hides while scrolling down (Phase 8e) ----------
+
+    private ElementReference _phoneBar;
+    private IJSObjectReference? _scrollModule;
+
+    private async Task WatchPhoneBarAsync()
+    {
+        if (!_loaded || _loadError is not null || LibraryData.IsEmpty)
+        {
+            return;
+        }
+
+        try
+        {
+            _scrollModule ??= await JS.InvokeAsync<IJSObjectReference>("import", "./_content/Bookmarks.UI/js/scrollHide.js");
+            await _scrollModule.InvokeVoidAsync("watch", _phoneBar, "bm-phonebar--hidden"); // once per element
+        }
+        catch (JSException ex)
+        {
+            Console.Error.WriteLine($"Toolbar auto-hide unavailable: {ex.Message}");
+        }
+    }
+
+    // ---------- Arrange mode (Phase 8f) ----------
+
+    /// <summary>Touch screen (pointer: coarse), known once shelfDrag.js has loaded; null until then.</summary>
+    private bool? _isTouch;
+    private bool _arranging;
+
+    /// <summary>Arrange mode only counts in the Bookcases view (switching to Books leaves it).</summary>
+    private bool Arranging => _arranging && !IsBooks;
+
+    // In Arrange mode a short press picks a book up (no long hold needed: dragging is what the mode is for).
+    private const int ArrangeHoldMs = 150;
+
+    private void ToggleArrange() => _arranging = !_arranging;
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        await WatchPhoneBarAsync();
         var showingShelves = _loaded && !IsBooks && LibraryData.Bookcases.Any(b => !b.IsHidden);
         try
         {
@@ -458,7 +523,20 @@
             {
                 _dragModule ??= await JS.InvokeAsync<IJSObjectReference>("import", "./_content/Bookmarks.UI/js/shelfDrag.js");
                 _dragRef ??= DotNetObjectReference.Create(this);
-                await _dragModule.InvokeVoidAsync("sync", _room, _dragRef); // picks up new shelves, drops old ones
+                if (_isTouch is null)
+                {
+                    _isTouch = await _dragModule.InvokeAsync<bool>("isTouchScreen");
+                    if (_isTouch == true)
+                    {
+                        StateHasChanged(); // show the Arrange button
+                    }
+                }
+            }
+
+            // Mouse: always draggable. Touch: only in Arrange mode; otherwise nothing is wired, so swipes just scroll.
+            if (showingShelves && (_isTouch == false || Arranging))
+            {
+                await _dragModule!.InvokeVoidAsync("sync", _room, _dragRef, ArrangeHoldMs); // picks up new shelves, drops old ones
                 _dragWired = true;
             }
             else if (_dragWired && _dragModule is not null)
@@ -497,6 +575,21 @@
     public async ValueTask DisposeAsync()
     {
         LibraryData.Changed -= OnLibraryChanged;
+        if (_scrollModule is not null)
+        {
+            try
+            {
+                await _scrollModule.InvokeVoidAsync("dispose");
+                await _scrollModule.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+            }
+            catch (JSException)
+            {
+            }
+        }
+
         if (_dragModule is not null)
         {
             try
@@ -629,9 +722,9 @@
         => InvokeAsync(async () => await ShelfPickerDialog.OpenAsync(Dialogs, Viewport, [itemId]));
 
     private Task ShowAsync(LibraryEntry entry)
-        => InvokeAsync(() =>
+        => InvokeAsync(async () =>
         {
-            Select(entry);
+            await Select(entry);
             StateHasChanged();
         });
 
@@ -716,7 +809,8 @@
 
     // A definite height (not "auto"): the sheet's body can only scroll inside a box of known height.
     // dvh follows the phone's visible viewport as its address bar shows and hides.
-    private string? FiltersHeight => IsSheet ? "88dvh" : null;
+    // Half the screen (Conor, 2026-10-30): the books stay visible above it; the sheet's body scrolls.
+    private string? FiltersHeight => IsSheet ? "50dvh" : null;
 
     private string FiltersClass => IsSheet ? "bm-filter-drawer bm-filter-drawer--sheet" : "bm-filter-drawer";
 
@@ -724,18 +818,21 @@
 
     private async Task OpenFiltersAsync()
     {
-        var phone = false;
+        _filtersAnchor = await IsPhoneAsync() ? Anchor.Bottom : Anchor.End;
+        _filtersOpen = true;
+    }
+
+    /// <summary>Below md (960px): panels open as bottom sheets.</summary>
+    private async Task<bool> IsPhoneAsync()
+    {
         try
         {
-            phone = (await Viewport.GetCurrentBrowserWindowSizeAsync()).Width < 960;
+            return (await Viewport.GetCurrentBrowserWindowSizeAsync()).Width < 960;
         }
         catch (JSException)
         {
-            // Keep the side panel.
+            return false; // keep the side panel
         }
-
-        _filtersAnchor = phone ? Anchor.Bottom : Anchor.End;
-        _filtersOpen = true;
     }
 
     private async Task OpenFindCoversFromSheetAsync()
@@ -771,9 +868,19 @@
     /// <summary>Books on a shelf in their saved order, sized for drawing.</summary>
     private IReadOnlyList<PlacedBook> PlaceOnShelf(Guid shelfId) => LibraryData.PlacedOnShelf(shelfId);
 
-    private void Select(LibraryEntry entry)
+    private async Task Select(LibraryEntry entry)
     {
+        if (Arranging)
+        {
+            return; // a press in Arrange mode is for moving books, not opening them
+        }
+
         _selected = entry;
+        if (!_detailsOpen)
+        {
+            _detailsAnchor = await IsPhoneAsync() ? Anchor.Bottom : Anchor.End;
+        }
+
         _detailsOpen = true;
     }
 }

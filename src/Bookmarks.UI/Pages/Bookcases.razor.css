@@ -1,170 +1,112 @@
-.bm-bc__head {
+/* Manage bookcases (Phase 8d): a compact list; each bookcase is edited in BookcaseSheet. */
+.bm-bc-top {
     display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 12px 16px;
-    margin-bottom: 12px;
-}
-
-.bm-bc__head ::deep .bm-bc__name {
-    flex: 1 1 220px;
-    max-width: 360px;
-}
-
-.bm-bc__actions {
-    display: flex;
-    align-items: center;
-    margin-left: auto;
-}
-
-/* ---------- Finish (theme) picker: little wood samples ---------- */
-.bm-themes {
-    display: flex;
-    gap: 8px;
-}
-
-.bm-theme {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 3px;
-    padding: 4px;
-    border: 1px solid transparent;
-    border-radius: 8px;
-    background: none;
-    color: inherit;
-    cursor: pointer;
-}
-
-.bm-theme:hover {
-    border-color: var(--mud-palette-lines-default);
-}
-
-.bm-theme:focus-visible {
-    outline: 2px solid var(--mud-palette-primary);
-    outline-offset: 1px;
-}
-
-.bm-theme--on {
-    border-color: var(--mud-palette-primary);
-    background-color: color-mix(in srgb, var(--mud-palette-primary) 10%, transparent);
-}
-
-.bm-theme__chip {
-    width: 40px;
-    height: 26px;
-    border-radius: 4px;
-    box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.25), 0 1px 2px rgb(0 0 0 / 0.2);
-    background:
-        repeating-linear-gradient(8deg, rgb(0 0 0 / 0.08) 0 1px, transparent 1px 5px),
-        linear-gradient(180deg, var(--chip-hi), var(--chip-lo));
-}
-
-.bm-theme--oak .bm-theme__chip { --chip-hi: #d4a56f; --chip-lo: #8a5a2e; }
-.bm-theme--walnut .bm-theme__chip { --chip-hi: #8a5a3a; --chip-lo: #3a2314; }
-.bm-theme--white .bm-theme__chip { --chip-hi: #ffffff; --chip-lo: #d6cfc3; }
-.bm-theme--dark .bm-theme__chip { --chip-hi: #4a4540; --chip-lo: #171513; }
-
-.bm-theme--custom {
-    position: relative;
-}
-
-/* The native colour input covers the swatch, invisible, so a click opens the browser's picker. */
-.bm-theme__input {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    opacity: 0;
-    cursor: pointer;
-}
-
-.bm-theme--custom:focus-within {
-    outline: 2px solid var(--mud-palette-primary);
-    outline-offset: 1px;
-}
-
-/* No colour chosen yet: a rainbow chip. */
-.bm-theme--custom:not(.bm-theme--on) .bm-theme__chip {
-    background: conic-gradient(from 200deg, #c0504d, #d9a441, #8db255, #4f8fc0, #8a64b8, #c0504d);
-}
-
-.bm-theme__label {
-    font-size: 0.72rem;
-    line-height: 1;
-}
-
-/* ---------- Shelves ---------- */
-.bm-bc__shelf {
-    display: grid;
-    grid-template-columns: minmax(140px, 1.2fr) 130px minmax(150px, 1fr) auto;
-    align-items: center;
+    align-items: flex-start;
     gap: 12px;
-    padding: 6px 0;
-    border-top: 1px solid var(--mud-palette-lines-default);
+    margin-bottom: 16px;
 }
 
-.bm-fill {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.bm-fill__track {
-    height: 8px;
-    border-radius: 4px;
-    overflow: hidden;
-    background-color: var(--mud-palette-lines-default);
-}
-
-.bm-fill__bar {
-    display: block;
-    height: 100%;
-    border-radius: 4px;
-    background-color: var(--mud-palette-primary);
-}
-
-.bm-fill__bar--over {
-    background-color: var(--mud-palette-error);
-}
-
-/* Phones: name + width on one row, fullness + buttons on the next. */
-@media (max-width: 600px) {
-    .bm-bc__shelf {
-        grid-template-columns: minmax(0, 1fr) 110px;
-    }
-
-    .bm-themes {
-        order: 3;
-        width: 100%;
-    }
-}
-
-/* Collapsed: just the header row and a one-line summary. */
-.bm-bc__head--collapsed {
-    margin-bottom: 0;
-}
-
-.bm-bc__summary {
-    margin: 2px 0 0 40px;
-}
-
-/* ---------- Drag to reorder (grip handles) ---------- */
-.bm-bc__shelf-name {
-    display: flex;
-    align-items: center;
-    gap: 4px;
+.bm-bc-top__text {
+    flex: 1 1 auto;
     min-width: 0;
 }
 
-.bm-handle {
+.bm-bc-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* One row per bookcase: finish sample, name and counts (tap to edit), then the eye. */
+.bm-bc-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-height: 64px;
+    padding: 4px 6px 4px 4px;
+    border: 1px solid var(--mud-palette-lines-default);
+    border-radius: 14px;
+    background: var(--mud-palette-surface);
+}
+
+.bm-bc-row__main {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 8px 6px 8px 10px;
+}
+
+/* The tappable part is a real button, reset to look like the row. */
+.bm-bc-row__open {
+    border: 0;
+    border-radius: 10px;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.bm-bc-row__open:hover,
+.bm-bc-row__open:active {
+    background-color: color-mix(in srgb, var(--mud-palette-primary) 7%, transparent);
+}
+
+.bm-bc-row__open:focus-visible {
+    outline: 2px solid var(--mud-palette-primary);
+    outline-offset: -2px;
+}
+
+.bm-bc-row__text {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.bm-bc-row__name {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.bm-bc-row__meta {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-size: 0.82rem;
+    color: var(--mud-palette-text-secondary);
+}
+
+.bm-bc-row__chevron {
+    display: flex;
+    color: var(--mud-palette-text-secondary);
+}
+
+/* Hidden in the library: the row is quieter. */
+.bm-bc-row--hidden .bm-bc-row__main {
+    opacity: 0.6;
+}
+
+/* ---------- Reorder mode ---------- */
+.bm-bc-list--reordering .bm-bc-row {
+    border-style: dashed;
+    border-color: color-mix(in srgb, var(--mud-palette-primary) 50%, var(--mud-palette-lines-default));
+}
+
+.bm-bc-row__grip {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 28px;
-    height: 32px;
-    margin-left: -6px;
-    border-radius: 6px;
+    width: 44px;
+    height: 48px;
+    border-radius: 8px;
     color: var(--mud-palette-text-secondary);
     cursor: grab;
     touch-action: none; /* a touch on the grip drags instead of scrolling */
@@ -172,12 +114,12 @@
     user-select: none;
 }
 
-.bm-handle:hover {
+.bm-bc-row__grip:hover {
     color: var(--mud-palette-primary);
     background-color: color-mix(in srgb, var(--mud-palette-primary) 10%, transparent);
 }
 
-/* Bookcase rows are MudPapers (child components), so these reach them with ::deep. */
+/* The drag copy and the gap it leaves (SortableJS classes on the rows). */
 .bm-bc-list ::deep .bm-sort-ghost {
     opacity: 0.4;
     outline: 2px dashed var(--mud-palette-primary);
@@ -190,4 +132,8 @@
     background-color: var(--mud-palette-surface);
     box-shadow: 0 10px 24px rgb(0 0 0 / 0.35);
     cursor: grabbing;
+}
+
+.bm-bc-clearance {
+    height: calc(88px + env(safe-area-inset-bottom));
 }

@@ -122,6 +122,15 @@
         gap: 12px;
     }
 
+    /* Adding a book (Phase 8e): Scan / search come first; the previews follow the form, once there's a title. */
+    .bm-editor--new .bm-editor__preview {
+        order: 1;
+    }
+
+    .bm-editor--blank .bm-editor__preview {
+        display: none;
+    }
+
     .bm-editor__preview {
         position: static;
         order: -1;

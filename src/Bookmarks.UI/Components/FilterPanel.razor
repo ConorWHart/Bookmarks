@@ -58,15 +58,28 @@
             <MudChip Value="ReadState.Reading" Text="Reading now" />
             <MudChip Value="ReadState.Unread" Text="Unread" />
         </MudChipSet>
-        <div class="bm-filters__row">
-            <MudSelect T="int?" Value="Filter.MinReadCount" Label="Times read" ValueChanged="v => SetFilter(Filter with { MinReadCount = v })"
-                       Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true">
-                <MudSelectItem T="int?" Value="null">Any</MudSelectItem>
-                <MudSelectItem T="int?" Value="1">At least once</MudSelectItem>
-                <MudSelectItem T="int?" Value="2">2+ times</MudSelectItem>
-                <MudSelectItem T="int?" Value="3">3+ times</MudSelectItem>
-            </MudSelect>
-        </div>
+    </section>
+
+    @* Phase 8e: the less-used filters fold away under "More filters" (open when any of them is set). *@
+    <button type="button" class="bm-filters__more" aria-expanded="@(_moreOpen ? "true" : "false")" @onclick="() => _moreOpen = !_moreOpen">
+        <span class="bm-filters__more-text">More filters</span>
+        @if (MoreActiveCount > 0)
+        {
+            <span class="bm-filters__more-count">@MoreActiveCount</span>
+        }
+        <MudIcon Icon="@(_moreOpen ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)" Size="Size.Small" />
+    </button>
+
+    @if (_moreOpen)
+    {
+    <section>
+        <MudSelect T="int?" Value="Filter.MinReadCount" Label="Times read" ValueChanged="v => SetFilter(Filter with { MinReadCount = v })"
+                   Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true">
+            <MudSelectItem T="int?" Value="null">Any</MudSelectItem>
+            <MudSelectItem T="int?" Value="1">At least once</MudSelectItem>
+            <MudSelectItem T="int?" Value="2">2+ times</MudSelectItem>
+            <MudSelectItem T="int?" Value="3">3+ times</MudSelectItem>
+        </MudSelect>
     </section>
 
     <section>
@@ -156,6 +169,7 @@
     <section>
         <DateFilterField Label="Last finished" Value="Filter.LastFinished" ValueChanged="v => SetFilter(Filter with { LastFinished = v })" />
     </section>
+    }
 </div>
 
 @code {
@@ -172,6 +186,31 @@
     [Parameter] public bool ShowLayout { get; set; }
 
     private LibraryFilter Filter => View.Filter;
+
+    private bool _moreOpen;
+    private bool _moreDecided;
+
+    /// <summary>How many of the filters under "More filters" are set.</summary>
+    private int MoreActiveCount =>
+        (Filter.MinReadCount is not null ? 1 : 0)
+        + (Filter.MinRating is not null ? 1 : 0)
+        + (Filter.Formats is { Count: > 0 } ? 1 : 0)
+        + (Filter.BookcaseId is not null ? 1 : 0)
+        + (Filter.Authors is { Count: > 0 } ? 1 : 0)
+        + (Filter.Genres is { Count: > 0 } ? 1 : 0)
+        + (Filter.Series is { Count: > 0 } ? 1 : 0)
+        + (Filter.Acquired is not null ? 1 : 0)
+        + (Filter.LastFinished is not null ? 1 : 0);
+
+    protected override void OnParametersSet()
+    {
+        // Open to begin with when one of them is already set, so it can't hide a filter that's in effect.
+        if (!_moreDecided)
+        {
+            _moreDecided = true;
+            _moreOpen = MoreActiveCount > 0;
+        }
+    }
 
     private Task Set(LibraryView view) => ViewChanged.InvokeAsync(view);
 

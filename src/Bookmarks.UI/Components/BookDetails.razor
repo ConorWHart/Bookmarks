@@ -1,4 +1,6 @@
-@* The selected book: details, rating, reading log and notes. Editing the book itself happens in BookEditorDialog. *@
+@* The selected book: details, rating, reading log and notes. Editing the book itself happens in BookEditorDialog.
+   A side drawer on wider screens; on phones a bottom sheet (Phase 8c) with a grab handle to swipe it down. Reading
+   and notes come before the shelf settings, since they're what you open a book for most. *@
 @inject LibraryService LibraryData
 @inject IDialogService Dialogs
 @inject IBrowserViewportService Viewport
@@ -9,14 +11,30 @@
     var sessions = LibraryData.SessionsFor(entry.Id);
     var notes = LibraryData.NotesFor(entry.Id);
 
-    <div class="pa-4 bm-details">
+    @if (IsSheet)
+    {
+        @* Swipe down here to close (Back, ✕ and tapping above the sheet close it too). *@
+        <div class="bm-details__grab" @ontouchstart="GrabStart" @ontouchend="GrabEndAsync" aria-hidden="true">
+            <span class="bm-details__grab-bar"></span>
+        </div>
+    }
+
+    <div class="@(IsSheet ? "px-4 pb-4 pt-1 bm-details" : "pa-4 bm-details")">
         <div class="d-flex align-start">
-            @if (entry.Book.CoverUrl is { } cover)
-            {
-                <div class="bm-details__cover">
+            @* Every book gets a picture: its cover, or one drawn in its colours like the covers grid (Phase 8c). *@
+            <div class="bm-details__cover">
+                @if (entry.Book.CoverUrl is { } cover)
+                {
                     <CoverImage Url="@cover" Size="CoverSize.Medium" Alt="@CoverAlt(entry)" Class="bm-details__cover-img" Eager="true" />
-                </div>
-            }
+                }
+                else
+                {
+                    <div class="bm-details__drawn" style="@DrawnStyle(entry)" role="img" aria-label="@CoverAlt(entry)">
+                        <span class="bm-details__drawn-title">@entry.Title</span>
+                        <span class="bm-details__drawn-author">@entry.Author</span>
+                    </div>
+                }
+            </div>
             <div class="flex-grow-1">
                 <MudText Typo="Typo.h5">@entry.Title</MudText>
                 @if (!string.IsNullOrEmpty(entry.Book.Subtitle))
@@ -52,9 +70,102 @@
             <MudSwitch T="bool" Value="entry.Item.WantToReread" ValueChanged="SetRereadAsync" Label="Want to re-read" Color="Color.Secondary" />
         </div>
 
-        @* ---------- On shelves (Phase 6b: any number of bookcases, once each) ---------- *@
+        @* ---------- Reading log ---------- *@
+        <MudDivider Class="my-4" />
+        <div class="d-flex align-baseline">
+            <MudText Typo="Typo.subtitle1" Class="flex-grow-1">Reading</MudText>
+            <MudText Typo="Typo.caption">@ReadSummary(entry)</MudText>
+        </div>
+
+        <MudStack Row="true" Spacing="1" Class="my-2" Wrap="Wrap.Wrap">
+            @if (entry.IsReading)
+            {
+                <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Check"
+                           OnClick="() => FinishAsync(entry, sessions, ReadingOutcome.Finished)">Finished it</MudButton>
+                <MudButton Size="Size.Small" Variant="Variant.Text"
+                           OnClick="() => FinishAsync(entry, sessions, ReadingOutcome.Abandoned)">Stopped reading</MudButton>
+            }
+            else
+            {
+                <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.AutoStories"
+                           OnClick="() => LibraryData.StartReadingAsync(entry.Id)">Start reading</MudButton>
+            }
+            <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.History"
+                       OnClick="() => EditSessionAsync(null)">Log a read</MudButton>
+        </MudStack>
+
+        @if (sessions.Count == 0)
+        {
+            <MudText Typo="Typo.caption" Class="d-block">No reads logged yet.</MudText>
+        }
+        @foreach (var session in _readsExpanded ? sessions : sessions.Take(CollapsedReads))
+        {
+            <div class="bm-details__row" @key="session.Id">
+                <MudIcon Icon="@OutcomeIcon(session.Outcome)" Size="Size.Small" Color="@OutcomeColor(session.Outcome)" />
+                <div class="flex-grow-1">
+                    <MudText Typo="Typo.body2">@SessionDates(session)</MudText>
+                    <MudText Typo="Typo.caption">@OutcomeText(session.Outcome)@PagesLoggedText(session)</MudText>
+                </div>
+                <MudIconButton Icon="@Icons.Material.Outlined.Edit" Size="Size.Small" aria-label="Edit read"
+                               OnClick="() => EditSessionAsync(session)" />
+                <MudIconButton Icon="@Icons.Material.Outlined.Delete" Size="Size.Small" aria-label="Delete read"
+                               OnClick="() => LibraryData.DeleteSessionAsync(session.Id)" />
+            </div>
+        }
+
+        @if (sessions.Count > CollapsedReads)
+        {
+            @* More than 3 reads: only the most recent 3 until expanded (always starts collapsed, not remembered). *@
+            <div class="d-flex justify-center mt-1">
+                <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
+                           EndIcon="@(_readsExpanded ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
+                           aria-expanded="@(_readsExpanded ? "true" : "false")"
+                           OnClick="() => _readsExpanded = !_readsExpanded">@ReadsToggleText(sessions.Count)</MudButton>
+            </div>
+        }
+
+        @* ---------- Notes ---------- *@
+        <MudDivider Class="my-4" />
+        <MudText Typo="Typo.subtitle1" Class="mb-2">Notes</MudText>
+
+        <MudTextField T="string" @bind-Value="_newNote" Placeholder="Add a note…" Lines="2" Sizing="InputSizing.Auto" MaxLines="10"
+                      Immediate="true" Variant="Variant.Outlined" Margin="Margin.Dense" />
+        <div class="d-flex justify-end mt-1 mb-2">
+            <MudButton Size="Size.Small" Color="Color.Primary" Disabled="string.IsNullOrWhiteSpace(_newNote)"
+                       OnClick="() => AddNoteAsync(entry.Id)">Add note</MudButton>
+        </div>
+
+        @foreach (var note in notes)
+        {
+            <div class="bm-details__note" @key="note.Id">
+                @if (_editingNoteId == note.Id)
+                {
+                    <MudTextField T="string" @bind-Value="_editText" Lines="2" Sizing="InputSizing.Auto" MaxLines="10"
+                                  Immediate="true" Variant="Variant.Outlined" Margin="Margin.Dense" AutoFocus="true" />
+                    <div class="d-flex justify-end gap-1 mt-1">
+                        <MudButton Size="Size.Small" OnClick="() => _editingNoteId = null">Cancel</MudButton>
+                        <MudButton Size="Size.Small" Color="Color.Primary" Disabled="string.IsNullOrWhiteSpace(_editText)"
+                                   OnClick="() => SaveNoteAsync(note.Id)">Save</MudButton>
+                    </div>
+                }
+                else
+                {
+                    <div class="bm-details__note-body">@note.Body</div>
+                    <div class="d-flex align-center">
+                        <MudText Typo="Typo.caption" Class="flex-grow-1">@note.CreatedAt.ToLocalTime().ToString("d MMM yyyy")</MudText>
+                        <MudIconButton Icon="@Icons.Material.Outlined.Edit" Size="Size.Small" aria-label="Edit note"
+                                       OnClick="() => BeginEditNote(note)" />
+                        <MudIconButton Icon="@Icons.Material.Outlined.Delete" Size="Size.Small" aria-label="Delete note"
+                                       OnClick="() => LibraryData.DeleteNoteAsync(note.Id)" />
+                    </div>
+                }
+            </div>
+        }
+
+        @* ---------- On shelves (Phase 6b: any number of bookcases, once each; below reading and notes since 8c) ---------- *@
+        <MudDivider Class="my-4" />
         @{ var places = LibraryData.PlacesOf(entry.Id); }
-        <div class="d-flex align-center mt-3">
+        <div class="d-flex align-center">
             <MudText Typo="Typo.subtitle1" Class="flex-grow-1">On shelves</MudText>
             <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
                        Disabled="@(LibraryData.Bookcases.Count == 0)" OnClick="() => PutOnShelfAsync(entry)">Put on a shelf…</MudButton>
@@ -115,87 +226,6 @@
             </div>
         }
 
-        @* ---------- Reading log ---------- *@
-        <MudDivider Class="my-4" />
-        <div class="d-flex align-baseline">
-            <MudText Typo="Typo.subtitle1" Class="flex-grow-1">Reading</MudText>
-            <MudText Typo="Typo.caption">@ReadSummary(entry)</MudText>
-        </div>
-
-        <MudStack Row="true" Spacing="1" Class="my-2" Wrap="Wrap.Wrap">
-            @if (entry.IsReading)
-            {
-                <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Check"
-                           OnClick="() => FinishAsync(entry, sessions, ReadingOutcome.Finished)">Finished it</MudButton>
-                <MudButton Size="Size.Small" Variant="Variant.Text"
-                           OnClick="() => FinishAsync(entry, sessions, ReadingOutcome.Abandoned)">Stopped reading</MudButton>
-            }
-            else
-            {
-                <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.AutoStories"
-                           OnClick="() => LibraryData.StartReadingAsync(entry.Id)">Start reading</MudButton>
-            }
-            <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.History"
-                       OnClick="() => EditSessionAsync(null)">Log a read</MudButton>
-        </MudStack>
-
-        @if (sessions.Count == 0)
-        {
-            <MudText Typo="Typo.caption" Class="d-block">No reads logged yet.</MudText>
-        }
-        @foreach (var session in sessions)
-        {
-            <div class="bm-details__row" @key="session.Id">
-                <MudIcon Icon="@OutcomeIcon(session.Outcome)" Size="Size.Small" Color="@OutcomeColor(session.Outcome)" />
-                <div class="flex-grow-1">
-                    <MudText Typo="Typo.body2">@SessionDates(session)</MudText>
-                    <MudText Typo="Typo.caption">@OutcomeText(session.Outcome)@PagesLoggedText(session)</MudText>
-                </div>
-                <MudIconButton Icon="@Icons.Material.Outlined.Edit" Size="Size.Small" aria-label="Edit read"
-                               OnClick="() => EditSessionAsync(session)" />
-                <MudIconButton Icon="@Icons.Material.Outlined.Delete" Size="Size.Small" aria-label="Delete read"
-                               OnClick="() => LibraryData.DeleteSessionAsync(session.Id)" />
-            </div>
-        }
-
-        @* ---------- Notes ---------- *@
-        <MudDivider Class="my-4" />
-        <MudText Typo="Typo.subtitle1" Class="mb-2">Notes</MudText>
-
-        <MudTextField T="string" @bind-Value="_newNote" Placeholder="Add a note…" Lines="2" Sizing="InputSizing.Auto" MaxLines="10"
-                      Immediate="true" Variant="Variant.Outlined" Margin="Margin.Dense" />
-        <div class="d-flex justify-end mt-1 mb-2">
-            <MudButton Size="Size.Small" Color="Color.Primary" Disabled="string.IsNullOrWhiteSpace(_newNote)"
-                       OnClick="() => AddNoteAsync(entry.Id)">Add note</MudButton>
-        </div>
-
-        @foreach (var note in notes)
-        {
-            <div class="bm-details__note" @key="note.Id">
-                @if (_editingNoteId == note.Id)
-                {
-                    <MudTextField T="string" @bind-Value="_editText" Lines="2" Sizing="InputSizing.Auto" MaxLines="10"
-                                  Immediate="true" Variant="Variant.Outlined" Margin="Margin.Dense" AutoFocus="true" />
-                    <div class="d-flex justify-end gap-1 mt-1">
-                        <MudButton Size="Size.Small" OnClick="() => _editingNoteId = null">Cancel</MudButton>
-                        <MudButton Size="Size.Small" Color="Color.Primary" Disabled="string.IsNullOrWhiteSpace(_editText)"
-                                   OnClick="() => SaveNoteAsync(note.Id)">Save</MudButton>
-                    </div>
-                }
-                else
-                {
-                    <div class="bm-details__note-body">@note.Body</div>
-                    <div class="d-flex align-center">
-                        <MudText Typo="Typo.caption" Class="flex-grow-1">@note.CreatedAt.ToLocalTime().ToString("d MMM yyyy")</MudText>
-                        <MudIconButton Icon="@Icons.Material.Outlined.Edit" Size="Size.Small" aria-label="Edit note"
-                                       OnClick="() => BeginEditNote(note)" />
-                        <MudIconButton Icon="@Icons.Material.Outlined.Delete" Size="Size.Small" aria-label="Delete note"
-                                       OnClick="() => LibraryData.DeleteNoteAsync(note.Id)" />
-                    </div>
-                }
-            </div>
-        }
-
         @* ---------- Details ---------- *@
         <MudDivider Class="my-4" />
         <MudSimpleTable Dense="true" Elevation="0">
@@ -232,7 +262,44 @@
 
     [Parameter] public EventCallback OnClose { get; set; }
 
+    /// <summary>Shown as a bottom sheet (phones): adds the grab handle.</summary>
+    [Parameter] public bool IsSheet { get; set; }
+
+    private double? _grabY;
+
+    private void GrabStart(TouchEventArgs e) => _grabY = e.Touches.Length > 0 ? e.Touches[0].ClientY : null;
+
+    /// <summary>A downward swipe of 60px or more on the handle closes the sheet.</summary>
+    private async Task GrabEndAsync(TouchEventArgs e)
+    {
+        if (_grabY is { } start && e.ChangedTouches.Length > 0 && e.ChangedTouches[0].ClientY - start >= 60)
+        {
+            await OnClose.InvokeAsync();
+        }
+
+        _grabY = null;
+    }
+
+    private static string DrawnStyle(LibraryEntry e)
+    {
+        var fg = ColorUtil.SpineTextColor(e.SpineColor, e.Item.Appearance.TextColor, ornate: false);
+        return $"--bm-book-bg:{e.SpineColor};--bm-book-fg:{fg};--bm-book-emboss:{ColorUtil.EmbossShadow(fg)};";
+    }
+
     private Guid? _shownId;
+
+    /// <summary>Reads shown before "Show all" (newest first).</summary>
+    private const int CollapsedReads = 3;
+
+    private bool _readsExpanded;
+
+    /// <summary>Whether the drawer/sheet is open: reopening it starts the reads collapsed again, even for the same book.</summary>
+    [Parameter] public bool IsOpen { get; set; } = true;
+
+    private bool _wasOpen;
+
+    private string ReadsToggleText(int count) => _readsExpanded ? "Show fewer" : $"Show all {count} reads";
+
     private string? _newNote;
     private Guid? _editingNoteId;
     private string? _editText;
@@ -245,7 +312,15 @@
             _shownId = Entry?.Id;
             _newNote = null;
             _editingNoteId = null;
+            _readsExpanded = false; // each book starts with its reads collapsed
         }
+
+        if (IsOpen && !_wasOpen)
+        {
+            _readsExpanded = false; // and so does every opening, even of the same book
+        }
+
+        _wasOpen = IsOpen;
     }
 
     private Task SetRatingAsync(int stars)

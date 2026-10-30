@@ -3,33 +3,28 @@
 @implements IAsyncDisposable
 @inject LibraryService LibraryData
 @inject IDialogService Dialogs
-@inject UserPreferences Prefs
 @inject IJSRuntime JS
 
 <PageTitle>Manage bookcases · Bookmarks</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.Large" Class="py-4 px-2 px-sm-4">
+@* Phase 8d: a compact list, one row per bookcase. Tap a row to change that bookcase in a sheet (BookcaseSheet: name,
+   colour, show in the library, shelves, delete). Reordering is its own mode, with big up/down buttons and a drag grip,
+   so scrolling the list never moves anything by accident. The eye shows or hides a bookcase in the library. *@
+<MudContainer MaxWidth="MaxWidth.Small" Class="py-4 px-2 px-sm-4">
 
-    <div class="d-flex align-center flex-wrap gap-2 mb-4">
-        <div class="flex-grow-1">
+    <div class="bm-bc-top">
+        <div class="bm-bc-top__text">
             <MudText Typo="Typo.h5">Manage bookcases</MudText>
-            @* One line, the rest behind (i) (Phase 8a, G1). *@
-            <div class="d-flex align-center gap-1">
-                <MudText Typo="Typo.body2">The real bookcases at home, or any set you like.</MudText>
-                <MudIconButton Icon="@Icons.Material.Outlined.Info" Size="Size.Small" Color="Color.Primary"
-                               OnClick="() => _introOpen = !_introOpen" aria-label="More about bookcases"
-                               aria-expanded="@(_introOpen ? "true" : "false")" />
-            </div>
-            @if (_introOpen)
-            {
-                <MudText Typo="Typo.body2" Class="mt-1">
-                    Make one for each real bookcase, or for sets like Favorites or Want to buy: a book can stand in several
-                    bookcases. Widths let each shelf show how full it is; the eye hides a bookcase from the library.
-                </MudText>
-            }
+            <MudText Typo="Typo.body2" Class="bm-bc-top__hint">
+                @(_reordering ? "Drag a bookcase by its grip, or use the arrows." : "Tap a bookcase to rename it or change its colour and shelves.")
+            </MudText>
         </div>
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
-                   OnClick="AddBookcaseAsync" Disabled="!_loaded">Create New Bookcase</MudButton>
+        @if (_loaded && LibraryData.Bookcases.Count > 1)
+        {
+            <MudButton Variant="@(_reordering ? Variant.Filled : Variant.Outlined)" Color="Color.Primary"
+                       StartIcon="@(_reordering ? Icons.Material.Filled.Check : Icons.Material.Filled.SwapVert)"
+                       OnClick="() => _reordering = !_reordering">@(_reordering ? "Done" : "Reorder")</MudButton>
+        }
     </div>
 
     @if (!_loaded)
@@ -39,182 +34,112 @@
     else if (LibraryData.Bookcases.Count == 0)
     {
         <MudPaper Elevation="0" Class="pa-6 bm-panel">
-            <MudText Typo="Typo.body1">
-                No bookcases yet. Add one, then fill its shelves with "Add book to shelf" in the library.
-            </MudText>
+            <MudStack Spacing="3" AlignItems="AlignItems.Start">
+                <MudText Typo="Typo.body1">
+                    No bookcases yet. Make one for each real bookcase at home, or for any set you like (Favorites, Want to
+                    buy): a book can stand in several. Then fill the shelves with "Add book to shelf" in the library.
+                </MudText>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                           OnClick="AddBookcaseAsync">Add your first bookcase</MudButton>
+            </MudStack>
         </MudPaper>
     }
     else
     {
         var bookcases = LibraryData.Bookcases;
-        <div class="bm-bc-list" data-sort-list="bookcases" @ref="_list">
-        @for (var i = 0; i < bookcases.Count; i++)
-        {
-            var bookcase = bookcases[i];
-            var index = i;
-            var shelves = LibraryData.ShelvesIn(bookcase.Id);
-            var collapsed = _collapsed.Contains(bookcase.Id);
-
-            <MudPaper Elevation="0" Class="pa-4 mb-4 bm-panel" @key="bookcase.Id" data-sort-item="bookcases" data-sort-id="@bookcase.Id">
-                <div class="@(collapsed ? "bm-bc__head bm-bc__head--collapsed" : "bm-bc__head")">
-                    @if (bookcases.Count > 1)
+        <div class="@(_reordering ? "bm-bc-list bm-bc-list--reordering" : "bm-bc-list")" data-sort-list="bookcases" @ref="_list">
+            @for (var i = 0; i < bookcases.Count; i++)
+            {
+                var bookcase = bookcases[i];
+                var index = i;
+                <div class="@(bookcase.IsHidden ? "bm-bc-row bm-bc-row--hidden" : "bm-bc-row")" @key="bookcase.Id"
+                     data-sort-item="bookcases" data-sort-id="@bookcase.Id">
+                    @if (_reordering)
                     {
-                        <span class="bm-handle" data-sort-handle="bookcases" title="Drag to reorder bookcases">
-                            <MudIcon Icon="@Icons.Material.Filled.DragIndicator" Size="Size.Small" />
+                        <span class="bm-bc-row__grip" data-sort-handle="bookcases" title="Drag to reorder">
+                            <MudIcon Icon="@Icons.Material.Filled.DragIndicator" />
                         </span>
+                        <div class="bm-bc-row__main">
+                            <FinishSwatch Theme="@bookcase.Theme" CustomColor="@bookcase.CustomColor" />
+                            <span class="bm-bc-row__text">
+                                <span class="bm-bc-row__name">@bookcase.Name</span>
+                            </span>
+                        </div>
+                        <MudIconButton Icon="@Icons.Material.Filled.ArrowUpward" Disabled="index == 0"
+                                       OnClick="() => LibraryData.MoveBookcaseAsync(bookcase.Id, -1)" aria-label="@($"Move {bookcase.Name} up")" />
+                        <MudIconButton Icon="@Icons.Material.Filled.ArrowDownward" Disabled="index == bookcases.Count - 1"
+                                       OnClick="() => LibraryData.MoveBookcaseAsync(bookcase.Id, 1)" aria-label="@($"Move {bookcase.Name} down")" />
                     }
-                    <MudIconButton Icon="@(collapsed ? Icons.Material.Filled.ChevronRight : Icons.Material.Filled.ExpandMore)"
-                                   Size="Size.Small" OnClick="() => ToggleCollapsedAsync(bookcase.Id)"
-                                   aria-expanded="@(collapsed ? "false" : "true")"
-                                   aria-label="@(collapsed ? "Expand bookcase" : "Collapse bookcase")" />
-                    <MudTextField T="string" Value="bookcase.Name" ValueChanged="(string v) => LibraryData.RenameBookcaseAsync(bookcase.Id, v)"
-                                  Label="Name" Variant="Variant.Outlined" Margin="Margin.Dense" Class="bm-bc__name" />
-
-                    <div class="bm-themes" role="radiogroup" aria-label="Finish">
-                        @foreach (var (key, label) in LibraryService.Themes)
-                        {
-                            var on = bookcase.CustomColor is null && bookcase.Theme == key;
-                            var themeClass = on ? $"bm-theme bm-theme--{key} bm-theme--on" : $"bm-theme bm-theme--{key}";
-                            <button type="button" role="radio" aria-checked="@(on ? "true" : "false")" title="@label"
-                                    class="@themeClass"
-                                    @onclick="() => LibraryData.SetBookcaseThemeAsync(bookcase.Id, key)">
-                                <span class="bm-theme__chip"></span>
-                                <span class="bm-theme__label">@label</span>
-                            </button>
-                        }
-                        @* Phase 6d: any colour, through the browser's colour picker. *@
-                        <label class="@CustomThemeClass(bookcase)" title="A colour of your own">
-                            <span class="bm-theme__chip" style="@CustomChipStyle(bookcase)"></span>
-                            <span class="bm-theme__label">Custom</span>
-                            <input type="color" class="bm-theme__input" value="@(bookcase.CustomColor?.ToLowerInvariant() ?? "#6b8a72")"
-                                   @onchange="e => LibraryData.SetBookcaseColorAsync(bookcase.Id, e.Value?.ToString())"
-                                   aria-label="@CustomColorLabel(bookcase)" />
-                        </label>
-                    </div>
-
-                    <div class="bm-bc__actions">
+                    else
+                    {
+                        <button type="button" class="bm-bc-row__main bm-bc-row__open" @onclick="() => OpenAsync(bookcase.Id)">
+                            <FinishSwatch Theme="@bookcase.Theme" CustomColor="@bookcase.CustomColor" />
+                            <span class="bm-bc-row__text">
+                                <span class="bm-bc-row__name">@bookcase.Name</span>
+                                <span class="bm-bc-row__meta">@Summary(bookcase)</span>
+                            </span>
+                            <span class="bm-bc-row__chevron"><MudIcon Icon="@Icons.Material.Filled.ChevronRight" /></span>
+                        </button>
                         <MudIconButton Icon="@(bookcase.IsHidden ? Icons.Material.Outlined.VisibilityOff : Icons.Material.Outlined.Visibility)"
-                                       Size="Size.Small" Color="@(bookcase.IsHidden ? Color.Default : Color.Primary)"
+                                       Color="@(bookcase.IsHidden ? Color.Default : Color.Primary)"
                                        OnClick="() => LibraryData.SetBookcaseHiddenAsync(bookcase.Id, !bookcase.IsHidden)"
                                        aria-pressed="@(bookcase.IsHidden ? "false" : "true")"
-                                       aria-label="@(bookcase.IsHidden ? "Hidden in the library: show it" : "Shown in the library: hide it")" />
-                        <MudIconButton Icon="@Icons.Material.Filled.ArrowUpward" Size="Size.Small" Disabled="index == 0"
-                                       OnClick="() => LibraryData.MoveBookcaseAsync(bookcase.Id, -1)" aria-label="Move bookcase earlier" />
-                        <MudIconButton Icon="@Icons.Material.Filled.ArrowDownward" Size="Size.Small" Disabled="index == bookcases.Count - 1"
-                                       OnClick="() => LibraryData.MoveBookcaseAsync(bookcase.Id, 1)" aria-label="Move bookcase later" />
-                        <MudIconButton Icon="@Icons.Material.Outlined.Delete" Size="Size.Small" Color="Color.Error"
-                                       OnClick="() => DeleteBookcaseAsync(bookcase)" aria-label="Delete bookcase" />
-                    </div>
+                                       aria-label="@EyeLabel(bookcase)" />
+                    }
                 </div>
-
-                @if (collapsed)
-                {
-                    <div class="bm-bc__summary">
-                        <MudText Typo="Typo.caption">@Summary(shelves)</MudText>
-                    </div>
-                }
-                else
-                {
-                    <div class="bm-bc__shelves">
-                        <div data-sort-list="shelves">
-                        @for (var j = 0; j < shelves.Count; j++)
-                        {
-                            var shelf = shelves[j];
-                            var shelfIndex = j;
-                            var (count, usedMm) = LibraryData.ShelfUsage(shelf.Id);
-                            var percent = shelf.WidthMm is > 0 ? (int)Math.Round(100.0 * usedMm / shelf.WidthMm.Value) : (int?)null;
-
-                            <div class="bm-bc__shelf" @key="shelf.Id" data-sort-item="shelves" data-sort-id="@shelf.Id">
-                                <div class="bm-bc__shelf-name">
-                                    @if (shelves.Count > 1)
-                                    {
-                                        <span class="bm-handle" data-sort-handle="shelves" title="Drag to reorder shelves">
-                                            <MudIcon Icon="@Icons.Material.Filled.DragIndicator" Size="Size.Small" />
-                                        </span>
-                                    }
-                                    <MudText Typo="Typo.body1">Shelf @(shelfIndex + 1)</MudText>
-                                </div>
-                                <MudNumericField T="int?" Value="shelf.WidthMm" ValueChanged="(int? v) => LibraryData.SetShelfWidthAsync(shelf.Id, v)"
-                                                 Label="Width" Adornment="Adornment.End" AdornmentText="mm" HideSpinButtons="true"
-                                                 Min="LibraryService.MinShelfWidthMm" Max="LibraryService.MaxShelfWidthMm"
-                                                 Variant="Variant.Outlined" Margin="Margin.Dense" />
-                                <div class="bm-fill">
-                                    @if (percent is { } p)
-                                    {
-                                        <div class="bm-fill__track" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="@Math.Min(p, 100)"
-                                             aria-label="How full the shelf is">
-                                            <span class="@(p > 100 ? "bm-fill__bar bm-fill__bar--over" : "bm-fill__bar")" style="width:@(Math.Min(p, 100))%"></span>
-                                        </div>
-                                    }
-                                    <MudText Typo="Typo.caption">
-                                        @(count == 1 ? "1 book" : $"{count} books")@(percent is { } q ? $" · {q}% full" : "")
-                                    </MudText>
-                                </div>
-                                <div class="bm-bc__actions">
-                                    <MudIconButton Icon="@Icons.Material.Filled.ArrowUpward" Size="Size.Small" Disabled="shelfIndex == 0"
-                                                   OnClick="() => LibraryData.MoveShelfAsync(shelf.Id, -1)" aria-label="Move shelf up" />
-                                    <MudIconButton Icon="@Icons.Material.Filled.ArrowDownward" Size="Size.Small" Disabled="shelfIndex == shelves.Count - 1"
-                                                   OnClick="() => LibraryData.MoveShelfAsync(shelf.Id, 1)" aria-label="Move shelf down" />
-                                    <MudIconButton Icon="@Icons.Material.Outlined.Delete" Size="Size.Small"
-                                                   OnClick="() => DeleteShelfAsync(shelf, count)" aria-label="Delete shelf" />
-                                </div>
-                            </div>
-                        }
-                        </div>
-                        <MudButton Size="Size.Small" StartIcon="@Icons.Material.Filled.Add" Class="mt-1"
-                                   OnClick="() => LibraryData.AddShelfAsync(bookcase.Id)">Add shelf</MudButton>
-                    </div>
-                }
-            </MudPaper>
-        }
+            }
         </div>
+
+        @if (!_reordering)
+        {
+            <MudButton Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" Class="mt-2"
+                       OnClick="AddBookcaseAsync">Add a bookcase</MudButton>
+        }
+
+        @* Room so the floating button never covers the last row. *@
+        <div class="bm-bc-clearance" aria-hidden="true"></div>
     }
 </MudContainer>
 
+@if (_loaded && LibraryData.Bookcases.Count > 0 && !_reordering)
+{
+    <MudFab Class="bm-fab" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" Label="New bookcase"
+            OnClick="AddBookcaseAsync" aria-label="Add a new bookcase" />
+}
+
 @code {
     private bool _loaded;
-    private bool _introOpen;
-
-    // ---------- Custom colour (Phase 6d) ----------
-
-    private static string CustomThemeClass(Bookcase bookcase)
-        => bookcase.CustomColor is null ? "bm-theme bm-theme--custom" : "bm-theme bm-theme--custom bm-theme--on";
-
-    private static string? CustomChipStyle(Bookcase bookcase)
-        => ColorUtil.BookcasePaletteFor(bookcase.CustomColor) is { } p ? $"--chip-hi:{p.Highlight};--chip-lo:{p.Shadow}" : null;
-
-    private static string CustomColorLabel(Bookcase bookcase) => "Custom colour for " + bookcase.Name;
-
-    // Remembered per device (meta table), like the library size.
-    private HashSet<Guid> _collapsed = new();
+    private bool _reordering;
 
     protected override async Task OnInitializedAsync()
     {
         LibraryData.Changed += OnLibraryChanged;
         await LibraryData.EnsureLoadedAsync();
-        _collapsed = await Prefs.GetGuidSetAsync(UserPreferences.CollapsedBookcases);
         _loaded = true;
     }
 
-    private async Task ToggleCollapsedAsync(Guid bookcaseId)
+    private string Summary(Bookcase bookcase)
     {
-        if (!_collapsed.Remove(bookcaseId))
-        {
-            _collapsed.Add(bookcaseId);
-        }
-
-        // Only keep ids of bookcases that still exist.
-        _collapsed.IntersectWith(LibraryData.Bookcases.Select(b => b.Id));
-        await Prefs.SetGuidSetAsync(UserPreferences.CollapsedBookcases, _collapsed);
-    }
-
-    private string Summary(IReadOnlyList<Shelf> shelves)
-    {
+        var shelves = LibraryData.ShelvesIn(bookcase.Id);
         var books = shelves.Sum(s => LibraryData.ShelfUsage(s.Id).Count);
-        return $"{Plural(shelves.Count, "shelf", "shelves")} · {Plural(books, "book", "books")}";
+        var text = $"{Plural(shelves.Count, "shelf", "shelves")} · {Plural(books, "book", "books")}";
+        return bookcase.IsHidden ? text + " · hidden" : text;
     }
 
-    // ---------- Drag to reorder (Phase 6c): listDrag.js handles the gesture by the grip handles ----------
+    private static string EyeLabel(Bookcase bookcase) => bookcase.IsHidden
+        ? $"{bookcase.Name} is hidden in the library: show it"
+        : $"{bookcase.Name} is shown in the library: hide it";
+
+    private Task OpenAsync(Guid bookcaseId) => BookcaseSheet.OpenAsync(Dialogs, bookcaseId);
+
+    /// <summary>A new bookcase opens straight away in its sheet, name ready to type.</summary>
+    private async Task AddBookcaseAsync()
+    {
+        var id = await LibraryData.AddBookcaseAsync();
+        await BookcaseSheet.OpenAsync(Dialogs, id, isNew: true);
+    }
+
+    // ---------- Drag to reorder (Phase 6c, Reorder mode since 8d): listDrag.js handles the gesture by the grips ----------
 
     private ElementReference _list;
     private IJSObjectReference? _dragModule;
@@ -229,9 +154,10 @@
 
         try
         {
+            // The grips only exist in Reorder mode, so outside it nothing can be dragged.
             _dragModule ??= await JS.InvokeAsync<IJSObjectReference>("import", "./_content/Bookmarks.UI/js/listDrag.js");
             _dragRef ??= DotNetObjectReference.Create(this);
-            await _dragModule.InvokeVoidAsync("sync", _list, _dragRef); // picks up new lists (expanded bookcases)
+            await _dragModule.InvokeVoidAsync("sync", _list, _dragRef);
         }
         catch (JSException ex)
         {
@@ -240,21 +166,16 @@
         }
     }
 
-    /// <summary>Called by listDrag.js when a bookcase or shelf is dropped at a new position.</summary>
+    /// <summary>Called by listDrag.js when a bookcase is dropped at a new position.</summary>
     [JSInvokable]
     public Task OnReordered(string kind, string id, int from, int to)
     {
-        if (!Guid.TryParse(id, out var guid) || from == to)
+        if (kind != "bookcases" || !Guid.TryParse(id, out var guid) || from == to)
         {
             return Task.CompletedTask;
         }
 
-        return kind switch
-        {
-            "bookcases" => LibraryData.MoveBookcaseAsync(guid, to - from),
-            "shelves" => LibraryData.MoveShelfAsync(guid, to - from),
-            _ => Task.CompletedTask,
-        };
+        return LibraryData.MoveBookcaseAsync(guid, to - from);
     }
 
     public async ValueTask DisposeAsync()
@@ -278,37 +199,6 @@
     }
 
     private void OnLibraryChanged() => _ = InvokeAsync(StateHasChanged);
-
-    private Task AddBookcaseAsync() => LibraryData.AddBookcaseAsync();
-
-    private async Task DeleteBookcaseAsync(Bookcase bookcase)
-    {
-        var shelves = LibraryData.ShelvesIn(bookcase.Id);
-        var books = shelves.Sum(s => LibraryData.ShelfUsage(s.Id).Count);
-        var message = books == 0
-            ? $"“{bookcase.Name}” and its {Plural(shelves.Count, "shelf", "shelves")} will be removed."
-            : $"“{bookcase.Name}” and its {Plural(shelves.Count, "shelf", "shelves")} will be removed. "
-              + $"The {Plural(books, "book", "books")} on it stay in your library (and in any other bookcase they're in).";
-
-        if (await Dialogs.ShowMessageBoxAsync("Delete bookcase?", message, yesText: "Delete", cancelText: "Cancel") == true)
-        {
-            await LibraryData.DeleteBookcaseAsync(bookcase.Id);
-        }
-    }
-
-    private async Task DeleteShelfAsync(Shelf shelf, int bookCount)
-    {
-        if (bookCount > 0)
-        {
-            var message = $"The {Plural(bookCount, "book", "books")} on {LibraryData.ShelfLabel(shelf)} will be taken off it. They stay in your library.";
-            if (await Dialogs.ShowMessageBoxAsync("Delete shelf?", message, yesText: "Delete", cancelText: "Cancel") != true)
-            {
-                return;
-            }
-        }
-
-        await LibraryData.DeleteShelfAsync(shelf.Id);
-    }
 
     private static string Plural(int n, string one, string many) => n == 1 ? $"1 {one}" : $"{n} {many}";
 }

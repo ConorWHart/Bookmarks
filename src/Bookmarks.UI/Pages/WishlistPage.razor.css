@@ -10,20 +10,31 @@
     max-width: 560px;
 }
 
+/* Search and the sort icon on one row (Phase 8e). */
 .bm-wishlist__tools {
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
-    gap: 8px 12px;
+    gap: 8px;
     margin-bottom: 12px;
 }
 
+/* Takes the whole row except the sort button. */
 .bm-wishlist__search {
-    flex: 1 1 240px;
+    flex: 1 1 auto;
+    width: 100%;
+    min-width: 0;
+}
+
+.bm-wishlist__search ::deep .mud-input-control {
+    width: 100%;
 }
 
 .bm-wishlist__sort {
-    flex: 0 0 160px;
+    flex: 0 0 auto;
+}
+
+.bm-wishlist__clearance {
+    height: calc(88px + env(safe-area-inset-bottom));
 }
 
 .bm-wishlist__list {
