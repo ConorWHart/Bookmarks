@@ -14,12 +14,11 @@ namespace Bookmarks.Client.Sync;
 /// </summary>
 /// <remarks>
 /// <list type="bullet">
-/// <item>Triggers: startup, a few seconds after each local edit, coming back online, the tab becoming visible again,
-/// every few minutes while open and in use, and Sync now.</item>
-/// <item>The regular pass only runs while the page is on screen and has been used in the last
-/// <see cref="IdleAfter"/>: a tab left open in the background (or a screen nobody's touching) would otherwise wake
-/// the serverless database every few minutes and keep it from pausing. Edits still sync; touching the page again
-/// (or showing the tab) catches up straight away.</item>
+/// <item><b>Lazy (2026-11-01):</b> every wake of the serverless database costs ~15 minutes of its free monthly compute,
+/// so background passes only run when <see cref="LazySyncPolicy"/> says one is due: never synced on this device, a
+/// week since the last pass, or local changes that are a day old (or 20 of them). Startup, edits, coming back online
+/// and the page being shown/used again only <i>check</i> that rule; most of the time nothing is sent.</item>
+/// <item>Sync now (Settings), sign-out and erasing the device run a pass regardless.</item>
 /// <item>Never blocks the UI: passes run in the background and edits keep working (they queue in the outbox).</item>
 /// <item>One pass at a time across tabs (Web Locks, <c>js/sync.js</c>); after a pull that changed the library the other
 /// tabs are told to reload.</item>
@@ -41,14 +40,12 @@ public sealed class BrowserSyncService(
     private static readonly TimeSpan StartupDelay = TimeSpan.FromSeconds(1);
     private static readonly TimeSpan AfterEditDelay = TimeSpan.FromSeconds(3);
     private static readonly TimeSpan OtherTabBusyDelay = TimeSpan.FromSeconds(10);
-    private static readonly TimeSpan Interval = TimeSpan.FromMinutes(5);
     // Short: a failed first pass is usually the server still waking up (cold API, paused database).
     private static readonly TimeSpan FirstRetryDelay = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan MaxRetryDelay = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan PassTimeout = TimeSpan.FromMinutes(3);
-    private static readonly TimeSpan StaleAfter = TimeSpan.FromMinutes(1);
 
-    /// <summary>No input (tap, key, scroll) for this long counts as idle: the regular pass waits for activity.</summary>
+    /// <summary>No input for this long counts as idle; using the page again re-checks whether a pass is due.</summary>
     private static readonly TimeSpan IdleAfter = TimeSpan.FromMinutes(10);
 
     /// <summary>A pass running longer than this is shown as "waking up the server".</summary>
@@ -72,9 +69,6 @@ public sealed class BrowserSyncService(
     private TimeSpan _retryDelay = FirstRetryDelay;
     private int _passNumber;
     private bool _slow;
-
-    /// <summary>The regular pass was skipped because the page was hidden or idle; activity resumes it.</summary>
-    private bool _resting;
 
     public bool IsEnabled => accounts.IsSignInSupported && !accounts.Current.IsGuest;
 
@@ -231,16 +225,9 @@ public sealed class BrowserSyncService(
         }
     }
 
-    /// <summary>The tab became visible again, or the page was used again after being idle.</summary>
+    /// <summary>The tab became visible again, or the page was used again after being idle: is a pass due now?</summary>
     [JSInvokable]
-    public void OnBecameVisible()
-    {
-        if (_resting || LastSyncedAt is null || DateTimeOffset.UtcNow - LastSyncedAt > StaleAfter)
-        {
-            _resting = false;
-            Schedule(StartupDelay);
-        }
-    }
+    public void OnBecameVisible() => Schedule(StartupDelay);
 
     // ---------- Scheduling ----------
 
@@ -284,10 +271,10 @@ public sealed class BrowserSyncService(
         _dueAt = DateTimeOffset.MaxValue;
         try
         {
-            // Nothing to send and nobody looking: don't wake the server just to check for changes.
-            if (PendingChanges == 0 && !await IsInUseAsync())
+            // Lazy sync: only when a pass is due (failed passes stay due, so retries still happen).
+            if (!LazySyncPolicy.IsDue(LastSyncedAt, PendingChanges, DateTimeOffset.UtcNow))
             {
-                _resting = true;
+                Changed?.Invoke(); // the status line may have changed ("3 changes waiting")
                 return;
             }
 
@@ -348,8 +335,7 @@ public sealed class BrowserSyncService(
             _lastError = null;
             _retryDelay = FirstRetryDelay;
             completed = true;
-            Schedule(Interval);
-            return true;
+            return true; // the next pass waits until something makes one due (see LazySyncPolicy)
         }
         catch (Exception ex)
         {
@@ -390,24 +376,6 @@ public sealed class BrowserSyncService(
         {
             _slow = true;
             Changed?.Invoke();
-        }
-    }
-
-    /// <summary>On screen and used within <see cref="IdleAfter"/> (true when that can't be told).</summary>
-    private async Task<bool> IsInUseAsync()
-    {
-        if (_module is null)
-        {
-            return true;
-        }
-
-        try
-        {
-            return await _module.InvokeAsync<bool>("isInUse");
-        }
-        catch (JSException)
-        {
-            return true;
         }
     }
 

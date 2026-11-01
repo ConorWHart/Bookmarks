@@ -36,9 +36,6 @@ else
             </div>
         </MudMenuItem>
         <MudDivider />
-        <MudMenuItem Icon="@Icons.Material.Filled.Sync" Disabled="@(!AppStatus.IsOnline || Actions.IsBusy || Sync.Status == SyncStatus.Syncing)" OnClick="Actions.SyncNowAsync">
-            Sync now
-        </MudMenuItem>
         <MudMenuItem Icon="@Icons.Material.Filled.Settings" Href="settings">Settings</MudMenuItem>
         <MudMenuItem Icon="@Icons.Material.Filled.Logout" Disabled="@Actions.IsBusy" OnClick="Actions.SignOutAsync">Sign out</MudMenuItem>
     </MudMenu>

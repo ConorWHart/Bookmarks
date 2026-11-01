@@ -4,6 +4,14 @@
     align-items: center;
 }
 
+/* The status icon (not a button since lazy sync: Sync now is in Settings), spaced like the icon button it replaced. */
+.bm-sync__icon {
+    display: inline-flex;
+    align-items: center;
+    padding: 8px 10px;
+    cursor: default;
+}
+
 .bm-sync__waking {
     display: inline-flex;
     align-items: center;

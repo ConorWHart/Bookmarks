@@ -143,6 +143,16 @@ h1:focus {
     to { transform: none; opacity: 1; }
 }
 
+/* App-bar sync status (lazy sync, 2026-11-01): an icon, no longer a button; amber when sync needs attention
+   (bookmarks.css colours the old icon button). */
+.bm-sync .bm-sync__icon {
+    color: #f3e6d3;
+}
+
+.bm-sync--problem .bm-sync__icon {
+    color: #f5b971;
+}
+
 /* Book details on phones: a bottom sheet with a rounded top (Phase 8c; Library page, BookDetails). */
 .mud-drawer.bm-details-drawer--sheet {
     border-radius: 16px 16px 0 0;

@@ -1,4 +1,5 @@
-@* App-bar sync status for signed-in accounts. Click to sync now. Hidden while offline: the Offline pill covers it. *@
+@* App-bar sync status for signed-in accounts: an icon only (lazy sync, 2026-11-01: Sync now lives in Settings, so a
+   tap can't wake the server by accident). Hidden while offline: the Offline pill covers it. *@
 @implements IDisposable
 @inject ISyncService Sync
 @inject IAppStatusService AppStatus
@@ -18,9 +19,9 @@
                     Sign in again
                 </button>
             }
-            <MudIconButton Icon="@Icon" Size="Size.Medium" Color="Color.Inherit"
-                           Disabled="@(Sync.Status == SyncStatus.Syncing)"
-                           OnClick="SyncNowAsync" aria-label="@AriaLabel" />
+            <span class="bm-sync__icon" role="img" aria-label="@AriaLabel">
+                <MudIcon Icon="@Icon" Color="Color.Inherit" />
+            </span>
         </div>
     </MudTooltip>
 }
@@ -43,7 +44,7 @@
         _ => "bm-sync",
     };
 
-    private string AriaLabel => $"Sync now. {SyncText.Describe(Sync, DateTimeOffset.Now)}";
+    private string AriaLabel => SyncText.Describe(Sync, DateTimeOffset.Now);
 
     protected override void OnInitialized()
     {
@@ -64,17 +65,6 @@
     private void OnChanged() => _ = InvokeAsync(StateHasChanged);
 
     private bool _renewing;
-
-    private async Task SyncNowAsync()
-    {
-        if (Sync.NeedsSignIn)
-        {
-            await RenewAsync();
-            return;
-        }
-
-        await Sync.SyncNowAsync();
-    }
 
     /// <summary>Back to the sign-in site as the same account; the app reloads and syncs afterwards.</summary>
     private async Task RenewAsync()

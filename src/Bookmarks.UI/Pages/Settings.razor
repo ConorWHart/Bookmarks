@@ -76,6 +76,12 @@
                     <dt>Sync</dt>
                     <dd>@SyncText.Describe(Sync, DateTimeOffset.Now)</dd>
                 </dl>
+                @* Lazy sync (2026-11-01): the only Sync now button. *@
+                <MudText Typo="Typo.body2" Class="mb-3">
+                    Your changes are kept on this device and sent to your account about once a day, and changes from your
+                    other devices come in at least once a week. Switching to another phone or computer? Tap Sync now here
+                    first, then on the other device.
+                </MudText>
                 <div class="bm-settings__actions">
                     @if (Sync.NeedsSignIn)
                     {

@@ -13,7 +13,7 @@ public enum SyncStatus
 
     Syncing,
 
-    /// <summary>Local changes are waiting for the next pass (normally a few seconds away), or nothing has synced yet.</summary>
+    /// <summary>Local changes are waiting for the next pass (lazy sync: up to about a day away), or nothing has synced yet.</summary>
     Pending,
 
     Offline,
@@ -50,7 +50,7 @@ public interface ISyncService
 
     event Action? Changed;
 
-    /// <summary>Starts background syncing (first pass right away). Safe to call more than once.</summary>
+    /// <summary>Starts background syncing: a pass right away only if one is due (lazy sync). Safe to call more than once.</summary>
     Task StartAsync();
 
     /// <summary>Runs a pass now and waits for it (Sync now, sign-out). Returns false if it didn't complete.</summary>
@@ -112,7 +112,9 @@ public static class SyncText
                 : "Offline. Changes are saved on this device and sync when you're back online.",
             SyncStatus.NeedsAttention => sync.Problem ?? "Sync isn't working right now.",
             SyncStatus.Pending => sync.PendingChanges > 0
-                ? $"{Changes(sync.PendingChanges)} waiting to sync."
+                ? sync.LastSyncedAt is { } last
+                    ? $"{Changes(sync.PendingChanges)} waiting to sync. Last synced {Ago(last, now)}."
+                    : $"{Changes(sync.PendingChanges)} waiting to sync."
                 : "Not synced yet.",
             SyncStatus.Synced => sync.LastSyncedAt is { } at ? $"Synced {Ago(at, now)}." : "Synced.",
             _ => "Your library is stored on this device only.",
