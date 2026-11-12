@@ -29,6 +29,12 @@
         inset -12px 0 14px -10px rgb(0 0 0 / 0.7);
 }
 
+/* Off screen, a shelf's books aren't laid out or drawn (2026-11, bookshelf scroll lag). Safe here: this box already
+   clips its books (overflow-x), and its width comes from the shelf, not the books. Height stand-in: inline style. */
+.bm-shelf__books--lazy {
+    content-visibility: auto;
+}
+
 /* ---------- Plank ---------- */
 
 .bm-shelf__plank {

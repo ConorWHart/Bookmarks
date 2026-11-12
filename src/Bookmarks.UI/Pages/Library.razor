@@ -472,6 +472,9 @@
     // ---------- Dragging books (Phase 6c): shelfDrag.js handles the gesture, .NET saves the order ----------
 
     private ElementReference _room;
+
+    // Imported only once dragging is possible (mouse, or Arrange mode on touch): SortableJS needs a touch guard on the
+    // whole page while it's wired, and that makes touch scrolling wait on .NET (2026-11, bookshelf scroll lag).
     private IJSObjectReference? _dragModule;
     private DotNetObjectReference<Library>? _dragRef;
     private bool _dragWired;
@@ -501,8 +504,9 @@
 
     // ---------- Arrange mode (Phase 8f) ----------
 
-    /// <summary>Touch screen (pointer: coarse), known once shelfDrag.js has loaded; null until then.</summary>
+    /// <summary>Touch screen (pointer: coarse), known once device.js has answered; null until then.</summary>
     private bool? _isTouch;
+    private IJSObjectReference? _deviceModule;
     private bool _arranging;
 
     /// <summary>Arrange mode only counts in the Bookcases view (switching to Books leaves it).</summary>
@@ -519,24 +523,23 @@
         var showingShelves = _loaded && !IsBooks && LibraryData.Bookcases.Any(b => !b.IsHidden);
         try
         {
-            if (showingShelves)
+            if (showingShelves && _isTouch is null)
             {
-                _dragModule ??= await JS.InvokeAsync<IJSObjectReference>("import", "./_content/Bookmarks.UI/js/shelfDrag.js");
-                _dragRef ??= DotNetObjectReference.Create(this);
-                if (_isTouch is null)
+                _deviceModule ??= await JS.InvokeAsync<IJSObjectReference>("import", "./_content/Bookmarks.UI/js/device.js");
+                _isTouch = await _deviceModule.InvokeAsync<bool>("isTouchScreen");
+                if (_isTouch == true)
                 {
-                    _isTouch = await _dragModule.InvokeAsync<bool>("isTouchScreen");
-                    if (_isTouch == true)
-                    {
-                        StateHasChanged(); // show the Arrange button
-                    }
+                    StateHasChanged(); // show the Arrange button
                 }
             }
 
-            // Mouse: always draggable. Touch: only in Arrange mode; otherwise nothing is wired, so swipes just scroll.
+            // Mouse: always draggable. Touch: only in Arrange mode; otherwise nothing is wired (or even loaded), so
+            // swipes just scroll.
             if (showingShelves && (_isTouch == false || Arranging))
             {
-                await _dragModule!.InvokeVoidAsync("sync", _room, _dragRef, ArrangeHoldMs); // picks up new shelves, drops old ones
+                _dragModule ??= await JS.InvokeAsync<IJSObjectReference>("import", "./_content/Bookmarks.UI/js/shelfDrag.js");
+                _dragRef ??= DotNetObjectReference.Create(this);
+                await _dragModule.InvokeVoidAsync("sync", _room, _dragRef, ArrangeHoldMs); // picks up new shelves, drops old ones
                 _dragWired = true;
             }
             else if (_dragWired && _dragModule is not null)
@@ -601,6 +604,17 @@
             {
             }
             catch (JSException)
+            {
+            }
+        }
+
+        if (_deviceModule is not null)
+        {
+            try
+            {
+                await _deviceModule.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
             {
             }
         }

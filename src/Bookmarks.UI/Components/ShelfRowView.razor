@@ -5,7 +5,7 @@
     {
         <div class="bm-shelf__label">@Label</div>
     }
-    <div class="bm-shelf__books" style="@MinHeightStyle" data-shelf-id="@ShelfId">
+    <div class="@BooksClass" style="@BooksStyle" data-shelf-id="@ShelfId">
         @foreach (var book in Books)
         {
             <BookSpine @key="book.Entry.Id"
@@ -43,8 +43,13 @@
         ? $"width:{Px(w)}px;max-width:100%;"
         : "width:100%;";
 
-    // Keep empty / short shelves the height of a typical hardcover.
-    private string MinHeightStyle => $"min-height:{Px(250)}px;";
+    // Shelves with a set width skip drawing their books while off screen (2026-11, bookshelf scroll lag). Not for
+    // size-to-content shelves: while skipped, the books wouldn't count toward the bookcase's width.
+    private string BooksClass => WidthMm is null ? "bm-shelf__books" : "bm-shelf__books bm-shelf__books--lazy";
+
+    // Keep empty / short shelves the height of a typical hardcover. That's also the stand-in height of a shelf that
+    // hasn't been drawn yet (contain-intrinsic-block-size); once drawn, the browser remembers its real height ("auto").
+    private string BooksStyle => $"min-height:{Px(250)}px;contain-intrinsic-block-size:auto {Px(250)}px;";
 
     private string Px(int mm) => (mm * Scale).ToString("0", System.Globalization.CultureInfo.InvariantCulture);
 }

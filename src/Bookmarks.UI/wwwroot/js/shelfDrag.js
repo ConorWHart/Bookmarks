@@ -5,18 +5,15 @@
 // Mouse: press and drag, always. Touch screens (Phase 8f): dragging is only wired while the Library's Arrange mode is
 // on (.NET calls sync only then, dispose otherwise), so swipes over the shelves always scroll and no drag listeners
 // sit on the books; in Arrange mode a short press (holdMs) picks a book up and a quick swipe still scrolls.
+// The Library only imports this module once dragging is possible (mouse, or Arrange mode on touch): see touchGuard.js.
 import Sortable from '../lib/sortable/sortable.esm.min.js';
+import { hold, release } from './touchGuard.js';
 
 const instances = new Map(); // shelf element -> Sortable
 let dotnet = null;
 let origin = null;           // where the dragged book started: { parent, next }
 
 let holdMs = 450;
-
-/** A touch screen (phone, tablet): the Library offers Arrange mode instead of always-on dragging. */
-export function isTouchScreen() {
-    return matchMedia('(pointer: coarse)').matches;
-}
 
 /**
  * Wire up every shelf under root (call after each render; new shelves are picked up, removed ones dropped).
@@ -42,6 +39,12 @@ export function sync(root, dotnetRef, touchHoldMs) {
             instances.set(el, create(el));
         }
     }
+
+    if (instances.size > 0) {
+        hold('shelves');
+    } else {
+        release('shelves');
+    }
 }
 
 /** Remove every shelf's drag handling (leaving the Bookcases view, or the page). */
@@ -51,6 +54,7 @@ export function dispose() {
         sortable.destroy();
     }
     instances.clear();
+    release('shelves');
     dotnet = null;
     origin = null;
 }

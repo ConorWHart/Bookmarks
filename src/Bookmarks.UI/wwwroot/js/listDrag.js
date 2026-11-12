@@ -6,7 +6,9 @@
 //                                                 <span data-sort-handle="shelves">⋮⋮</span> …
 // Each list only reorders its own items (a shelf can't be dropped into another bookcase), and only the handle
 // starts a drag, so text fields and buttons in the rows work as usual.
+// The Bookcases page only imports this module in Reorder mode; see touchGuard.js for why that matters on touch screens.
 import Sortable from '../lib/sortable/sortable.esm.min.js';
+import { hold, release } from './touchGuard.js';
 
 const instances = new Map(); // list element -> Sortable
 let dotnet = null;
@@ -34,6 +36,13 @@ export function sync(root, dotnetRef) {
             instances.set(el, create(el, el.getAttribute('data-sort-list')));
         }
     }
+
+    // Grips only show in Reorder mode: only then can a drag start, so only then is the touch guard needed.
+    if (root.querySelector('[data-sort-handle]')) {
+        hold('lists');
+    } else {
+        release('lists');
+    }
 }
 
 export function dispose() {
@@ -41,6 +50,7 @@ export function dispose() {
         sortable.destroy();
     }
     instances.clear();
+    release('lists');
     dotnet = null;
     origin = null;
 }

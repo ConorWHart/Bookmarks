@@ -152,9 +152,15 @@
             return;
         }
 
+        // The grips only exist in Reorder mode, so outside it nothing can be dragged. Load listDrag.js (and SortableJS)
+        // only then; once loaded, sync keeps running so it can drop its touch guard when Reorder mode ends.
+        if (!_reordering && _dragModule is null)
+        {
+            return;
+        }
+
         try
         {
-            // The grips only exist in Reorder mode, so outside it nothing can be dragged.
             _dragModule ??= await JS.InvokeAsync<IJSObjectReference>("import", "./_content/Bookmarks.UI/js/listDrag.js");
             _dragRef ??= DotNetObjectReference.Create(this);
             await _dragModule.InvokeVoidAsync("sync", _list, _dragRef);

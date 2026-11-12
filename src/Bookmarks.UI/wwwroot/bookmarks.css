@@ -3,15 +3,24 @@
   Referenced as _content/Bookmarks.UI/bookmarks.css.
 */
 
-/* Subtle paper texture + soft vignette on the page background (works in light and dark). */
+/* Subtle paper texture + soft vignette on the page background (works in light and dark).
+   It stays put while the page scrolls. That used to be background-attachment: fixed, which makes Chrome repaint the page on
+   every scroll frame; a fixed layer behind the content (::before, z-index -1) looks the same and is drawn once (2026-11). */
 .mud-main-content {
     min-height: 100vh;
+}
+
+.mud-main-content::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
     background-color: var(--mud-palette-background);
     background-image:
         radial-gradient(ellipse 120% 60% at 50% 0%, rgb(255 255 255 / 0.10), transparent 60%),
         radial-gradient(rgb(120 90 60 / 0.06) 1px, transparent 1.2px);
     background-size: auto, 5px 5px;
-    background-attachment: fixed;
 }
 
 /* App bar: brass rule along the bottom edge */
