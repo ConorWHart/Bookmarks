@@ -9,6 +9,7 @@
 // exportPhoto(maxLong, maxChars): the crop, downscaled so its long edge is at most maxLong px, as a WebP data URL
 //   (JPEG where WebP can't be encoded) no longer than maxChars, plus its dominant colour.
 // close(): stops cropping and frees the photo.
+// shrink and encode are also used by coverPhoto.js.
 
 import { pick } from './covers.js';
 
@@ -197,7 +198,7 @@ export function close() {
     destroy();
 }
 
-function shrink(source, scale) {
+export function shrink(source, scale) {
     const w = Math.max(1, Math.round(source.width * scale));
     const h = Math.max(1, Math.round(source.height * scale));
     if (w === source.width && h === source.height) {
@@ -224,7 +225,7 @@ function draw(source, w, h) {
     return canvas;
 }
 
-function encode(canvas, quality, maxChars) {
+export function encode(canvas, quality, maxChars) {
     let url = canvas.toDataURL('image/webp', quality);
     if (!url.startsWith('data:image/webp')) {
         url = canvas.toDataURL('image/jpeg', quality); // Safari before 14 can't encode WebP

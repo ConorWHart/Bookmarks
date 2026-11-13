@@ -1,0 +1,49 @@
+@* Wraps the editor's cover controls: an image pasted anywhere inside (Ctrl+V on a computer, or the phone's own
+   Paste in the link box) becomes the cover. Text pastes (links) are left to the field. *@
+@implements IAsyncDisposable
+@inject ICoverPhotoReader Reader
+
+<div @ref="_area" class="@Class">
+    @ChildContent
+</div>
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    [Parameter] public EventCallback<PastedCover> OnPasted { get; set; }
+
+    [Parameter] public string? Class { get; set; }
+
+    private ElementReference _area;
+    private IAsyncDisposable? _listener;
+    private bool _disposed;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        // Also loads the script now, so "Paste image" can read the clipboard straight away when tapped (Safari only
+        // allows it while the tap is still being handled).
+        var listener = await Reader.ListenForPasteAsync(_area, pasted => InvokeAsync(() => OnPasted.InvokeAsync(pasted)));
+        if (_disposed)
+        {
+            await listener.DisposeAsync();
+            return;
+        }
+
+        _listener = listener;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _disposed = true;
+        if (_listener is { } listener)
+        {
+            _listener = null;
+            await listener.DisposeAsync();
+        }
+    }
+}

@@ -113,8 +113,7 @@ namespace Bookmarks.Api.Data.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("CoverUrl")
-                        .HasMaxLength(2048)
-                        .HasColumnType("nvarchar(2048)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("DominantColor")
                         .HasMaxLength(9)

@@ -28,6 +28,7 @@ public static class ServiceCollectionExtensions
         services.TryAddScoped<ICoverColorService, NullCoverColorService>();
         services.TryAddScoped<IBarcodeScanner, NullBarcodeScanner>();
         services.TryAddScoped<ISpinePhotoEditor, NullSpinePhotoEditor>();
+        services.TryAddScoped<ICoverPhotoReader, NullCoverPhotoReader>();
         services.TryAddScoped<IDeviceStorage, NullDeviceStorage>();
         services.TryAddScoped<IAccountDeletion, NullAccountDeletion>();
         services.TryAddScoped<IServerInfo, NullServerInfo>();

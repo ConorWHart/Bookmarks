@@ -59,7 +59,6 @@ public sealed class BookmarksDbContext(DbContextOptions<BookmarksDbContext> opti
     // Short, ASCII-only columns (hex colors, rank keys, ISBNs).
     private const int ColorLength = 9;      // #RRGGBBAA
     private const int RankLength = 64;
-    private const int UrlLength = 2048;
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
@@ -107,7 +106,8 @@ public sealed class BookmarksDbContext(DbContextOptions<BookmarksDbContext> opti
             e.Property(x => x.Publisher).HasMaxLength(300);
             e.Property(x => x.Series).HasMaxLength(300);
             e.Property(x => x.SeriesNumber).HasPrecision(7, 2);
-            e.Property(x => x.CoverUrl).HasMaxLength(UrlLength);
+            // A link, or a pasted cover kept as a small data URL (up to about 60 KB), so no length limit.
+            e.Property(x => x.CoverUrl);
             e.Property(x => x.DominantColor).HasMaxLength(ColorLength).IsUnicode(false);
 
             // Authors and Genres are primitive collections (JSON in an nvarchar(max) column).

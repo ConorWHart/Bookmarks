@@ -68,6 +68,9 @@ builder.Services.AddScoped<IBarcodeScanner, BrowserBarcodeScanner>();
 // Spine photos (Phase 7e): cropped and shrunk in the browser (js/spinePhoto.js, Cropper.js).
 builder.Services.AddScoped<ISpinePhotoEditor, BrowserSpinePhotoEditor>();
 
+// Pasted covers ("Copy image" on a phone): shrunk in the browser (js/coverPhoto.js).
+builder.Services.AddScoped<ICoverPhotoReader, BrowserCoverPhotoReader>();
+
 builder.Services.AddScoped(sp => new BookmarksApiClient(
     new HttpClient { BaseAddress = apiBaseAddress, Timeout = apiTimeout },
     sp.GetRequiredService<BrowserAccountService>()));
