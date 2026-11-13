@@ -168,7 +168,7 @@
                                 }
                                 <MudTextField T="string" Value="CoverLinkText" ValueChanged="OnCoverUrlChangedAsync" Label="Cover image link"
                                               Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"
-                                              HelperText="@CoverLinkHelp" />
+                                              Placeholder="@CoverLinkPlaceholder" HelperText="@CoverLinkHelp" />
                             </CoverPasteArea>
                         </div>
 
@@ -617,6 +617,9 @@
 
     /// <summary>A pasted cover is kept as a data URL; the link box shows no link for it.</summary>
     private string? CoverLinkText => CoverUrls.IsPasted(_model.CoverUrl) ? null : _model.CoverUrl;
+
+    /// <summary>Greyed out in the empty link box while a pasted cover is in use; typing a link replaces it.</summary>
+    private string? CoverLinkPlaceholder => CoverUrls.IsPasted(_model.CoverUrl) ? "Pasted image" : null;
 
     private string CoverLinkHelp => CoverUrls.IsPasted(_model.CoverUrl)
         ? "Using a pasted image. Paste a link here to use that instead."
