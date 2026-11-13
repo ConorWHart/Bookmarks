@@ -93,6 +93,9 @@ builder.Services.AddScoped<IDeviceStorage, BrowserDeviceStorage>();
 // Backups and exports (Phase 7b): browser downloads (js/files.js).
 builder.Services.AddScoped<IFileSaver, BrowserFileSaver>();
 
+// Share Bookmarks: the device's share sheet, else the clipboard (js/share.js).
+builder.Services.AddScoped<IAppSharer, BrowserAppSharer>();
+
 builder.Services.AddBookmarksUI();
 
 var host = builder.Build();

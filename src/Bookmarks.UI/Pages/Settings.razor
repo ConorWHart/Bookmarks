@@ -13,6 +13,7 @@
 @inject IFileSaver Files
 @inject IDialogService Dialogs
 @inject IBrowserViewportService Viewport
+@inject ShareAppActions Share
 @using Bookmarks.Core.Transfer
 @using Bookmarks.Shared.Backup
 
@@ -249,6 +250,29 @@
             </MudPaper>
         }
 
+        @* ---------- Share Bookmarks ---------- *@
+        @if (Share.IsSupported)
+        {
+            <MudPaper Outlined="true" Class="pa-4">
+                <MudText Typo="Typo.h6" Class="mb-3">Share Bookmarks</MudText>
+                <MudText Typo="Typo.body2" Class="mb-3">
+                    Know someone who'd like it? Send them this link. It opens Bookmarks in their browser, where they can
+                    try it straight away and install it. Only the link is shared, nothing from your library.
+                </MudText>
+                <MudTextField T="string" Value="@Share.AppUrl" ReadOnly="true" Label="Link" Variant="Variant.Outlined"
+                              Margin="Margin.Dense" Class="mb-3" aria-label="Link to Bookmarks" />
+                <div class="bm-settings__actions">
+                    @if (Share.CanShareNatively)
+                    {
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Share"
+                                   OnClick="Share.ShareAsync">Share…</MudButton>
+                    }
+                    <MudButton Variant="@(Share.CanShareNatively ? Variant.Outlined : Variant.Filled)" Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.ContentCopy" OnClick="Share.CopyLinkAsync">Copy link</MudButton>
+                </div>
+            </MudPaper>
+        }
+
         @* ---------- About ---------- *@
         <MudPaper Outlined="true" Class="pa-4">
             <MudText Typo="Typo.h6" Class="mb-3">About</MudText>
@@ -336,7 +360,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        await Task.WhenAll(LoadStorageAsync(), LoadApiVersionAsync());
+        await Task.WhenAll(LoadStorageAsync(), LoadApiVersionAsync(), Share.PrepareAsync());
     }
 
     public void Dispose()

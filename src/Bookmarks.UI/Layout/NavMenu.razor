@@ -1,3 +1,5 @@
+@inject ShareAppActions Share
+
 <MudNavMenu>
     <MudNavLink Href="" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.LocalLibrary">Library</MudNavLink>
     <MudNavLink Href="wishlist" Icon="@Icons.Material.Filled.FavoriteBorder">Wishlist</MudNavLink>
@@ -5,4 +7,23 @@
     <MudNavLink Href="bookcases" Icon="@Icons.Material.Filled.ViewWeek">Manage bookcases</MudNavLink>
     <MudDivider Class="my-2" />
     <MudNavLink Href="settings" Icon="@Icons.Material.Filled.Settings">Settings</MudNavLink>
+    @if (Share.IsSupported)
+    {
+        @* Its own group: an action, not a page. Settings → Share Bookmarks explains it and shows the link. *@
+        <MudDivider Class="my-2" />
+        <MudNavLink Icon="@Icons.Material.Filled.Share" OnClick="ShareAsync" role="button">Share Bookmarks</MudNavLink>
+    }
 </MudNavMenu>
+
+@code {
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Load the share code now: the share sheet only opens straight after a tap.
+        if (firstRender)
+        {
+            await Share.PrepareAsync();
+        }
+    }
+
+    private Task ShareAsync() => Share.ShareAsync();
+}

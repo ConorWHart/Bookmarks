@@ -18,6 +18,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ThemeService>();
         services.AddScoped<AccountActions>();
         services.AddScoped<OverlayHistory>();
+        services.AddScoped<ShareAppActions>();
 
         // Hosts with a service worker / sign-in register their own before calling this.
         services.TryAddScoped<IAppStatusService, NullAppStatusService>();
@@ -33,6 +34,7 @@ public static class ServiceCollectionExtensions
         services.TryAddScoped<IAccountDeletion, NullAccountDeletion>();
         services.TryAddScoped<IServerInfo, NullServerInfo>();
         services.TryAddScoped<IFileSaver, NullFileSaver>();
+        services.TryAddScoped<IAppSharer, NullAppSharer>();
 
         // Book lookup (Phase 5): Open Library straight from the app; it allows CORS, so no server is involved.
         services.TryAddSingleton<IBookLookup>(_ => new OpenLibraryLookup(new HttpClient
